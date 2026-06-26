@@ -1,10 +1,14 @@
-using Microsoft.EntityFrameworkCore;
+using Orchi.Api.Infrastructure.Database;
+using Orchi.Api.Infrastructure.Endpoints;
+using Orchi.Api.Infrastructure.OpenApi;
+using Orchi.Api.Infrastructure.Pipeline;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
-builder.Services.AddDbContext<Orchi.Api.Data.AppDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services
+    .AddOrchiDatabase(builder.Configuration)
+    .AddOrchiPipeline()
+    .AddOrchiOpenApi();
 
 builder.Services.AddCors(options =>
 {
@@ -21,7 +25,9 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 app.UseCors("DesktopDev");
-app.UseAuthorization();
-app.MapControllers();
+app.UseOrchiOpenApi();
+app.MapOrchiEndpoints();
 
 app.Run();
+
+public partial class Program;

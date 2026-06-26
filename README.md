@@ -13,8 +13,22 @@ Orchi is an open-source AI engineering orchestrator that coordinates multiple co
 
 ```
 src/
-├── API/       # .NET 10 Web API (SQLite + EF Core)
+├── API/       # .NET 10 Web API — vertical slices, CQRS pipeline, Scalar docs
 └── desktop/   # Electron + React + Vite + shadcn/ui
+tests/
+└── Orchi.Api.Tests/   # xUnit handler + integration tests
+docs/
+└── architecture/      # VSA, screaming architecture, CQRS pipeline guides
+```
+
+## Architecture
+
+The API uses **Vertical Slice Architecture** with a custom CQRS pipeline (no MediatR), minimal APIs, and OpenAPI + Scalar for interactive documentation. See [docs/architecture/README.md](docs/architecture/README.md) for the full guide.
+
+Run API tests:
+
+```bash
+npm run test:api
 ```
 
 ## Development
@@ -46,8 +60,9 @@ npm run dev:desktop   # Electron app with Vite HMR
 
 ### Verify connectivity
 
-1. API: open [http://localhost:5265/WeatherForecast](http://localhost:5265/WeatherForecast) — should return JSON forecast data.
-2. Desktop: the Electron window should display the same forecast in a table.
+1. API: open [http://localhost:5265/scalar/v1](http://localhost:5265/scalar/v1) — Scalar API docs (default launch target).
+2. API data: [http://localhost:5265/WeatherForecast](http://localhost:5265/WeatherForecast) — sample endpoint returning JSON forecast data.
+3. Desktop: the Electron window should display the same forecast in a table.
 
 ### Desktop stack
 

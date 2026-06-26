@@ -3,4 +3,7 @@
   <Folder Name="/src/API/">
     <Project Path="src/API/Orchi.Api.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Orchi.Api.Tests/Orchi.Api.Tests.csproj" />
+  </Folder>
 </Solution>
