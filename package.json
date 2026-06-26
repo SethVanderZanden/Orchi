@@ -1,0 +1,12 @@
+{
+  "name": "orchi",
+  "private": true,
+  "scripts": {
+    "dev:api": "dotnet run --project src/API",
+    "dev:desktop": "npm run dev --prefix src/desktop",
+    "dev": "concurrently -n api,desktop -c blue,green \"npm run dev:api\" \"npm run dev:desktop\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

@@ -1,0 +1,6 @@
+@Orchi.Api_HostAddress = http://localhost:5084
+
+GET {{Orchi.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
