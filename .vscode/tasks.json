@@ -8,6 +8,8 @@
       "args": [
         "build",
         "${workspaceFolder}/src/API/Orchi.Api.csproj",
+        "-c",
+        "Debug",
         "/property:GenerateFullPaths=true",
         "/consoleloggerparameters:NoSummary;ForceNoAlign"
       ],

@@ -10,9 +10,13 @@
       "args": [],
       "cwd": "${workspaceFolder}/src/API",
       "stopAtEntry": false,
+      "justMyCode": false,
+      "suppressJITOptimizations": true,
       "env": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "ASPNETCORE_URLS": "http://localhost:5265"
+        "ASPNETCORE_URLS": "http://localhost:5265",
+        "COMPlus_ReadyToRun": "0",
+        "COMPlus_ZapDisable": "1"
       },
       "serverReadyAction": {
         "action": "openExternally",
@@ -29,16 +33,22 @@
       "args": [],
       "cwd": "${workspaceFolder}/src/API",
       "stopAtEntry": false,
+      "justMyCode": false,
+      "suppressJITOptimizations": true,
       "env": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "ASPNETCORE_URLS": "http://localhost:5265"
+        "ASPNETCORE_URLS": "http://localhost:5265",
+        "COMPlus_ReadyToRun": "0",
+        "COMPlus_ZapDisable": "1"
       }
     },
     {
       "name": "Attach to API",
       "type": "coreclr",
       "request": "attach",
-      "processName": "Orchi.Api"
+      "processName": "Orchi.Api",
+      "justMyCode": false,
+      "suppressJITOptimizations": true
     }
   ]
 }
