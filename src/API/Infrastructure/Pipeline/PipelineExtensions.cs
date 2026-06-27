@@ -6,8 +6,10 @@ namespace Orchi.Api.Infrastructure.Pipeline;
 
 public static class PipelineExtensions
 {
-    public static IServiceCollection AddOrchiPipeline(this IServiceCollection services)
+    public static IServiceCollection AddOrchiPipeline(this IServiceCollection services, IConfiguration configuration)
     {
+        services.Configure<PerformanceOptions>(configuration.GetSection(PerformanceOptions.SectionName));
+
         services.Scan(scan => scan
             .FromAssemblyOf<Program>()
             .AddClasses(classes => classes
@@ -38,6 +40,10 @@ public static class PipelineExtensions
         TryDecorateOpenGeneric(services, typeof(IQueryHandler<,>), typeof(LoggingBehaviour.QueryHandler<,>));
         TryDecorateOpenGeneric(services, typeof(ICommandHandler<,>), typeof(LoggingBehaviour.CommandHandler<,>));
         TryDecorateOpenGeneric(services, typeof(ICommandHandler<>), typeof(LoggingBehaviour.CommandBaseHandler<>));
+
+        TryDecorateOpenGeneric(services, typeof(IQueryHandler<,>), typeof(PerformanceBehaviour.QueryHandler<,>));
+        TryDecorateOpenGeneric(services, typeof(ICommandHandler<,>), typeof(PerformanceBehaviour.CommandHandler<,>));
+        TryDecorateOpenGeneric(services, typeof(ICommandHandler<>), typeof(PerformanceBehaviour.CommandBaseHandler<>));
 
         return services;
     }

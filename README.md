@@ -18,12 +18,13 @@ src/
 tests/
 └── Orchi.Api.Tests/   # xUnit handler + integration tests
 docs/
-└── architecture/      # VSA, screaming architecture, CQRS pipeline guides
+├── architecture/      # VSA, screaming architecture, CQRS pipeline guides
+└── patterns/          # Software design patterns used in Orchi
 ```
 
 ## Architecture
 
-The API uses **Vertical Slice Architecture** with a custom CQRS pipeline (no MediatR), minimal APIs, and OpenAPI + Scalar for interactive documentation. See [docs/architecture/README.md](docs/architecture/README.md) for the full guide.
+The API uses **Vertical Slice Architecture** with a custom CQRS pipeline (no MediatR), minimal APIs, and OpenAPI + Scalar for interactive documentation. See [docs/architecture/README.md](docs/architecture/README.md) for the full guide and [docs/patterns/README.md](docs/patterns/README.md) for design patterns.
 
 Run API tests:
 

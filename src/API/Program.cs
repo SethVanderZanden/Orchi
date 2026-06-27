@@ -7,7 +7,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services
     .AddOrchiDatabase(builder.Configuration)
-    .AddOrchiPipeline()
+    .AddOrchiPipeline(builder.Configuration)
     .AddOrchiOpenApi();
 
 builder.Services.AddCors(options =>

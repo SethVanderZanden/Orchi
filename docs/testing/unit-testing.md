@@ -15,6 +15,7 @@ npm run test:api
 ```
 tests/Orchi.Api.Tests/
 ├── Common/
+│   ├── CollectingLogger.cs            # Captures log entries in behaviour tests
 │   └── TestWebApplicationFactory.cs   # WebApplicationFactory<Program>
 ├── Features/
 │   └── Weather/
@@ -40,7 +41,7 @@ Handlers are `internal` — the API project exposes them to tests via `Internals
 
 ## Behaviour unit tests
 
-Test decorators by wrapping the real handler:
+Behaviour unit tests construct decorators manually — the same way Scrutor wires them at runtime, but without the DI container. Pass the real handler as `innerHandler`:
 
 ```csharp
 var innerHandler = new GetWeatherForecast.Handler();
@@ -54,6 +55,24 @@ Result<IReadOnlyList<Response>> result =
 Assert.True(result.IsFailure);
 Assert.IsType<ValidationError>(result.Error);
 ```
+
+To assert logging output, use `CollectingLogger<T>` from `tests/Orchi.Api.Tests/Common/`:
+
+```csharp
+var logger = new CollectingLogger<IQueryHandler<Query, IReadOnlyList<Response>>>();
+var behaviour = new PerformanceBehaviour.QueryHandler<Query, IReadOnlyList<Response>>(
+    innerHandler,
+    logger,
+    Options.Create(new PerformanceOptions { SlowQueryThresholdMs = 10 }));
+
+await behaviour.Handle(new Query(Days: 1), CancellationToken.None);
+
+Assert.Contains(logger.Entries, entry =>
+    entry.Level == LogLevel.Warning &&
+    entry.Message.Contains("Slow Query Query"));
+```
+
+In production, Scrutor injects `innerHandler` automatically — see [Decorator Pattern](../patterns/decorator.md#how-innerhandler-gets-injected).
 
 ## Integration tests
 
@@ -92,4 +111,5 @@ For database-dependent handlers, use EF Core InMemory provider in unit tests or 
 ## Further reading
 
 - [Adding a Feature](../architecture/adding-a-feature.md)
+- [Decorator Pattern](../patterns/decorator.md)
 - [CQRS Pipeline](../architecture/cqrs-pipeline.md)

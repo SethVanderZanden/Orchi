@@ -30,6 +30,13 @@ public sealed record Command(/* parameters */) : ICommand<Response>;
 public sealed record Response(/* fields */);
 ```
 
+| Marker | Handler to implement | Returns |
+|--------|---------------------|---------|
+| `ICommand` | `ICommandHandler<Command>` | `Result` |
+| `ICommand<TResponse>` | `ICommandHandler<Command, TResponse>` | `Result<TResponse>` |
+
+Behaviours (validation, logging, performance) wrap command handlers automatically via the same decorator pipeline as queries. See [Decorator Pattern](../patterns/decorator.md).
+
 ### 3. Implement the handler
 
 ```csharp

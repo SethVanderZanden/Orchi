@@ -1,0 +1,36 @@
+---
+description: Orchi docs must start with a Dummy section — simple analogy before technical detail
+globs: docs/**/*.md
+alwaysApply: false
+---
+
+# Documentation — Dummy section first
+
+Seth's brain connects easier with simplicity. When creating or editing documentation under `docs/`, **always include a Dummy section** at the top.
+
+## Required structure
+
+```markdown
+# Title
+
+## Dummy section (start here)
+
+[Plain analogy + simple diagram + Orchi mapping]
+
+---
+
+[Technical content]
+```
+
+## Rules
+
+- Dummy section goes **immediately after the title**, before any other section
+- Use everyday analogies (pizza layers, mail forwarding, etc.) — not abstract pattern names alone
+- Include a visual (ASCII diagram or small table) and a one-sentence "aha"
+- Map analogy → Orchi in a short table or bullet list
+- End Dummy with a signpost: technical detail follows below
+- Keep Dummy short; put depth in sections after `---`
+
+## Reference
+
+Follow `docs/patterns/decorator.md` and the `orchi-documentation` skill (`.cursor/skills/orchi-documentation/SKILL.md`).

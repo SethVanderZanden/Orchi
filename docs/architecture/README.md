@@ -18,6 +18,7 @@ The current sample feature is **WeatherForecast** — a familiar scaffold used t
 | [Vertical Slice Architecture](vertical-slice-architecture.md) | What VSA is and how Orchi applies it |
 | [Screaming Architecture](screaming-architecture.md) | Domain-first folder structure |
 | [CQRS Pipeline](cqrs-pipeline.md) | Commands, queries, and behaviour decorators |
+| [Software Patterns](../patterns/README.md) | Design patterns used in Orchi (decorator, result object, DI, etc.) |
 | [Adding a Feature](adding-a-feature.md) | Step-by-step checklist for new slices |
 | [Unit Testing](../testing/unit-testing.md) | Handler and integration test patterns |
 
