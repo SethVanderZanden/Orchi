@@ -3,6 +3,17 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 
+const apiBaseUrl = process.env.ORCHI_API_URL ?? 'http://localhost:5265'
+let isShuttingDown = false
+
+async function shutdownApiSessions(): Promise<void> {
+  try {
+    await fetch(`${apiBaseUrl}/chats/shutdown`, { method: 'POST' })
+  } catch {
+    // Best-effort cleanup when the API is unavailable.
+  }
+}
+
 function createWindow(): void {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
@@ -58,6 +69,19 @@ app.whenReady().then(() => {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
+  })
+})
+
+app.on('before-quit', (event) => {
+  if (isShuttingDown) {
+    return
+  }
+
+  event.preventDefault()
+  isShuttingDown = true
+
+  void shutdownApiSessions().finally(() => {
+    app.quit()
   })
 })
 

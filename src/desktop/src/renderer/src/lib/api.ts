@@ -5,7 +5,7 @@ export type WeatherForecast = {
   summary: string | null
 }
 
-function getApiBaseUrl(): string {
+export function getApiBaseUrl(): string {
   const configured = import.meta.env.VITE_API_BASE_URL
   if (configured) {
     return configured.replace(/\/$/, '')

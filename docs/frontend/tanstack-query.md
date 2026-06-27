@@ -23,11 +23,11 @@ It separates **"get data from the server"** from **"when should I ask again?"**
 |------|------------|
 | Shared cache instance | `queryClient` in `lib/query-client.ts` |
 | Provide cache to React tree | `QueryClientProvider` in `routes/__root.tsx` |
-| "Remember this request" key | `queryKeys` in `lib/query-keys.ts` |
-| Fetch function | `fetchWeatherForecast()` in `lib/api.ts` |
+| "Remember this request" key | `queryKeys` in `lib/query-keys.ts` (`weatherKeys`, `chatKeys`) |
+| Fetch function | `fetchWeatherForecast()` in `lib/api.ts`, chat fns in `lib/chat/api.ts` |
 | Use in a component | `useQuery({ queryKey, queryFn })` |
 
-Chat UI currently uses **React context** for local mock data — not Query yet. Query is wired and ready for real API calls (weather sample, future agent endpoints).
+Chat uses **TanStack Query** for list/detail (`chatKeys`) plus **React context** (`ChatProvider`) for streaming state, markers, and send-message orchestration. See [chat-streaming.md](chat-streaming.md).
 
 Everything below is the full picture.
 
@@ -120,12 +120,20 @@ export const weatherKeys = {
   all: ['weather'] as const,
   forecast: () => [...weatherKeys.all, 'forecast'] as const
 }
+
+export const chatKeys = {
+  all: ['chats'] as const,
+  lists: () => [...chatKeys.all, 'list'] as const,
+  detail: (chatId: string) => [...chatKeys.all, 'detail', chatId] as const
+}
 ```
 
 Think of keys like a **file path for cache entries**:
 
 ```
 cache['weather']['forecast']  →  WeatherForecast[]
+cache['chats']['list']        →  ChatThread[] (sidebar)
+cache['chats']['detail'][id]  →  ChatThread (messages)
 ```
 
 Use factories (`weatherKeys.forecast()`) so invalidation stays consistent:
@@ -193,7 +201,7 @@ After a mutation (e.g. send message, save settings), tell Query old data is wron
 const mutation = useMutation({
   mutationFn: postMessage,
   onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: chatKeys.thread(chatId) })
+    queryClient.invalidateQueries({ queryKey: chatKeys.detail(chatId) })
   }
 })
 ```
@@ -207,17 +215,17 @@ Orchi uses three layers — they solve different problems:
 | Layer | Tool | Holds… | Example |
 |-------|------|--------|---------|
 | **URL / pages** | TanStack Router | Which screen, route params | `/chat/abc-123` |
-| **Server data** | TanStack Query | API responses, sync | Forecast from .NET API |
-| **Client UI state** | `useState` / Context | Local, not in URL or API | Sidebar search text, mock chats |
+| **Server data** | TanStack Query | API responses, sync | Chat list, chat detail, weather forecast |
+| **Client UI state** | `useState` / Context | Local, not in URL or API | Sidebar search text, SSE markers, send state |
 
 **Rule of thumb:**
 
 - In the **URL**? → Router params / navigation
 - From an **API**? → TanStack Query
-- **UI-only**, shared across routes? → Context (like `ChatProvider` today)
+- **UI-only**, shared across routes? → Context (e.g. `ChatProvider` for streaming + markers)
 - **UI-only**, one component? → `useState`
 
-When chat moves to a real API, message lists will likely move from `ChatProvider` into `useQuery` + `useMutation`, while the sidebar layout stays in the router.
+Chat list and thread content live in Query (`chatKeys`); streaming markers and in-flight send state stay in `ChatProvider` context.
 
 ## Blazor comparison
 
@@ -300,9 +308,9 @@ In development, React Query Devtools mount in `__root.tsx` (bottom-left). Inspec
 
 They work together: a route page calls `useQuery` to load its data.
 
-### Why isn't chat using TanStack Query yet?
+### How does chat use TanStack Query?
 
-The chat UI uses **mock data** in `ChatProvider` while the product is scaffolded. Once chats persist to the API, threads and messages will move to `useQuery` / `useMutation` with keys like `chatKeys.thread(chatId)`.
+`ChatProvider` loads the sidebar with `useQuery({ queryKey: chatKeys.lists(), queryFn: listChats })`. Opening a chat fetches detail with `chatKeys.detail(chatId)`. Create/close use `useMutation` and update the cache directly. Message **streaming** still runs through SSE handlers in context — see [chat-streaming.md](chat-streaming.md).
 
 ### Do I need Query for every piece of state?
 
@@ -319,5 +327,6 @@ Unrelated naming. .NET Orchi **queries** are backend read handlers (`IQueryHandl
 ## Further reading
 
 - [Frontend overview](README.md)
+- [Chat streaming (SSE)](chat-streaming.md)
 - [TanStack Router](tanstack-router.md) — layouts, `<Outlet />`, navigation
 - [TanStack Query docs](https://tanstack.com/query/latest/docs/framework/react/overview)

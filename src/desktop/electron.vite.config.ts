@@ -19,6 +19,10 @@ export default defineConfig({
         '/WeatherForecast': {
           target: 'http://localhost:5265',
           changeOrigin: true
+        },
+        '/chats': {
+          target: 'http://localhost:5265',
+          changeOrigin: true
         }
       }
     },
