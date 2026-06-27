@@ -19,6 +19,7 @@ tests/
 └── Orchi.Api.Tests/   # xUnit handler + integration tests
 docs/
 ├── architecture/      # VSA, screaming architecture, CQRS pipeline guides
+├── frontend/          # TanStack Router, TanStack Query (desktop app)
 └── patterns/          # Software design patterns used in Orchi
 ```
 
@@ -63,11 +64,15 @@ npm run dev:desktop   # Electron app with Vite HMR
 
 1. API: open [http://localhost:5265/scalar/v1](http://localhost:5265/scalar/v1) — Scalar API docs (default launch target).
 2. API data: [http://localhost:5265/WeatherForecast](http://localhost:5265/WeatherForecast) — sample endpoint returning JSON forecast data.
-3. Desktop: the Electron window should display the same forecast in a table.
+3. Desktop: the Electron window opens the Orchi chat shell (sidebar + main panel).
 
 ### Desktop stack
 
-The Electron app uses **TanStack Router** (file-based routes in `src/desktop/src/renderer/src/routes/`) and **TanStack Query** (API state in `src/desktop/src/renderer/src/lib/`).
+The Electron app uses **TanStack Router** (file-based routes, layouts, navigation) and **TanStack Query** (API caching and fetch state). See:
+
+- [Frontend docs](docs/frontend/README.md)
+- [TanStack Router guide](docs/frontend/tanstack-router.md) — layouts, `<Outlet />`, pages
+- [TanStack Query guide](docs/frontend/tanstack-query.md) — fetching, caching, server state
 
 ### shadcn/ui components
 

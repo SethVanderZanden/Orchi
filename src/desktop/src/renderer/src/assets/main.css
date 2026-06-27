@@ -123,11 +123,11 @@
   }
 
   body {
-    @apply min-h-screen bg-background text-foreground;
+    @apply h-svh overflow-hidden bg-background text-foreground;
   }
 
   #root {
-    @apply min-h-screen w-full p-8;
+    @apply h-svh w-full overflow-hidden p-0;
   }
   html {
     @apply font-sans;

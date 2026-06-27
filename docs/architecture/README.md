@@ -21,6 +21,7 @@ The current sample feature is **WeatherForecast** — a familiar scaffold used t
 | [Software Patterns](../patterns/README.md) | Design patterns used in Orchi (decorator, result object, DI, etc.) |
 | [Adding a Feature](adding-a-feature.md) | Step-by-step checklist for new slices |
 | [Unit Testing](../testing/unit-testing.md) | Handler and integration test patterns |
+| [Frontend](../frontend/README.md) | TanStack Router and Query (desktop app) |
 
 ## Source references
 
