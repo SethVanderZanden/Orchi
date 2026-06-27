@@ -78,7 +78,9 @@ cd src/desktop
 npx shadcn@latest add button
 ```
 
-Components are written to `src/desktop/src/renderer/src/components/ui/`. The `@/` alias maps to `src/renderer/src/`.
+Components are written to `src/renderer/src/components/ui/`. Imports use the `@/` alias (`@/` → `src/renderer/src/`).
+
+**Important:** `components.json` uses **filesystem paths** (not `@/` aliases) so the CLI writes to the correct folder. If you see a literal `@/` directory appear under `src/desktop/`, the aliases in `components.json` were misconfigured — restore the paths shown in that file.
 
 ## Database migrations
 
