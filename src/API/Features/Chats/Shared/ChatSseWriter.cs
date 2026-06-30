@@ -42,7 +42,7 @@ internal static class ChatSseWriter
                 await WriteEventAsync(
                     stream,
                     "tool",
-                    new SseToolPayload(tool.Name, tool.Status, tool.Detail),
+                    new SseToolPayload(tool.Label),
                     cancellationToken);
                 break;
 

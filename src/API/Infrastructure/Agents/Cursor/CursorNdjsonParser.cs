@@ -91,14 +91,9 @@ internal static class CursorNdjsonParser
             yield break;
         }
 
-        bool hasTimestamp = root.TryGetProperty("timestamp_ms", out _);
-        if (!hasTimestamp)
+        // With --stream-partial-output, non-timestamp assistant lines repeat the full reply.
+        if (!root.TryGetProperty("timestamp_ms", out _))
         {
-            foreach (AgentEvent segment in ParseAssistantContent(root))
-            {
-                yield return segment;
-            }
-
             yield break;
         }
 
@@ -181,13 +176,13 @@ internal static class CursorNdjsonParser
             {
                 string name = TryGetStringProperty(property.Value, "name") ?? "function";
                 string? detail = ReadFunctionArgumentsDetail(property.Value);
-                yield return new AgentToolEvent(name, status, detail);
+                yield return new AgentToolEvent(CursorToolLabelFormatter.Format(name, status, detail));
                 continue;
             }
 
             string toolName = property.Name;
             string? toolDetail = TryReadToolDetail(property.Value);
-            yield return new AgentToolEvent(toolName, status, toolDetail);
+            yield return new AgentToolEvent(CursorToolLabelFormatter.Format(toolName, status, toolDetail));
         }
     }
 

@@ -1,0 +1,48 @@
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Orchi.Api.Data;
+using Orchi.Api.Infrastructure.Agents.Persistence;
+
+namespace Orchi.Api.Tests.Infrastructure.Agents.Persistence;
+
+public class EfChatStoreTests
+{
+    [Fact]
+    public async Task ListAsync_OnEmptyDatabase_ReturnsEmpty()
+    {
+        string databasePath = Path.Combine(Path.GetTempPath(), $"orchi-unit-{Guid.NewGuid():N}.db");
+
+        try
+        {
+            var services = new ServiceCollection();
+            services.AddDbContextFactory<AppDbContext>(options =>
+                options.UseSqlite($"Data Source={databasePath}"));
+
+            await using ServiceProvider provider = services.BuildServiceProvider();
+            IDbContextFactory<AppDbContext> factory = provider.GetRequiredService<IDbContextFactory<AppDbContext>>();
+
+            await using (AppDbContext db = await factory.CreateDbContextAsync())
+            {
+                await db.Database.MigrateAsync();
+            }
+
+            var store = new EfChatStore(factory);
+            IReadOnlyList<Orchi.Api.Infrastructure.Agents.ChatSession> sessions =
+                await store.ListAsync(CancellationToken.None);
+
+            Assert.Empty(sessions);
+
+            await provider.DisposeAsync();
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+
+            if (File.Exists(databasePath))
+            {
+                File.Delete(databasePath);
+            }
+        }
+    }
+}

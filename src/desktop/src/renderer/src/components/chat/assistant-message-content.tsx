@@ -2,7 +2,6 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
 import type { ChatMessageStatus } from '@/lib/chat/types'
-import { normalizeAgentText } from '@/lib/chat/normalize-agent-text'
 import { cn } from '@/lib/utils'
 
 type AssistantMessageContentProps = {
@@ -16,14 +15,12 @@ export function AssistantMessageContent({
   status,
   showPlaceholder = false
 }: AssistantMessageContentProps): React.JSX.Element {
-  const normalizedContent = normalizeAgentText(content)
-
   if (showPlaceholder) {
     return <span>…</span>
   }
 
   if (status === 'processing' || status === 'streaming') {
-    return <span className="whitespace-pre-wrap">{normalizedContent}</span>
+    return <span className="whitespace-pre-wrap">{content}</span>
   }
 
   return (
@@ -41,7 +38,7 @@ export function AssistantMessageContent({
         '[&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground'
       )}
     >
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalizedContent}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
     </div>
   )
 }

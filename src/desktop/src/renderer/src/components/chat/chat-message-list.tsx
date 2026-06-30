@@ -1,4 +1,4 @@
-import { LoaderCircleIcon, UserIcon, WrenchIcon } from 'lucide-react'
+import { ChevronRightIcon, LoaderCircleIcon, UserIcon, WrenchIcon } from 'lucide-react'
 
 import { OrchiAiIcon } from '@/components/brand/orchi-ai-icon'
 
@@ -6,7 +6,7 @@ import { AssistantMessageContent } from '@/components/chat/assistant-message-con
 import type { ChatMarker, ChatMessage } from '@/lib/chat/types'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Bubble, BubbleContent } from '@/components/ui/bubble'
-import { Marker, MarkerContent, MarkerIcon } from '@/components/ui/marker'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Message, MessageAvatar, MessageContent } from '@/components/ui/message'
 import {
   MessageScroller,
@@ -23,15 +23,12 @@ import {
   EmptyMedia,
   EmptyTitle
 } from '@/components/ui/empty'
+import { cn } from '@/lib/utils'
 
 type ChatMessageListProps = {
   messages: ChatMessage[]
   markers: ChatMarker[]
 }
-
-type RenderItem =
-  | { kind: 'message'; message: ChatMessage }
-  | { kind: 'marker'; marker: ChatMarker }
 
 export function ChatMessageList({ messages, markers }: ChatMessageListProps): React.JSX.Element {
   if (messages.length === 0 && markers.length === 0) {
@@ -52,30 +49,26 @@ export function ChatMessageList({ messages, markers }: ChatMessageListProps): Re
     )
   }
 
-  const toolMarkers = markers.filter((marker) => marker.variant === 'tool')
-  const statusMarker = markers.find((marker) => marker.variant === 'status')
-
-  const items: RenderItem[] = [
-    ...messages.map((message) => ({ kind: 'message' as const, message })),
-    ...toolMarkers.map((marker) => ({ kind: 'marker' as const, marker })),
-    ...(statusMarker ? [{ kind: 'marker' as const, marker: statusMarker }] : [])
-  ]
+  const lastAssistantIndex = messages.findLastIndex((message) => message.role === 'assistant')
+  const lastAssistant = lastAssistantIndex >= 0 ? messages[lastAssistantIndex] : null
+  const isActiveTurn =
+    lastAssistant?.status === 'processing' || lastAssistant?.status === 'streaming'
+  const activeMarkers = isActiveTurn ? markers : []
 
   return (
     <MessageScrollerProvider>
       <MessageScroller className="flex-1">
         <MessageScrollerViewport>
           <MessageScrollerContent className="mx-auto w-full max-w-3xl px-4 py-6 md:px-8">
-            {items.map((item, index) => (
+            {messages.map((message, index) => (
               <MessageScrollerItem
-                key={item.kind === 'message' ? item.message.id : item.marker.id}
-                scrollAnchor={index === items.length - 1}
+                key={message.id}
+                scrollAnchor={index === messages.length - 1}
               >
-                {item.kind === 'message' ? (
-                  <ChatMessageRow message={item.message} />
-                ) : (
-                  <ChatMarkerRow marker={item.marker} />
-                )}
+                <ChatMessageRow
+                  message={message}
+                  markers={index === lastAssistantIndex ? activeMarkers : []}
+                />
               </MessageScrollerItem>
             ))}
           </MessageScrollerContent>
@@ -86,26 +79,60 @@ export function ChatMessageList({ messages, markers }: ChatMessageListProps): Re
   )
 }
 
-function ChatMarkerRow({ marker }: { marker: ChatMarker }): React.JSX.Element {
-  const isTool = marker.variant === 'tool'
+type AssistantActivityProps = {
+  markers: ChatMarker[]
+}
+
+function AssistantActivity({ markers }: AssistantActivityProps): React.JSX.Element | null {
+  const toolMarkers = markers.filter((marker) => marker.variant === 'tool')
+  const hasStatus = markers.some((marker) => marker.variant === 'status')
+
+  if (toolMarkers.length === 0 && !hasStatus) {
+    return null
+  }
+
+  if (toolMarkers.length === 0) {
+    return (
+      <div className="text-muted-foreground flex items-center gap-1.5 px-1 pt-2 text-xs">
+        <LoaderCircleIcon className="size-3 animate-spin" />
+        <span>Working…</span>
+      </div>
+    )
+  }
+
+  const stepLabel =
+    toolMarkers.length === 1 ? '1 step' : `${toolMarkers.length} steps`
 
   return (
-    <Marker variant={isTool ? 'separator' : 'default'}>
-      <MarkerIcon>
-        {isTool ? (
-          <WrenchIcon className="size-3.5" />
-        ) : (
-          <LoaderCircleIcon className="size-3.5 animate-spin" />
-        )}
-      </MarkerIcon>
-      <MarkerContent>{marker.content}</MarkerContent>
-    </Marker>
+    <Collapsible className="pt-2">
+      <CollapsibleTrigger className="text-muted-foreground hover:text-foreground flex w-full items-center gap-1.5 px-1 text-xs transition-colors [&[data-state=open]>svg:first-child]:rotate-90">
+        <ChevronRightIcon className="size-3 shrink-0 transition-transform" />
+        <WrenchIcon className="size-3 shrink-0" />
+        <span>{stepLabel}</span>
+        {hasStatus ? <LoaderCircleIcon className="ml-auto size-3 animate-spin" /> : null}
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <ul className="text-muted-foreground mt-1.5 space-y-1 border-l pl-3 text-xs">
+          {toolMarkers.map((marker) => (
+            <li key={marker.id} className="leading-relaxed">
+              {marker.content}
+            </li>
+          ))}
+        </ul>
+      </CollapsibleContent>
+    </Collapsible>
   )
 }
 
-function ChatMessageRow({ message }: { message: ChatMessage }): React.JSX.Element {
+type ChatMessageRowProps = {
+  message: ChatMessage
+  markers: ChatMarker[]
+}
+
+function ChatMessageRow({ message, markers }: ChatMessageRowProps): React.JSX.Element {
   const isUser = message.role === 'user'
   const showPlaceholder = !isUser && message.status === 'processing' && message.content.length === 0
+  const showActivity = !isUser && markers.length > 0
 
   return (
     <Message align={isUser ? 'end' : 'start'} className="gap-3">
@@ -121,24 +148,27 @@ function ChatMessageRow({ message }: { message: ChatMessage }): React.JSX.Elemen
         </Avatar>
       </MessageAvatar>
 
-      <MessageContent className={isUser ? 'w-auto max-w-[85%]' : 'max-w-[85%]'}>
+      <MessageContent className={cn(isUser ? 'w-auto max-w-[85%]' : 'max-w-[85%]')}>
         {isUser ? (
           <p className="whitespace-pre-wrap px-1 text-sm leading-relaxed text-foreground">
             {message.content}
           </p>
         ) : (
-          <Bubble
-            variant={message.status === 'error' ? 'destructive' : 'muted'}
-            align="start"
-          >
-            <BubbleContent>
-              <AssistantMessageContent
-                content={message.content}
-                status={message.status}
-                showPlaceholder={showPlaceholder}
-              />
-            </BubbleContent>
-          </Bubble>
+          <>
+            <Bubble
+              variant={message.status === 'error' ? 'destructive' : 'muted'}
+              align="start"
+            >
+              <BubbleContent>
+                <AssistantMessageContent
+                  content={message.content}
+                  status={message.status}
+                  showPlaceholder={showPlaceholder}
+                />
+              </BubbleContent>
+            </Bubble>
+            {showActivity ? <AssistantActivity markers={markers} /> : null}
+          </>
         )}
       </MessageContent>
     </Message>

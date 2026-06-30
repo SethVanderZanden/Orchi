@@ -13,17 +13,17 @@ public static class GetChat
     internal sealed class Handler(AgentSessionManager sessionManager)
         : IQueryHandler<Query, ChatDetailResponse>
     {
-        public Task<Result<ChatDetailResponse>> Handle(Query query, CancellationToken cancellationToken)
+        public async Task<Result<ChatDetailResponse>> Handle(Query query, CancellationToken cancellationToken)
         {
-            ChatSession? session = sessionManager.GetSession(query.ChatId);
+            ChatSession? session = await sessionManager.GetOrLoadSessionAsync(query.ChatId, cancellationToken);
 
             if (session is null)
             {
-                return Task.FromResult(Result.Failure<ChatDetailResponse>(
-                    Error.NotFound($"Chat '{query.ChatId}' was not found.")));
+                return Result.Failure<ChatDetailResponse>(
+                    Error.NotFound($"Chat '{query.ChatId}' was not found."));
             }
 
-            return Task.FromResult(Result.Success(ChatMapper.ToDetail(session)));
+            return Result.Success(ChatMapper.ToDetail(session));
         }
     }
 

@@ -1,17 +1,20 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useMatch } from '@tanstack/react-router'
 import { formatDistanceToNow } from 'date-fns'
-import { MessageSquarePlusIcon, SearchIcon, SettingsIcon } from 'lucide-react'
+import { FolderPlusIcon, MessageSquarePlusIcon, SearchIcon, SettingsIcon } from 'lucide-react'
 
 import { OrchiAiIcon } from '@/components/brand/orchi-ai-icon'
-import { NewChatDialog } from '@/components/chat/new-chat-dialog'
+import { NewChatDialog, type NewChatOptions } from '@/components/chat/new-chat-dialog'
 import { useChat } from '@/providers/chat-provider'
+import { useWorkspaces } from '@/providers/workspace-provider'
+import { filterWorkspaceGroups, groupChatsByWorkspace } from '@/lib/workspaces/group-chats'
 import { Button } from '@/components/ui/button'
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
+  SidebarGroupAction,
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
@@ -23,17 +26,20 @@ import {
   SidebarSeparator
 } from '@/components/ui/sidebar'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+
+type PendingNewChat = {
+  workspacePath: string
+  workspaceName: string
+}
 
 export function ChatSidebar(): React.JSX.Element {
-  const {
-    chats,
-    searchQuery,
-    setSearchQuery,
-    createChat,
-    isLoadingChats
-  } = useChat()
+  const { chats, searchQuery, setSearchQuery, createChat, isLoadingChats } = useChat()
+  const { workspaces, addWorkspace, pickDirectory } = useWorkspaces()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
+  const [pendingNewChat, setPendingNewChat] = useState<PendingNewChat | null>(null)
+  const [isAddingProject, setIsAddingProject] = useState(false)
 
   const chatMatch = useMatch({
     from: '/_app/chat/$chatId',
@@ -46,51 +52,55 @@ export function ChatSidebar(): React.JSX.Element {
     shouldThrow: false
   })
 
-  const filteredChats = chats.filter((chat) => {
-    const query = searchQuery.trim().toLowerCase()
-    if (!query) {
-      return true
-    }
+  const workspaceGroups = useMemo(() => {
+    const groups = groupChatsByWorkspace(workspaces, chats)
+    return filterWorkspaceGroups(groups, searchQuery)
+  }, [workspaces, chats, searchQuery])
 
-    return (
-      chat.title.toLowerCase().includes(query) || chat.preview.toLowerCase().includes(query)
-    )
-  })
-
-  async function handleCreateChat(workspacePath: string): Promise<void> {
+  async function handleCreateChat(options: NewChatOptions): Promise<void> {
     setIsCreating(true)
     try {
-      await createChat(workspacePath)
+      await createChat(options)
     } finally {
       setIsCreating(false)
     }
   }
 
+  function openNewChatDialog(workspacePath: string, workspaceName: string): void {
+    setPendingNewChat({ workspacePath, workspaceName })
+    setDialogOpen(true)
+  }
+
+  async function handleAddProject(): Promise<void> {
+    setIsAddingProject(true)
+    try {
+      const path = await pickDirectory()
+      if (path) {
+        addWorkspace(path)
+      }
+    } finally {
+      setIsAddingProject(false)
+    }
+  }
+
+  async function handleRegisterOrphanPath(path: string): Promise<void> {
+    addWorkspace(path)
+  }
+
   return (
-    <>
+    <TooltipProvider delayDuration={300}>
       <Sidebar collapsible="icon" className="border-r">
-        <SidebarHeader className="gap-3 border-b p-3">
-          <div className="flex items-center justify-between gap-2 group-data-[collapsible=icon]:justify-center">
-            <div className="flex min-w-0 items-center gap-2 group-data-[collapsible=icon]:hidden">
-              <Avatar size="default">
-                <AvatarFallback className="bg-muted/40">
-                  <OrchiAiIcon className="size-5" />
-                </AvatarFallback>
-              </Avatar>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold">Orchi</p>
-                <p className="text-muted-foreground truncate text-xs">AI orchestrator</p>
-              </div>
+        <SidebarHeader className="gap-3 border-b">
+          <div className="flex min-w-0 items-center gap-2 group-data-[collapsible=icon]:justify-center">
+            <Avatar size="default" className="group-data-[collapsible=icon]:mx-auto">
+              <AvatarFallback className="bg-muted/40">
+                <OrchiAiIcon className="size-5" />
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 group-data-[collapsible=icon]:hidden">
+              <p className="truncate text-sm font-semibold">Orchi</p>
+              <p className="text-muted-foreground truncate text-xs">AI orchestrator</p>
             </div>
-            <Button
-              size="icon-sm"
-              variant="outline"
-              className="shrink-0"
-              onClick={() => setDialogOpen(true)}
-              aria-label="New chat"
-            >
-              <MessageSquarePlusIcon />
-            </Button>
           </div>
 
           <div className="relative group-data-[collapsible=icon]:hidden">
@@ -105,44 +115,119 @@ export function ChatSidebar(): React.JSX.Element {
         </SidebarHeader>
 
         <SidebarContent>
-          <SidebarGroup>
-            <SidebarGroupLabel>Chats</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {isLoadingChats ? (
-                  <p className="text-muted-foreground px-2 py-3 text-xs">Loading chats…</p>
-                ) : filteredChats.length === 0 ? (
-                  <p className="text-muted-foreground px-2 py-3 text-xs">
-                    No chats yet. Create one to get started.
+          {isLoadingChats ? (
+            <p className="text-muted-foreground px-2 py-3 text-xs">Loading chats…</p>
+          ) : workspaces.length === 0 ? (
+            <SidebarGroup className="group-data-[collapsible=icon]:hidden">
+              <SidebarGroupContent>
+                <div className="flex flex-col gap-3 px-2 py-2">
+                  <p className="text-muted-foreground text-xs leading-relaxed">
+                    Add a project folder to start chatting with agents in that workspace.
                   </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAddProject}
+                    disabled={isAddingProject}
+                  >
+                    <FolderPlusIcon />
+                    Add project
+                  </Button>
+                </div>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          ) : (
+            workspaceGroups.map((group) => (
+              <SidebarGroup key={group.id}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <SidebarGroupLabel className="min-w-0 truncate group-data-[collapsible=icon]:hidden">
+                      {group.name}
+                    </SidebarGroupLabel>
+                  </TooltipTrigger>
+                  {group.path ? (
+                    <TooltipContent side="right" className="max-w-xs">
+                      {group.path}
+                    </TooltipContent>
+                  ) : null}
+                </Tooltip>
+
+                {group.isOrphan ? (
+                  group.chats.length > 0 ? (
+                    <SidebarGroupAction
+                      aria-label="Add as project"
+                      onClick={() => {
+                        const path = group.chats[0]?.workspacePath
+                        if (path) {
+                          void handleRegisterOrphanPath(path)
+                        }
+                      }}
+                    >
+                      <FolderPlusIcon />
+                    </SidebarGroupAction>
+                  ) : null
                 ) : (
-                  filteredChats.map((chat) => (
-                    <SidebarMenuItem key={chat.id}>
-                      <SidebarMenuButton
-                        asChild
-                        isActive={chat.id === activeChatId}
-                        className="h-auto items-start py-2.5"
-                      >
-                        <Link to="/chat/$chatId" params={{ chatId: chat.id }}>
-                          <div className="flex min-w-0 flex-1 flex-col gap-1 text-left">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="truncate font-medium">{chat.title}</span>
-                              <span className="text-muted-foreground shrink-0 text-[10px]">
-                                {formatDistanceToNow(new Date(chat.updatedAt), { addSuffix: true })}
-                              </span>
-                            </div>
-                            <span className="text-muted-foreground line-clamp-2 text-xs leading-relaxed">
-                              {chat.preview}
-                            </span>
-                          </div>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))
+                  <SidebarGroupAction
+                    aria-label={`New chat in ${group.name}`}
+                    onClick={() => openNewChatDialog(group.path, group.name)}
+                  >
+                    <MessageSquarePlusIcon />
+                  </SidebarGroupAction>
                 )}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+
+                <SidebarGroupContent className="group-data-[collapsible=icon]:hidden">
+                  <SidebarMenu>
+                    {group.chats.length === 0 ? (
+                      <p className="text-muted-foreground px-2 py-2 text-xs">No chats yet</p>
+                    ) : (
+                      group.chats.map((chat) => (
+                        <SidebarMenuItem key={chat.id}>
+                          <SidebarMenuButton
+                            asChild
+                            isActive={chat.id === activeChatId}
+                            className="h-auto items-start py-2.5"
+                          >
+                            <Link to="/chat/$chatId" params={{ chatId: chat.id }}>
+                              <div className="flex min-w-0 flex-1 flex-col gap-1 text-left">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="truncate font-medium">{chat.title}</span>
+                                  <span className="text-muted-foreground shrink-0 text-[10px]">
+                                    {formatDistanceToNow(new Date(chat.updatedAt), {
+                                      addSuffix: true
+                                    })}
+                                  </span>
+                                </div>
+                                <span className="text-muted-foreground line-clamp-2 text-xs leading-relaxed">
+                                  {chat.preview}
+                                </span>
+                              </div>
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      ))
+                    )}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            ))
+          )}
+
+          {workspaces.length > 0 ? (
+            <SidebarGroup className="group-data-[collapsible=icon]:hidden">
+              <SidebarGroupContent>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={handleAddProject}
+                  disabled={isAddingProject}
+                >
+                  <FolderPlusIcon />
+                  Add project
+                </Button>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          ) : null}
 
           <SidebarSeparator className="group-data-[collapsible=icon]:hidden" />
 
@@ -163,27 +248,27 @@ export function ChatSidebar(): React.JSX.Element {
           </SidebarGroup>
         </SidebarContent>
 
-        <SidebarFooter className="border-t p-3">
-          <div className="flex items-center gap-2 rounded-lg border px-2.5 py-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:border-transparent group-data-[collapsible=icon]:px-0">
+        <SidebarFooter className="border-t">
+          <div className="flex items-center gap-2 rounded-lg group-data-[collapsible=icon]:justify-center">
             <Avatar size="sm">
               <AvatarFallback className="text-xs">S</AvatarFallback>
             </Avatar>
-            <div className="min-w-0 group-data-[collapsible=icon]:hidden">
-              <p className="truncate text-sm font-medium">Workspace</p>
-              <p className="text-muted-foreground truncate text-xs">Local dev</p>
-            </div>
           </div>
         </SidebarFooter>
 
         <SidebarRail />
       </Sidebar>
 
-      <NewChatDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        onCreateChat={handleCreateChat}
-        isSubmitting={isCreating}
-      />
-    </>
+      {pendingNewChat ? (
+        <NewChatDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          workspacePath={pendingNewChat.workspacePath}
+          workspaceName={pendingNewChat.workspaceName}
+          onCreateChat={handleCreateChat}
+          isSubmitting={isCreating}
+        />
+      ) : null}
+    </TooltipProvider>
   )
 }

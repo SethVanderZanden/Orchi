@@ -14,6 +14,7 @@ internal sealed class CursorAgentAdapter(
     public async IAsyncEnumerable<AgentEvent> SendMessageAsync(
         ChatSession session,
         string prompt,
+        IReadOnlyList<string> extraCliArgs,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         CursorAgentOptions config = options.Value;
@@ -32,49 +33,23 @@ internal sealed class CursorAgentAdapter(
             yield break;
         }
 
-        ProcessStartInfo startInfo = BuildStartInfo(resolveResult.ExecutablePath!, config, session, prompt);
+        ProcessStartInfo startInfo = BuildStartInfo(resolveResult.ExecutablePath!, config, session, prompt, extraCliArgs);
 
-        Process process;
-        AgentErrorEvent? startError = null;
-        try
+        ProcessStartResult start = TryStartProcess(startInfo, session.Id, resolveResult.ExecutablePath!);
+        if (start.Error is not null)
         {
-            process = Process.Start(startInfo)
-                ?? throw new InvalidOperationException($"Failed to start Cursor agent executable '{resolveResult.ExecutablePath}'.");
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Unable to start Cursor agent for chat {ChatId}", session.Id);
-            startError = new AgentErrorEvent(
-                "Agent.StartFailed",
-                $"Unable to start Cursor CLI ('{resolveResult.ExecutablePath}'). Ensure the Cursor agent is installed and accessible.");
-            process = null!;
-        }
-
-        if (startError is not null)
-        {
-            yield return startError;
+            yield return start.Error;
             yield break;
         }
+
+        Process process = start.Process!;
 
         lock (session.Sync)
         {
             session.RunningProcess = process;
         }
 
-        using var registration = cancellationToken.Register(() =>
-        {
-            try
-            {
-                if (!process.HasExited)
-                {
-                    process.Kill(entireProcessTree: true);
-                }
-            }
-            catch (Exception ex)
-            {
-                logger.LogDebug(ex, "Failed to cancel Cursor agent process for chat {ChatId}", session.Id);
-            }
-        });
+        using var registration = cancellationToken.Register(() => TryKillProcessTree(process, session.Id));
 
         try
         {
@@ -88,33 +63,23 @@ internal sealed class CursorAgentAdapter(
                 }
             }
 
-            if (!process.HasExited)
+            AgentErrorEvent? exitCodeError = await TryGetExitCodeErrorAsync(process, cancellationToken);
+            if (exitCodeError is not null)
             {
-                await process.WaitForExitAsync(cancellationToken);
-            }
-
-            if (process.ExitCode != 0 && !cancellationToken.IsCancellationRequested)
-            {
-                yield return new AgentErrorEvent(
-                    "Agent.ExitCode",
-                    $"Cursor agent exited with code {process.ExitCode}.");
+                yield return exitCodeError;
             }
         }
         finally
         {
-            lock (session.Sync)
-            {
-                if (ReferenceEquals(session.RunningProcess, process))
-                {
-                    session.RunningProcess = null;
-                }
-            }
-
-            process.Dispose();
+            ReleaseRunningProcess(session, process);
         }
     }
 
-    internal static IReadOnlyList<string> BuildArguments(CursorAgentOptions config, ChatSession session, string prompt)
+    internal static IReadOnlyList<string> BuildArguments(
+        CursorAgentOptions config,
+        ChatSession session,
+        string prompt,
+        IReadOnlyList<string>? extraCliArgs = null)
     {
         var arguments = new List<string>();
 
@@ -130,21 +95,46 @@ internal sealed class CursorAgentAdapter(
         arguments.Add("--workspace");
         arguments.Add(session.WorkspacePath);
 
-        if (!string.IsNullOrWhiteSpace(session.ExternalSessionId))
+        if (extraCliArgs is not null)
         {
-            arguments.Add("--resume");
-            arguments.Add(session.ExternalSessionId);
+            AppendNonWhiteSpaceArgs(arguments, extraCliArgs);
         }
 
+        AppendResumeArgs(arguments, session);
         arguments.Add(prompt);
         return arguments;
+    }
+
+    private static void AppendNonWhiteSpaceArgs(List<string> arguments, IEnumerable<string> extraCliArgs)
+    {
+        foreach (string extraArg in extraCliArgs)
+        {
+            if (string.IsNullOrWhiteSpace(extraArg))
+            {
+                continue;
+            }
+
+            arguments.Add(extraArg);
+        }
+    }
+
+    private static void AppendResumeArgs(List<string> arguments, ChatSession session)
+    {
+        if (string.IsNullOrWhiteSpace(session.ExternalSessionId))
+        {
+            return;
+        }
+
+        arguments.Add("--resume");
+        arguments.Add(session.ExternalSessionId);
     }
 
     private static ProcessStartInfo BuildStartInfo(
         string executablePath,
         CursorAgentOptions config,
         ChatSession session,
-        string prompt)
+        string prompt,
+        IReadOnlyList<string> extraCliArgs)
     {
         var startInfo = new ProcessStartInfo
         {
@@ -158,7 +148,7 @@ internal sealed class CursorAgentAdapter(
             CreateNoWindow = true
         };
 
-        foreach (string argument in BuildArguments(config, session, prompt))
+        foreach (string argument in BuildArguments(config, session, prompt, extraCliArgs))
         {
             startInfo.ArgumentList.Add(argument);
         }
@@ -166,6 +156,78 @@ internal sealed class CursorAgentAdapter(
         return startInfo;
     }
 
+    private ProcessStartResult TryStartProcess(ProcessStartInfo startInfo, Guid chatId, string executablePath)
+    {
+        try
+        {
+            Process process = Process.Start(startInfo)
+                ?? throw new InvalidOperationException($"Failed to start Cursor agent executable '{executablePath}'.");
+
+            return new ProcessStartResult(process, null);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Unable to start Cursor agent for chat {ChatId}", chatId);
+            return new ProcessStartResult(
+                null,
+                new AgentErrorEvent(
+                    "Agent.StartFailed",
+                    $"Unable to start Cursor CLI ('{executablePath}'). Ensure the Cursor agent is installed and accessible."));
+        }
+    }
+
+    private void TryKillProcessTree(Process process, Guid chatId)
+    {
+        try
+        {
+            if (process.HasExited)
+            {
+                return;
+            }
+
+            process.Kill(entireProcessTree: true);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Failed to cancel Cursor agent process for chat {ChatId}", chatId);
+        }
+    }
+
+    private static void ReleaseRunningProcess(ChatSession session, Process process)
+    {
+        lock (session.Sync)
+        {
+            if (ReferenceEquals(session.RunningProcess, process))
+            {
+                session.RunningProcess = null;
+            }
+        }
+
+        process.Dispose();
+    }
+
+    private static async Task<AgentErrorEvent?> TryGetExitCodeErrorAsync(Process process, CancellationToken cancellationToken)
+    {
+        if (!process.HasExited)
+        {
+            await process.WaitForExitAsync(cancellationToken);
+        }
+
+        if (process.ExitCode == 0 || cancellationToken.IsCancellationRequested)
+        {
+            return null;
+        }
+
+        return new AgentErrorEvent(
+            "Agent.ExitCode",
+            $"Cursor agent exited with code {process.ExitCode}.");
+    }
+
+    /// <summary>
+    /// Reads NDJSON lines from process stdout and yields parsed <see cref="AgentEvent"/> values.
+    /// Stderr is started via <see cref="StreamReader.ReadToEndAsync"/> before the stdout loop and
+    /// awaited after — see docs/agents/concurrent-pipe-reading.md#dummy-section-start-here.
+    /// </summary>
     private async IAsyncEnumerable<AgentEvent> ReadEventsAsync(
         Process process,
         int timeoutSeconds,
@@ -174,21 +236,18 @@ internal sealed class CursorAgentAdapter(
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutCts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
 
+        // Start draining stderr now; await after stdout loop (see doc link on this method).
         Task<string> stderrTask = process.StandardError.ReadToEndAsync(timeoutCts.Token);
-
-        AgentErrorEvent? readError = null;
 
         while (true)
         {
-            string? line;
-            try
+            (string? line, AgentErrorEvent? timeoutError) =
+                await TryReadStdoutLineAsync(process, timeoutCts.Token, cancellationToken);
+
+            if (timeoutError is not null)
             {
-                line = await process.StandardOutput.ReadLineAsync(timeoutCts.Token);
-            }
-            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-            {
-                readError = new AgentErrorEvent("Agent.Timeout", "Cursor agent timed out.");
-                break;
+                yield return timeoutError;
+                yield break;
             }
 
             if (line is null)
@@ -202,16 +261,28 @@ internal sealed class CursorAgentAdapter(
             }
         }
 
-        if (readError is not null)
-        {
-            yield return readError;
-            yield break;
-        }
-
         string stderr = await stderrTask;
         if (!string.IsNullOrWhiteSpace(stderr) && process.ExitCode != 0)
         {
             logger.LogWarning("Cursor agent stderr for chat process: {StdErr}", stderr);
         }
     }
+
+    private static async Task<(string? Line, AgentErrorEvent? TimeoutError)> TryReadStdoutLineAsync(
+        Process process,
+        CancellationToken timeoutToken,
+        CancellationToken userToken)
+    {
+        try
+        {
+            string? line = await process.StandardOutput.ReadLineAsync(timeoutToken);
+            return (line, null);
+        }
+        catch (OperationCanceledException) when (!userToken.IsCancellationRequested)
+        {
+            return (null, new AgentErrorEvent("Agent.Timeout", "Cursor agent timed out."));
+        }
+    }
+
+    private sealed record ProcessStartResult(Process? Process, AgentErrorEvent? Error);
 }

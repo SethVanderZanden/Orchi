@@ -6,6 +6,7 @@ dist/
 npm-debug.log*
 
 # .NET
+.tmp-test-out/
 bin/
 obj/
 *.user

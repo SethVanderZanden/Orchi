@@ -13,16 +13,16 @@ public static class ListChats
     internal sealed class Handler(AgentSessionManager sessionManager)
         : IQueryHandler<Query, IReadOnlyList<ChatSummaryResponse>>
     {
-        public Task<Result<IReadOnlyList<ChatSummaryResponse>>> Handle(
+        public async Task<Result<IReadOnlyList<ChatSummaryResponse>>> Handle(
             Query query,
             CancellationToken cancellationToken)
         {
-            IReadOnlyList<ChatSummaryResponse> chats = sessionManager
-                .ListSessions()
+            IReadOnlyList<ChatSummaryResponse> chats = (await sessionManager
+                    .ListSessionsAsync(cancellationToken))
                 .Select(ChatMapper.ToSummary)
                 .ToArray();
 
-            return Task.FromResult(Result.Success(chats));
+            return Result.Success(chats);
         }
     }
 

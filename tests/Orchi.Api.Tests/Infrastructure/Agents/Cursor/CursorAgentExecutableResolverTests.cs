@@ -1,5 +1,6 @@
 using Orchi.Api.Infrastructure.Agents;
 using Orchi.Api.Infrastructure.Agents.Cursor;
+using AgentChatMode = Orchi.Api.Infrastructure.Agents.Modes.ChatMode;
 
 namespace Orchi.Api.Tests.Infrastructure.Agents.Cursor;
 
@@ -152,12 +153,40 @@ public class CursorAgentExecutableResolverTests
         {
             Id = Guid.NewGuid(),
             AgentId = "cursor",
-            WorkspacePath = @"E:\Projects\Orchi"
+            WorkspacePath = @"E:\Projects\Orchi",
+            Mode = AgentChatMode.Plan
         };
 
         IReadOnlyList<string> arguments = CursorAgentAdapter.BuildArguments(options, session, "hello");
 
         Assert.Equal(["--force", "--trust", "-p", "--output-format", "stream-json", "--stream-partial-output", "--workspace", session.WorkspacePath, "hello"], arguments);
+    }
+
+    [Fact]
+    public void BuildArguments_IncludesExtraCliArgsBeforeResume()
+    {
+        var options = new CursorAgentOptions { DefaultArgs = ["--force", "--trust"] };
+        var session = new ChatSession
+        {
+            Id = Guid.NewGuid(),
+            AgentId = "cursor",
+            WorkspacePath = @"E:\Projects\Orchi",
+            Mode = AgentChatMode.Plan,
+            ExternalSessionId = "resume-123"
+        };
+
+        IReadOnlyList<string> arguments = CursorAgentAdapter.BuildArguments(
+            options,
+            session,
+            "hello",
+            ["--mode=plan"]);
+
+        Assert.Equal(
+            [
+                "--force", "--trust", "-p", "--output-format", "stream-json", "--stream-partial-output",
+                "--workspace", session.WorkspacePath, "--mode=plan", "--resume", "resume-123", "hello"
+            ],
+            arguments);
     }
 
     private static string CreateTempDirectory()

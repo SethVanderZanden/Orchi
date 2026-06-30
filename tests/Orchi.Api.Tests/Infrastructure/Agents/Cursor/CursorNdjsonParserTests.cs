@@ -48,9 +48,7 @@ public class CursorNdjsonParserTests
             """;
 
         AgentToolEvent tool = Assert.IsType<AgentToolEvent>(Assert.Single(CursorNdjsonParser.ParseLine(line)));
-        Assert.Equal("writeToolCall", tool.Name);
-        Assert.Equal("started", tool.Status);
-        Assert.Equal("README.md", tool.Detail);
+        Assert.Equal("Writing README.md", tool.Label);
     }
 
     [Fact]
@@ -63,9 +61,7 @@ public class CursorNdjsonParserTests
         AgentEvent[] events = CursorNdjsonParser.ParseLine(line).ToArray();
 
         AgentToolEvent tool = Assert.IsType<AgentToolEvent>(Assert.Single(events));
-        Assert.Equal("mcpToolCall", tool.Name);
-        Assert.Equal("started", tool.Status);
-        Assert.Equal("-y some-package", tool.Detail);
+        Assert.Equal("mcp -y some-package", tool.Label);
     }
 
     [Fact]
@@ -76,9 +72,7 @@ public class CursorNdjsonParserTests
             """;
 
         AgentToolEvent tool = Assert.IsType<AgentToolEvent>(Assert.Single(CursorNdjsonParser.ParseLine(line)));
-        Assert.Equal("shellToolCall", tool.Name);
-        Assert.Equal("started", tool.Status);
-        Assert.Equal("ls -la", tool.Detail);
+        Assert.Equal("Running ls -la", tool.Label);
     }
 
     [Fact]
@@ -89,9 +83,7 @@ public class CursorNdjsonParserTests
             """;
 
         AgentToolEvent tool = Assert.IsType<AgentToolEvent>(Assert.Single(CursorNdjsonParser.ParseLine(line)));
-        Assert.Equal("shellToolCall", tool.Name);
-        Assert.Equal("completed", tool.Status);
-        Assert.Equal("ls -la", tool.Detail);
+        Assert.Equal("Running ls -la (completed)", tool.Label);
     }
 
     [Fact]
@@ -107,14 +99,13 @@ public class CursorNdjsonParserTests
     }
 
     [Fact]
-    public void ParseLine_AssistantWithoutTimestamp_ReturnsTextSegment()
+    public void ParseLine_AssistantWithoutTimestamp_IsIgnored()
     {
         const string line = """
             {"type":"assistant","message":{"content":[{"type":"text","text":"Full segment"}]}}
             """;
 
-        AgentTextDeltaEvent delta = Assert.IsType<AgentTextDeltaEvent>(Assert.Single(CursorNdjsonParser.ParseLine(line)));
-        Assert.Equal("Full segment", delta.Text);
+        Assert.Empty(CursorNdjsonParser.ParseLine(line));
     }
 
     [Fact]
@@ -125,9 +116,8 @@ public class CursorNdjsonParserTests
             """;
 
         AgentToolEvent tool = Assert.IsType<AgentToolEvent>(Assert.Single(CursorNdjsonParser.ParseLine(line)));
-        Assert.Equal("search", tool.Name);
-        Assert.Equal("started", tool.Status);
-        Assert.Contains("query", tool.Detail, StringComparison.Ordinal);
+        Assert.StartsWith("search ", tool.Label);
+        Assert.Contains("query", tool.Label, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -138,7 +128,6 @@ public class CursorNdjsonParserTests
             """;
 
         AgentToolEvent tool = Assert.IsType<AgentToolEvent>(Assert.Single(CursorNdjsonParser.ParseLine(line)));
-        Assert.Equal("grepToolCall", tool.Name);
-        Assert.Equal("Program.cs", tool.Detail);
+        Assert.Equal("Searching Program.cs", tool.Label);
     }
 }

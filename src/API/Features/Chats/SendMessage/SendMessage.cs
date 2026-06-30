@@ -33,7 +33,7 @@ public static class SendMessage
                 return;
             }
 
-            if (sessionManager.GetSession(chatId) is null)
+            if (await sessionManager.GetOrLoadSessionAsync(chatId, cancellationToken) is null)
             {
                 httpContext.Response.StatusCode = StatusCodes.Status404NotFound;
                 await httpContext.Response.WriteAsJsonAsync(new

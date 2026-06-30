@@ -56,6 +56,7 @@ When writing or updating Orchi docs:
 | Area | Path | Purpose |
 |------|------|---------|
 | Architecture | `docs/architecture/` | VSA, CQRS, feature guides |
+| Agents | `docs/agents/` | Agent adapters, CLI, prompt composition |
 | Patterns | `docs/patterns/` | Design patterns with Dummy + deep dive |
 | Testing | `docs/testing/` | Test patterns |
 

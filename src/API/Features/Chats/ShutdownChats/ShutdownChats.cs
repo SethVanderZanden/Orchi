@@ -9,10 +9,10 @@ public static class ShutdownChats
 
     internal sealed class Handler(AgentSessionManager sessionManager) : ICommandHandler<Command>
     {
-        public Task<Common.Results.Result> Handle(Command command, CancellationToken cancellationToken)
+        public async Task<Common.Results.Result> Handle(Command command, CancellationToken cancellationToken)
         {
-            sessionManager.CloseAllSessions();
-            return Task.FromResult(Common.Results.Result.Success());
+            await sessionManager.CloseAllSessionsAsync(cancellationToken);
+            return Common.Results.Result.Success();
         }
     }
 

@@ -4,9 +4,14 @@ internal sealed class AgentSessionShutdownService(AgentSessionManager sessionMan
 {
     public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
-    public Task StopAsync(CancellationToken cancellationToken)
+    public async Task StopAsync(CancellationToken cancellationToken)
     {
-        sessionManager.CloseAllSessions();
-        return Task.CompletedTask;
+        try
+        {
+            await sessionManager.CloseAllSessionsAsync(cancellationToken);
+        }
+        catch (ObjectDisposedException)
+        {
+        }
     }
 }

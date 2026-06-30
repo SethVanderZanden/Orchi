@@ -66,6 +66,8 @@ agent -p --force --trust --workspace "{workspace}" \
 
 Configured via `Agents:Cursor` in `appsettings.json` (executable name or full path, default args, optional `AdditionalSearchPaths`).
 
+Mode strategies assemble the prompt string before it reaches the adapter. See [prompt composition](prompt-composition.md#dummy-section-start-here) for stable-prefix / dynamic-context ordering and provider caching guidance.
+
 ## NDJSON event mapping
 
 Parser: `src/API/Infrastructure/Agents/Cursor/CursorNdjsonParser.cs`
@@ -90,6 +92,8 @@ Official reference: [Cursor CLI output format](https://cursor.com/docs/cli/refer
 When a `result` event includes a session identifier, Orchi stores it on `ChatSession.ExternalSessionId` and passes `--resume` on the next message. This gives multi-turn conversations without keeping a long-lived CLI process.
 
 ## Error handling
+
+When reading the CLI process, stdout and stderr must be consumed **concurrently** so pipe buffers do not deadlock the child. See [Concurrent stdout/stderr reading](concurrent-pipe-reading.md#dummy-section-start-here) (Dummy section first).
 
 | Situation | Behaviour |
 |-----------|-----------|

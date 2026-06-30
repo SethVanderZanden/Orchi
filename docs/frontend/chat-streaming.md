@@ -6,7 +6,7 @@ Sending a chat message is like ordering pizza with **live status texts**:
 
 1. "We got your order" (`status: processing`)
 2. "Dough is rolling…" (`token` chunks — the reply appearing word by word)
-3. "Adding toppings — writeToolCall" (`tool` rows)
+3. "Adding toppings — Writing README.md" (`tool` rows)
 4. "Out for delivery" (`done`)
 
 If the oven breaks, you get an `error` text instead.
@@ -24,8 +24,8 @@ The desktop **does not** poll. It opens one HTTP response and reads events as th
 | Order app | `sendMessageStream()` in `lib/chat/api.ts` |
 | Live updates | SSE from `POST /chats/{id}/messages` |
 | Order history | TanStack Query `chatKeys` + `ChatProvider` |
-| "Still working" banner | `Marker` component (`variant="default"`) |
-| Tool steps | `Marker variant="separator"` |
+| "Still working" banner | Collapsed activity on assistant bubble |
+| Tool steps | Collapsible list under active assistant turn |
 
 ---
 
@@ -49,7 +49,7 @@ Stable contract between API and desktop:
 |-------|------------|-----------|
 | `status` | `{ "phase": "processing" }` | Show processing `Marker` |
 | `token` | `{ "text": "..." }` | Append to assistant bubble; `status: streaming` |
-| `tool` | `{ "name": "...", "status": "started\|completed", "detail": "..." }` | Separator `Marker` row |
+| `tool` | `{ "label": "Reading README.md" }` | Separator `Marker` row |
 | `done` | `{ "messageId": "..." }` | `status: complete`; clear processing markers |
 | `error` | `{ "code": "...", "message": "..." }` | Error marker + message text |
 
@@ -89,17 +89,13 @@ export const chatKeys = {
 
 `components/chat/chat-message-list.tsx`:
 
-Render order during an active turn:
+During an active turn, tool and status markers attach to the **last assistant bubble** — not as separate scroll rows:
 
-1. Message bubbles (user + assistant)
-2. Tool markers (`variant="tool"`) — chronological tool steps
-3. Status marker (`variant="status"`) — **"Agent is working…" pinned last**
+- **Collapsed by default** — shows `"N steps"` with a wrench icon (or `"Working…"` before any tool events)
+- **Expand** — chronological tool labels from SSE
+- **Scroll anchor** stays on the assistant message bubble so streaming text stays visible
 
-- **`variant="default"`** — spinner + "Agent is working…" while processing
-- **`variant="separator"`** — human-readable tool label via `formatToolMarker()` (e.g. "Reading README.md")
-- **`MessageScroller`** keeps scroll anchor on the last item (status marker when streaming)
-
-Tool labels are formatted in `lib/chat/format-tool-marker.ts` from SSE `tool` events.
+Tool labels are formatted by the agent adapter (e.g. `CursorToolLabelFormatter`) before SSE; the desktop displays `label` as-is. Markers clear on `done` or `error`.
 
 ## Assistant message display
 
@@ -110,13 +106,17 @@ Tool labels are formatted in `lib/chat/format-tool-marker.ts` from SSE `tool` ev
 | `processing` / `streaming` | Plain text (`whitespace-pre-wrap`) — avoids broken partial markdown |
 | `complete` | `react-markdown` + `remark-gfm` (headings, lists, tables, code) |
 
-Text normalization (`lib/chat/normalize-agent-text.ts`) repairs common UTF-8 mojibake (e.g. `ΓÇö` → em dash) on tokens and after `loadChat()`.
-
 The API reads Cursor CLI stdout as **UTF-8** (`StandardOutputEncoding` on `ProcessStartInfo`) to prevent garbled punctuation on Windows.
 
 ## Create chat
 
-Desktop starts with **zero chats**. **New chat** dialog (`new-chat-dialog.tsx`) collects **workspace path** (required); agent is fixed to Cursor in v1. `POST /chats` then navigates to `/chat/$chatId`.
+Desktop starts with **zero chats**. Register **project folders** in Settings or via **Add project** in the sidebar. Chats are grouped by project; each group has a `(+)` button that opens a workspace-scoped new-chat dialog (mode picker only — path is fixed). Agent is Cursor in v1. `POST /chats` then navigates to `/chat/$chatId`.
+
+Mode can be changed on an active chat via the header selector (`PATCH /chats/{id}`); implement mode prompts for a plan ID.
+
+## Project workspaces
+
+Projects are a **desktop-only** registry (`localStorage` + folder picker IPC). The API stores `workspacePath` per chat; the sidebar groups chats by registered project paths. Chats whose path is not registered appear under **Other**.
 
 ## Cleanup
 

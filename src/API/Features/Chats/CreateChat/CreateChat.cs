@@ -4,30 +4,46 @@ using Orchi.Api.Common.Http;
 using Orchi.Api.Common.Results;
 using Orchi.Api.Features.Chats.Shared;
 using Orchi.Api.Infrastructure.Agents;
+using Orchi.Api.Infrastructure.Agents.Modes;
 
 namespace Orchi.Api.Features.Chats.CreateChat;
 
 public static class CreateChat
 {
-    public sealed record Command(string Agent, string WorkspacePath) : ICommand<CreateChatResponse>;
+    public sealed record Command(
+        string Agent,
+        string WorkspacePath,
+        ChatMode Mode,
+        Guid? ParentChatId,
+        Guid? AttachedPlanId) : ICommand<CreateChatResponse>;
 
     internal sealed class Handler(AgentSessionManager sessionManager)
         : ICommandHandler<Command, CreateChatResponse>
     {
-        public Task<Result<CreateChatResponse>> Handle(Command command, CancellationToken cancellationToken)
+        public async Task<Result<CreateChatResponse>> Handle(Command command, CancellationToken cancellationToken)
         {
-            Result<ChatSession> result = sessionManager.CreateSession(command.Agent, command.WorkspacePath);
+            Result<ChatSession> result = await sessionManager.CreateSessionAsync(
+                command.Agent,
+                command.WorkspacePath,
+                command.Mode,
+                command.ParentChatId,
+                command.AttachedPlanId,
+                cancellationToken);
 
             if (result.IsFailure)
             {
-                return Task.FromResult(Result.Failure<CreateChatResponse>(result.Error));
+                return Result.Failure<CreateChatResponse>(result.Error);
             }
 
             ChatSession session = result.Value;
-            return Task.FromResult(Result.Success(new CreateChatResponse(
+            return Result.Success(new CreateChatResponse(
                 session.Id,
                 session.AgentId,
-                session.WorkspacePath)));
+                session.WorkspacePath,
+                ChatModeParser.ToApiString(session.Mode),
+                session.ParentChatId,
+                session.AttachedPlanId,
+                session.GoalChatId));
         }
     }
 
@@ -60,8 +76,17 @@ public static class CreateChat
             ICommandHandler<Command, CreateChatResponse> handler,
             CancellationToken cancellationToken)
         {
+            if (!ChatModeParser.TryParse(request.Mode, out ChatMode mode))
+            {
+                return Results.BadRequest(new
+                {
+                    Code = "Mode.Invalid",
+                    Message = $"Invalid chat mode '{request.Mode}'."
+                });
+            }
+
             Result<CreateChatResponse> result = await handler.Handle(
-                new Command(request.Agent, request.WorkspacePath),
+                new Command(request.Agent, request.WorkspacePath, mode, request.ParentChatId, request.AttachedPlanId),
                 cancellationToken);
 
             if (result.IsSuccess)

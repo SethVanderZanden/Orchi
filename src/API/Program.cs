@@ -26,6 +26,8 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+await app.ApplyOrchiMigrationsAsync();
+
 app.UseCors("DesktopDev");
 app.UseOrchiOpenApi();
 app.MapOrchiEndpoints();

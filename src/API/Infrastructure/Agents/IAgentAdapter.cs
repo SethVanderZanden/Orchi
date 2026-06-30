@@ -7,5 +7,6 @@ public interface IAgentAdapter
     IAsyncEnumerable<AgentEvent> SendMessageAsync(
         ChatSession session,
         string prompt,
+        IReadOnlyList<string> extraCliArgs,
         CancellationToken cancellationToken);
 }

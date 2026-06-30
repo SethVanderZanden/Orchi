@@ -1,4 +1,5 @@
 using Orchi.Api.Infrastructure.Agents;
+using Orchi.Api.Infrastructure.Agents.Modes;
 
 namespace Orchi.Api.Features.Chats.Shared;
 
@@ -14,7 +15,11 @@ public static class ChatMapper
             lastMessage?.Content ?? "Start a conversation with Orchi",
             lastMessage?.CreatedAt ?? DateTimeOffset.UtcNow,
             session.AgentId,
-            session.WorkspacePath);
+            session.WorkspacePath,
+            ChatModeParser.ToApiString(session.Mode),
+            session.ParentChatId,
+            session.AttachedPlanId,
+            session.GoalChatId);
     }
 
     public static ChatDetailResponse ToDetail(ChatSession session) =>
@@ -23,6 +28,10 @@ public static class ChatMapper
             DeriveTitle(session),
             session.AgentId,
             session.WorkspacePath,
+            ChatModeParser.ToApiString(session.Mode),
+            session.ParentChatId,
+            session.AttachedPlanId,
+            session.GoalChatId,
             session.Messages.Select(ToMessage).ToArray());
 
     public static ChatMessageResponse ToMessage(ChatMessage message) =>
@@ -33,7 +42,13 @@ public static class ChatMapper
         ChatMessage? firstUser = session.Messages.FirstOrDefault(message => message.Role == "user");
         if (firstUser is null)
         {
-            return "New chat";
+            return session.Mode switch
+            {
+                ChatMode.Orchestrate => "Orchestration",
+                ChatMode.Goal => "Goal tracker",
+                ChatMode.Implement => "Implementation",
+                _ => "New chat"
+            };
         }
 
         string trimmed = firstUser.Content.Trim();
@@ -47,13 +62,21 @@ public sealed record ChatSummaryResponse(
     string Preview,
     DateTimeOffset UpdatedAt,
     string AgentId,
-    string WorkspacePath);
+    string WorkspacePath,
+    string Mode,
+    Guid? ParentChatId,
+    Guid? AttachedPlanId,
+    Guid? GoalChatId);
 
 public sealed record ChatDetailResponse(
     Guid Id,
     string Title,
     string AgentId,
     string WorkspacePath,
+    string Mode,
+    Guid? ParentChatId,
+    Guid? AttachedPlanId,
+    Guid? GoalChatId,
     IReadOnlyList<ChatMessageResponse> Messages);
 
 public sealed record ChatMessageResponse(
@@ -63,11 +86,25 @@ public sealed record ChatMessageResponse(
     DateTimeOffset CreatedAt,
     string Status);
 
-public sealed record CreateChatRequest(string Agent, string WorkspacePath);
+public sealed record UpdateChatRequest(string Mode, Guid? AttachedPlanId = null);
+
+public sealed record CreateChatRequest(
+    string Agent,
+    string WorkspacePath,
+    string? Mode = null,
+    Guid? ParentChatId = null,
+    Guid? AttachedPlanId = null);
 
 public sealed record SendMessageRequest(string Content);
 
-public sealed record CreateChatResponse(Guid Id, string AgentId, string WorkspacePath);
+public sealed record CreateChatResponse(
+    Guid Id,
+    string AgentId,
+    string WorkspacePath,
+    string Mode,
+    Guid? ParentChatId,
+    Guid? AttachedPlanId,
+    Guid? GoalChatId);
 
 public sealed record SendMessageDoneResponse(Guid MessageId);
 
@@ -75,6 +112,31 @@ public sealed record SseStatusPayload(string Phase);
 
 public sealed record SseTokenPayload(string Text);
 
-public sealed record SseToolPayload(string Name, string Status, string? Detail);
+public sealed record SseToolPayload(string Label);
 
 public sealed record SseErrorPayload(string Code, string Message);
+
+public sealed record CreatePlanRequest(string Title, string ContentMarkdown);
+
+public sealed record UpdatePlanRequest(string? Title, string? ContentMarkdown, string? Status);
+
+public sealed record PlanResponse(
+    Guid Id,
+    Guid SourceChatId,
+    string Title,
+    string ContentMarkdown,
+    string Status,
+    IReadOnlyList<SubPlanResponse> SubPlans);
+
+public sealed record SubPlanResponse(
+    Guid Id,
+    string Title,
+    string ContentMarkdown,
+    Guid? AssignedChatId,
+    string Status);
+
+public sealed record DispatchSubPlanRequest(Guid SubPlanId, string ChildMode);
+
+public sealed record DispatchSubPlanResponse(Guid ChildChatId, Guid SubPlanId);
+
+public sealed record HandoffToGoalResponse(Guid GoalChatId);

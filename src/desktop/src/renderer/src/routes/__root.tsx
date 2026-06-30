@@ -4,6 +4,7 @@ import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
 import { QueryClientProvider } from '@tanstack/react-query'
 
 import { queryClient } from '@/lib/query-client'
+import { ThemeProvider } from '@/providers/theme-provider'
 
 export const Route = createRootRoute({
   component: RootComponent
@@ -11,14 +12,16 @@ export const Route = createRootRoute({
 
 function RootComponent(): React.JSX.Element {
   return (
-    <QueryClientProvider client={queryClient}>
-      <Outlet />
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <Outlet />
       {import.meta.env.DEV && (
         <>
           <ReactQueryDevtools buttonPosition="bottom-left" />
           <TanStackRouterDevtools position="bottom-right" />
         </>
       )}
-    </QueryClientProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   )
 }

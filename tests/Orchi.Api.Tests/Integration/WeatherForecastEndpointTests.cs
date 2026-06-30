@@ -11,6 +11,7 @@ public class WeatherForecastEndpointTests : IClassFixture<TestWebApplicationFact
 
     public WeatherForecastEndpointTests(TestWebApplicationFactory factory)
     {
+        factory.InitializeDatabase();
         _client = factory.CreateClient();
     }
 

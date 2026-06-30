@@ -12,7 +12,7 @@ public static class CloseChat
     internal sealed class Handler(AgentSessionManager sessionManager) : ICommandHandler<Command>
     {
         public Task<Result> Handle(Command command, CancellationToken cancellationToken) =>
-            Task.FromResult(sessionManager.CloseSession(command.ChatId));
+            sessionManager.CloseSessionAsync(command.ChatId, cancellationToken);
     }
 
     public sealed class Endpoint : IEndpoint
