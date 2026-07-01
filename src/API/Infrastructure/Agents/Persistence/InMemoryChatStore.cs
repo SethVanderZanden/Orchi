@@ -85,6 +85,19 @@ public sealed class InMemoryChatStore : IChatStore
         return Task.CompletedTask;
     }
 
+    public Task UpdateExternalSessionIdAsync(
+        Guid chatId,
+        string externalSessionId,
+        CancellationToken cancellationToken)
+    {
+        if (_chats.TryGetValue(chatId, out ChatSession? session))
+        {
+            session.ExternalSessionId = externalSessionId;
+        }
+
+        return Task.CompletedTask;
+    }
+
     public Task UpdateGoalChatIdAsync(Guid chatId, Guid goalChatId, CancellationToken cancellationToken)
     {
         if (_chats.TryGetValue(chatId, out ChatSession? session))
@@ -105,6 +118,7 @@ public sealed class InMemoryChatStore : IChatStore
         {
             session.Mode = mode;
             session.AttachedPlanId = attachedPlanId;
+            session.ExternalSessionId = null;
         }
 
         return Task.CompletedTask;

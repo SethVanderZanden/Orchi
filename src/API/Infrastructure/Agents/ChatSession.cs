@@ -13,6 +13,10 @@ public sealed class ChatSession
 
     public required ChatMode Mode { get; set; }
 
+    public string? PreviousModeKey { get; set; }
+
+    public DateTimeOffset? ModeChangedAt { get; set; }
+
     public Guid? ParentChatId { get; init; }
 
     public Guid? AttachedPlanId { get; set; }

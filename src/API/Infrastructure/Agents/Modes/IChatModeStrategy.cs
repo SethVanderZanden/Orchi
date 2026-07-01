@@ -8,7 +8,11 @@ public interface IChatModeStrategy
 {
     ChatMode Mode { get; }
 
-    Result<AgentTurnRequest> PrepareTurn(ChatSession session, string userContent, IPlanStore plans);
+    ValueTask<Result<AgentTurnRequest>> PrepareTurnAsync(
+        ChatSession session,
+        string userContent,
+        IPlanStore plans,
+        CancellationToken cancellationToken);
 
     ValueTask OnTurnCompletedAsync(
         ChatSession session,

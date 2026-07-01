@@ -6,7 +6,8 @@ public enum ChatMode
     Plan,
     Implement,
     Orchestrate,
-    Goal
+    Goal,
+    Participant
 }
 
 public static class ChatModeParser
@@ -30,6 +31,7 @@ public static class ChatModeParser
             ChatMode.Implement => "implement",
             ChatMode.Orchestrate => "orchestrate",
             ChatMode.Goal => "goal",
+            ChatMode.Participant => "participant",
             _ => "agent"
         };
 }

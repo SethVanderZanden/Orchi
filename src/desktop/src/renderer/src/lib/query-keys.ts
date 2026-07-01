@@ -8,3 +8,8 @@ export const chatKeys = {
   lists: () => [...chatKeys.all, 'list'] as const,
   detail: (chatId: string) => [...chatKeys.all, 'detail', chatId] as const
 }
+
+export const planKeys = {
+  all: ['plans'] as const,
+  detail: (planId: string) => [...planKeys.all, 'detail', planId] as const
+}

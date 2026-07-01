@@ -22,6 +22,7 @@ The current sample feature is **WeatherForecast** — a familiar scaffold used t
 | [Adding a Feature](adding-a-feature.md) | Step-by-step checklist for new slices |
 | [Unit Testing](../testing/unit-testing.md) | Handler and integration test patterns |
 | [Frontend](../frontend/README.md) | TanStack Router and Query (desktop app) |
+| [SharedContext](../context/README.md#dummy-section-start-here) | Workspace-scoped collective memory for agents |
 
 ## Source references
 

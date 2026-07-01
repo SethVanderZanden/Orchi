@@ -78,7 +78,8 @@ Parser: `src/API/Infrastructure/Agents/Cursor/CursorNdjsonParser.cs`
 | `assistant` | has `model_call_id` | **Skip** (buffered duplicate from partial output) |
 | `tool_call` | started | `AgentToolStartedEvent` |
 | `tool_call` | completed | `AgentToolCompletedEvent` |
-| `result` | — | `AgentCompletedEvent` + store external session id |
+| `system` | `subtype: init` | `AgentSessionStartedEvent` + persist `ExternalSessionId` early |
+| `result` | — | `AgentCompletedEvent` + confirm external session id |
 | parse / process error | — | `AgentErrorEvent` |
 
 ### Partial output
@@ -89,7 +90,16 @@ Official reference: [Cursor CLI output format](https://cursor.com/docs/cli/refer
 
 ## Session resume
 
-When a `result` event includes a session identifier, Orchi stores it on `ChatSession.ExternalSessionId` and passes `--resume` on the next message. This gives multi-turn conversations without keeping a long-lived CLI process.
+When the CLI emits a `session_id`, Orchi stores it on `ChatSession.ExternalSessionId` and passes `--resume` on the next message.
+
+Capture happens in two places:
+
+1. **Early** — the first `system` / `subtype: init` NDJSON line (persisted immediately via `UpdateExternalSessionIdAsync`)
+2. **Terminal** — the final `result` event (confirmation / fallback)
+
+This gives multi-turn conversations without keeping a long-lived CLI process, and ensures turn 2+ can resume even when turn 1 did not reach the terminal `result` event (timeout, cancel, non-zero exit).
+
+Orchi also replays recent `ChatSession.Messages` into the prompt dynamic suffix as a fallback when resume is missing, and includes a smaller safety-net transcript when resume is active. See [prompt composition](prompt-composition.md#current-gaps).
 
 ## Error handling
 

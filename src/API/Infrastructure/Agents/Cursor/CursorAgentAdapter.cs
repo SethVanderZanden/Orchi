@@ -35,6 +35,13 @@ internal sealed class CursorAgentAdapter(
 
         ProcessStartInfo startInfo = BuildStartInfo(resolveResult.ExecutablePath!, config, session, prompt, extraCliArgs);
 
+        bool hasResume = !string.IsNullOrWhiteSpace(session.ExternalSessionId);
+        logger.LogDebug(
+            "Starting Cursor agent for chat {ChatId}: resume={HasResume}, externalSessionId={ExternalSessionId}",
+            session.Id,
+            hasResume,
+            hasResume ? TruncateForLog(session.ExternalSessionId!) : "(none)");
+
         ProcessStartResult start = TryStartProcess(startInfo, session.Id, resolveResult.ExecutablePath!);
         if (start.Error is not null)
         {
@@ -285,4 +292,7 @@ internal sealed class CursorAgentAdapter(
     }
 
     private sealed record ProcessStartResult(Process? Process, AgentErrorEvent? Error);
+
+    private static string TruncateForLog(string value, int maxLength = 12) =>
+        value.Length <= maxLength ? value : value[..maxLength] + "...";
 }

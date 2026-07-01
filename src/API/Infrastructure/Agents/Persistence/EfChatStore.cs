@@ -148,6 +148,23 @@ public sealed class EfChatStore(IDbContextFactory<AppDbContext> dbContextFactory
         await db.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task UpdateExternalSessionIdAsync(
+        Guid chatId,
+        string externalSessionId,
+        CancellationToken cancellationToken)
+    {
+        await using AppDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        Chat? chat = await db.Chats.FirstOrDefaultAsync(existing => existing.Id == chatId, cancellationToken);
+        if (chat is null)
+        {
+            return;
+        }
+
+        chat.ExternalSessionId = externalSessionId;
+        chat.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task UpdateGoalChatIdAsync(Guid chatId, Guid goalChatId, CancellationToken cancellationToken)
     {
         await using AppDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -177,6 +194,7 @@ public sealed class EfChatStore(IDbContextFactory<AppDbContext> dbContextFactory
 
         chat.Mode = ChatStoreMapper.ModeToString(mode);
         chat.AttachedPlanId = attachedPlanId;
+        chat.ExternalSessionId = null;
         chat.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
     }

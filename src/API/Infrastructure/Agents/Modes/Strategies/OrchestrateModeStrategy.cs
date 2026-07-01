@@ -5,15 +5,18 @@ using Orchi.Api.Infrastructure.Agents.Modes.Plan;
 
 namespace Orchi.Api.Infrastructure.Agents.Modes.Strategies;
 
-public sealed partial class OrchestrateModeStrategy(PlanManager planManager) : IChatModeStrategy
+public sealed partial class OrchestrateModeStrategy(
+    AgentPromptComposer promptComposer,
+    PlanManager planManager) : IChatModeStrategy
 {
     public ChatMode Mode => ChatMode.Orchestrate;
 
-    public Result<AgentTurnRequest> PrepareTurn(ChatSession session, string userContent, IPlanStore plans)
-    {
-        string prepared = $"{ModeInstructions.Orchestrate}\n\n---\n\n{userContent.Trim()}";
-        return Result.Success(new AgentTurnRequest(prepared, ["--mode=plan"]));
-    }
+    public ValueTask<Result<AgentTurnRequest>> PrepareTurnAsync(
+        ChatSession session,
+        string userContent,
+        IPlanStore plans,
+        CancellationToken cancellationToken) =>
+        new(promptComposer.ComposeAsync(session, userContent, ModeInstructions.Orchestrate, null, cancellationToken));
 
     public async ValueTask OnTurnCompletedAsync(
         ChatSession session,
@@ -21,26 +24,33 @@ public sealed partial class OrchestrateModeStrategy(PlanManager planManager) : I
         IPlanStore plans,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(completed.FullText))
+        if (!TryParseSubPlans(completed.FullText, out IReadOnlyList<SubPlanInput> subPlans))
         {
             return;
         }
 
-        if (!TryParseSubPlans(completed.FullText, out IReadOnlyList<SubPlanInput> subPlanInputs))
+        PlanArtifact? existing = plans.ListBySourceChat(session.Id).FirstOrDefault();
+        PlanArtifact plan;
+        if (existing is null)
         {
-            return;
-        }
-
-        PlanArtifact? existingPlan = plans.ListBySourceChat(session.Id).FirstOrDefault();
-        if (existingPlan is null)
-        {
-            existingPlan = plans.Create(
+            Result<PlanArtifact> created = planManager.CreatePlan(
                 session.Id,
-                "Orchestration plan",
+                "Orchestration",
                 completed.FullText);
+
+            if (created.IsFailure)
+            {
+                return;
+            }
+
+            plan = created.Value;
+        }
+        else
+        {
+            plan = existing;
         }
 
-        await planManager.UpsertSubPlansAsync(existingPlan.Id, subPlanInputs, cancellationToken);
+        await planManager.UpsertSubPlansAsync(plan.Id, subPlans, cancellationToken);
     }
 
     public ValueTask OnChildActivityAsync(
@@ -48,11 +58,15 @@ public sealed partial class OrchestrateModeStrategy(PlanManager planManager) : I
         Coordination.ChatActivityEvent activity,
         CancellationToken cancellationToken) => ValueTask.CompletedTask;
 
-    internal static bool TryParseSubPlans(string text, out IReadOnlyList<SubPlanInput> subPlans)
+    public static bool TryParseSubPlans(string text, out IReadOnlyList<SubPlanInput> subPlans)
     {
         subPlans = [];
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
 
-        string? json = ExtractJsonBlock(text);
+        string? json = ExtractJsonPayload(text);
         if (json is null)
         {
             return false;
@@ -68,24 +82,27 @@ public sealed partial class OrchestrateModeStrategy(PlanManager planManager) : I
             }
 
             var parsed = new List<SubPlanInput>();
-            foreach (JsonElement element in subPlansElement.EnumerateArray())
+            foreach (JsonElement item in subPlansElement.EnumerateArray())
             {
-                string title = element.TryGetProperty("title", out JsonElement titleElement)
+                string title = item.TryGetProperty("title", out JsonElement titleElement)
                     ? titleElement.GetString() ?? string.Empty
                     : string.Empty;
 
-                string content = element.TryGetProperty("contentMarkdown", out JsonElement contentElement)
+                string content = item.TryGetProperty("contentMarkdown", out JsonElement contentElement)
                     ? contentElement.GetString() ?? string.Empty
-                    : element.TryGetProperty("content", out JsonElement altContent)
-                        ? altContent.GetString() ?? string.Empty
-                        : string.Empty;
+                    : string.Empty;
 
                 if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(content))
                 {
                     continue;
                 }
 
-                parsed.Add(new SubPlanInput(Guid.Empty, title.Trim(), content.Trim()));
+                Guid id = item.TryGetProperty("id", out JsonElement idElement) &&
+                          idElement.TryGetGuid(out Guid parsedId)
+                    ? parsedId
+                    : Guid.Empty;
+
+                parsed.Add(new SubPlanInput(id, title.Trim(), content.Trim()));
             }
 
             if (parsed.Count == 0)
@@ -102,24 +119,45 @@ public sealed partial class OrchestrateModeStrategy(PlanManager planManager) : I
         }
     }
 
-    private static string? ExtractJsonBlock(string text)
+    private static string? ExtractJsonPayload(string text)
     {
-        Match fenced = JsonFenceRegex().Match(text);
+        Match fenced = FencedJsonRegex().Match(text);
         if (fenced.Success)
         {
-            return fenced.Groups["json"].Value;
+            return fenced.Groups["json"].Value.Trim();
         }
 
-        int start = text.IndexOf('{');
-        int end = text.LastIndexOf('}');
-        if (start >= 0 && end > start)
+        int start = text.IndexOf("{\"subPlans\"", StringComparison.Ordinal);
+        if (start < 0)
         {
-            return text[start..(end + 1)];
+            start = text.IndexOf("{ \"subPlans\"", StringComparison.Ordinal);
+        }
+
+        if (start < 0)
+        {
+            return null;
+        }
+
+        int depth = 0;
+        for (int i = start; i < text.Length; i++)
+        {
+            if (text[i] == '{')
+            {
+                depth++;
+            }
+            else if (text[i] == '}')
+            {
+                depth--;
+                if (depth == 0)
+                {
+                    return text[start..(i + 1)];
+                }
+            }
         }
 
         return null;
     }
 
-    [GeneratedRegex(@"```json\s*(?<json>\{.*?\})\s*```", RegexOptions.Singleline)]
-    private static partial Regex JsonFenceRegex();
+    [GeneratedRegex(@"```json\s*(?<json>\{[\s\S]*?\})\s*```", RegexOptions.Compiled)]
+    private static partial Regex FencedJsonRegex();
 }

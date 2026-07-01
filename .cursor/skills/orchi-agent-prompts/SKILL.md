@@ -55,7 +55,7 @@ When changing prompt assembly code, verify:
 
 ## Boundaries
 
-Orchi does **not** assemble tool definitions or control the Cursor CLI internal system prompt. Conversation continuity uses `--resume` (`ChatSession.ExternalSessionId`), not Orchi-owned history replay in the prompt string.
+Orchi does **not** assemble tool definitions or control the Cursor CLI internal system prompt. Conversation continuity uses Cursor `--resume` (`ChatSession.ExternalSessionId`) plus Orchi-owned history replay in the dynamic suffix via `ConversationContextBuilder`.
 
 ## When implementing caching
 

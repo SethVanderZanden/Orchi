@@ -17,12 +17,14 @@ public static class AgentsExtensions
         services.AddSingleton<IPlanStore, EfPlanStore>();
         services.AddSingleton<PlanManager>();
         services.AddSingleton<GoalCheckInQueue>();
+        services.AddSingleton<AgentPromptComposer>();
 
         services.AddSingleton<IChatModeStrategy, AgentModeStrategy>();
         services.AddSingleton<IChatModeStrategy, PlanModeStrategy>();
         services.AddSingleton<IChatModeStrategy, ImplementModeStrategy>();
         services.AddSingleton<IChatModeStrategy, OrchestrateModeStrategy>();
         services.AddSingleton<IChatModeStrategy, GoalModeStrategy>();
+        services.AddSingleton<IChatModeStrategy, ParticipantModeStrategy>();
         services.AddSingleton<ChatModeStrategyFactory>();
 
         services.AddSingleton<AgentSessionManager>();

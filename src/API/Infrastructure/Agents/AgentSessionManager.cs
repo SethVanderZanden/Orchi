@@ -6,6 +6,9 @@ using Orchi.Api.Infrastructure.Agents.Modes;
 using Orchi.Api.Infrastructure.Agents.Modes.Coordination;
 using Orchi.Api.Infrastructure.Agents.Modes.Plan;
 using Orchi.Api.Infrastructure.Agents.Persistence;
+using Orchi.SharedContext.Events;
+using Orchi.SharedContext.Modes;
+using Orchi.SharedContext.Session;
 
 namespace Orchi.Api.Infrastructure.Agents;
 
@@ -18,6 +21,9 @@ public sealed class AgentSessionManager
     private readonly PlanManager _planManager;
     private readonly IPlanStore _planStore;
     private readonly GoalCheckInQueue _goalCheckInQueue;
+    private readonly IModeRuntime _modeRuntime;
+    private readonly IWorkspaceEventBus _eventBus;
+    private readonly ISessionDistiller _sessionDistiller;
     private readonly ILogger<AgentSessionManager> _logger;
 
     public AgentSessionManager(
@@ -27,6 +33,9 @@ public sealed class AgentSessionManager
         PlanManager planManager,
         IPlanStore planStore,
         GoalCheckInQueue goalCheckInQueue,
+        IModeRuntime modeRuntime,
+        IWorkspaceEventBus eventBus,
+        ISessionDistiller sessionDistiller,
         ILogger<AgentSessionManager> logger)
     {
         _chatStore = chatStore;
@@ -35,6 +44,9 @@ public sealed class AgentSessionManager
         _planManager = planManager;
         _planStore = planStore;
         _goalCheckInQueue = goalCheckInQueue;
+        _modeRuntime = modeRuntime;
+        _eventBus = eventBus;
+        _sessionDistiller = sessionDistiller;
         _logger = logger;
     }
 
@@ -131,6 +143,7 @@ public sealed class AgentSessionManager
             cancellationToken);
 
         _sessions[session.Id] = session;
+        _ = TriggerWorkspaceIndexIfStaleAsync(session.WorkspacePath);
         return Result.Success(session);
     }
 
@@ -187,9 +200,33 @@ public sealed class AgentSessionManager
             }
         }
 
+        ChatMode previousMode = session.Mode;
+        string previousModeKey = ChatModeParser.ToApiString(previousMode);
+
         session.Mode = mode;
         session.AttachedPlanId = resolvedPlanId;
+
+        if (previousMode != mode)
+        {
+            session.PreviousModeKey = previousModeKey;
+            session.ModeChangedAt = DateTimeOffset.UtcNow;
+
+            if (!_modeRuntime.ShouldPreserveResume(previousModeKey, ChatModeParser.ToApiString(mode)))
+            {
+                session.ExternalSessionId = null;
+            }
+        }
+
         await _chatStore.UpdateModeAsync(chatId, mode, resolvedPlanId, cancellationToken);
+
+        await _eventBus.PublishAsync(
+            new WorkspaceEvent(
+                WorkspaceEventKind.ModeChanged,
+                session.WorkspacePath,
+                DateTimeOffset.UtcNow,
+                chatId,
+                $"{previousModeKey}->{ChatModeParser.ToApiString(mode)}"),
+            cancellationToken);
 
         return Result.Success(session);
     }
@@ -317,7 +354,7 @@ public sealed class AgentSessionManager
             await _chatStore.SaveUserMessageAsync(chatId, userMessage, cancellationToken);
         }
 
-        Result<AgentTurnRequest> turnResult = strategy.PrepareTurn(session, content, _planStore);
+        Result<AgentTurnRequest> turnResult = await strategy.PrepareTurnAsync(session, content, _planStore, cancellationToken);
         if (turnResult.IsFailure)
         {
             var errorAssistantMessage = new ChatMessage(
@@ -356,6 +393,8 @@ public sealed class AgentSessionManager
             session.Messages.Add(assistantMessage);
         }
 
+        bool turnCompleted = false;
+
         await foreach (AgentEvent agentEvent in adapter.SendMessageAsync(
                            session,
                            turn.PreparedPrompt,
@@ -364,6 +403,15 @@ public sealed class AgentSessionManager
         {
             switch (agentEvent)
             {
+                case AgentSessionStartedEvent started:
+                    await PersistExternalSessionIdAsync(
+                        chatId,
+                        session,
+                        started.ExternalSessionId,
+                        "system-init",
+                        cancellationToken);
+                    break;
+
                 case AgentTextDeltaEvent delta:
                     lock (session.Sync)
                     {
@@ -398,6 +446,14 @@ public sealed class AgentSessionManager
                         externalSessionId = session.ExternalSessionId;
                     }
 
+                    if (!string.IsNullOrWhiteSpace(completed.ExternalSessionId))
+                    {
+                        _logger.LogDebug(
+                            "Captured external session id from {Source} for chat {ChatId}",
+                            "result",
+                            chatId);
+                    }
+
                     await _chatStore.SaveAssistantMessageAsync(
                         chatId,
                         assistantMessage,
@@ -406,6 +462,8 @@ public sealed class AgentSessionManager
 
                     await strategy.OnTurnCompletedAsync(session, completed, _planStore, cancellationToken);
                     PublishChildActivity(session, ChatActivityKind.ChildMessageCompleted, "assistant", assistantMessage.Content);
+                    await PublishTurnCompletedAsync(session, userMessage.Content, assistantMessage.Content, cancellationToken);
+                    turnCompleted = true;
                     yield return completed;
                     break;
 
@@ -421,6 +479,7 @@ public sealed class AgentSessionManager
                     }
 
                     await _chatStore.SaveAssistantMessageAsync(chatId, assistantMessage, null, cancellationToken);
+                    turnCompleted = true;
                     yield return error;
                     break;
 
@@ -430,7 +489,74 @@ public sealed class AgentSessionManager
             }
         }
 
+        if (!turnCompleted)
+        {
+            bool shouldFinalizeIncomplete;
+            string? externalSessionId;
+            lock (session.Sync)
+            {
+                shouldFinalizeIncomplete = assistantMessage.Status is "processing" or "streaming";
+                if (!shouldFinalizeIncomplete)
+                {
+                    externalSessionId = null;
+                }
+                else
+                {
+                    assistantMessage = assistantMessage with
+                    {
+                        Content = string.IsNullOrEmpty(assistantMessage.Content)
+                            ? "Agent finished without a result event."
+                            : assistantMessage.Content,
+                        Status = "error"
+                    };
+                    session.Messages[^1] = assistantMessage;
+                    externalSessionId = session.ExternalSessionId;
+                }
+            }
+
+            if (shouldFinalizeIncomplete)
+            {
+                _logger.LogWarning(
+                    "Agent stream ended without result event for chat {ChatId}",
+                    chatId);
+
+                await _chatStore.SaveAssistantMessageAsync(
+                    chatId,
+                    assistantMessage,
+                    externalSessionId,
+                    cancellationToken);
+
+                yield return new AgentErrorEvent(
+                    "Agent.Incomplete",
+                    "Agent finished without a result event.");
+            }
+        }
+
         session.RunCts = null;
+    }
+
+    private async Task PersistExternalSessionIdAsync(
+        Guid chatId,
+        ChatSession session,
+        string externalSessionId,
+        string source,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(externalSessionId))
+        {
+            return;
+        }
+
+        lock (session.Sync)
+        {
+            session.ExternalSessionId = externalSessionId;
+        }
+
+        await _chatStore.UpdateExternalSessionIdAsync(chatId, externalSessionId, cancellationToken);
+        _logger.LogDebug(
+            "Captured external session id from {Source} for chat {ChatId}",
+            source,
+            chatId);
     }
 
     private void PublishChildActivity(ChatSession childSession, ChatActivityKind kind, string role, string content)
@@ -449,6 +575,54 @@ public sealed class AgentSessionManager
         _goalCheckInQueue.Enqueue(new GoalCheckInRequest(
             parentChatId,
             new ChatActivityEvent(childSession.Id, childSession.Mode, kind, role, content)));
+
+        _ = _eventBus.PublishAsync(
+            new WorkspaceEvent(
+                WorkspaceEventKind.ChatActivity,
+                childSession.WorkspacePath,
+                DateTimeOffset.UtcNow,
+                childSession.Id,
+                kind.ToString()),
+            CancellationToken.None);
+    }
+
+    private async Task PublishTurnCompletedAsync(
+        ChatSession session,
+        string userContent,
+        string assistantContent,
+        CancellationToken cancellationToken)
+    {
+        await _sessionDistiller.DistillTurnAsync(
+            session.WorkspacePath,
+            session.Id,
+            userContent,
+            assistantContent,
+            cancellationToken);
+
+        await _eventBus.PublishAsync(
+            new WorkspaceEvent(
+                WorkspaceEventKind.TurnCompleted,
+                session.WorkspacePath,
+                DateTimeOffset.UtcNow,
+                session.Id),
+            cancellationToken);
+    }
+
+    private async Task TriggerWorkspaceIndexIfStaleAsync(string workspacePath)
+    {
+        try
+        {
+            await _eventBus.PublishAsync(
+                new WorkspaceEvent(
+                    WorkspaceEventKind.WorkspaceIndexed,
+                    workspacePath,
+                    DateTimeOffset.UtcNow),
+                CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to enqueue workspace index for {WorkspacePath}", workspacePath);
+        }
     }
 
     private async Task<ChatSession> GetRequiredSessionAsync(Guid chatId, CancellationToken cancellationToken) =>

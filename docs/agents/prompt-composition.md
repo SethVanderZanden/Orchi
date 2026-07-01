@@ -25,7 +25,7 @@ LLM providers can do something similar: if the **beginning** of a prompt is byte
 | Letterhead | `ModeInstructions.*` prepended in mode strategies |
 | Today's letter | User content after `\n\n---\n\n` |
 | Mailing the letter | `AgentTurnRequest.PreparedPrompt` → `CursorAgentAdapter` → CLI positional arg |
-| Filing cabinet for continuity | `--resume` + `ChatSession.ExternalSessionId` (Cursor-owned, not Orchi prompt history) |
+| Filing cabinet for continuity | `--resume` + `ChatSession.ExternalSessionId` (Cursor-owned) plus Orchi-owned transcript replay in the dynamic suffix |
 
 Everything below is the same idea with file paths, current gaps, and design rules for when we add provider caching.
 
@@ -124,8 +124,8 @@ string prepared = $"{instructions}\n\n---\n\n{userContent.Trim()}";
 |---------------------|-------------|---------------|
 | System instructions | `ModeInstructions.*` prepended in strategies | Same — kept stable per mode |
 | Tool definitions | Cursor CLI owns tools (Orchi parses inbound NDJSON only) | Document boundary; adapter passes flags only |
-| Coding standards / project rules | Not injected | Load `.cursor/rules`, `AGENTS.md` into stable prefix |
-| Repo architecture summary | Not injected | Optional stable block, versioned or hashed |
+| Coding standards / project rules | Injected via `IPromptBuilder` | `.cursor/rules`, `AGENTS.md` in stable prefix |
+| Repo architecture summary | Partial (file summaries) | Context store + retrieval in dynamic suffix |
 | Current task / user message | After `---` | Always in dynamic suffix |
 | Attached plan / check-ins | Implement + Goal modes | Dynamic suffix only |
 
@@ -133,11 +133,32 @@ string prepared = $"{instructions}\n\n---\n\n{userContent.Trim()}";
 
 ## Current gaps
 
-1. **Flat prompt model** — one `PreparedPrompt` string; no `StablePrefix` / `DynamicContext` fields.
-2. **Prefix instability in Goal mode** — `Goal` vs `GoalCheckIn` instructions swap the stable prefix between turn types.
-3. **No project-context injection** — workspace rules, skills, and AGENTS content are left to Cursor's own workspace discovery, not Orchi's mode pipeline.
-4. **No Orchi-side caching hooks** — nothing to fingerprint or reuse a stable prefix across turns.
-5. **Conversation history** — `ChatSession.Messages` is stored for the UI but not replayed into the prompt; continuity relies on `--resume`.
+1. **Prefix instability in Goal mode** — `Goal` vs `GoalCheckIn` instructions swap the stable prefix between turn types.
+2. **No Orchi-side caching hooks** — stable prefix is structured but not fingerprinted for provider cache markers yet.
+3. **Session summary maturity** — rolling distillation supplements but does not yet fully replace transcript replay.
+4. **Embedding search** — keyword retrieval only; true semantic search is Phase 3.
+
+### Resolved (SharedContext)
+
+- `AgentTurnRequest` now has explicit `StablePrefix` + `DynamicContext` (see `src/API/Infrastructure/Agents/Modes/AgentTurnRequest.cs`).
+- Project rules injected via `IPromptBuilder` / `ProjectRulesLoader`.
+- History replay moved into `IPromptBuilder`; see [prompt-builder.md](../context/prompt-builder.md).
+- Mode transition markers and conditional `--resume` preservation via `IModeRuntime`.
+
+---
+
+## SharedContext integration
+
+Prompt assembly is centralized in `Orchi.SharedContext`:
+
+```
+IChatModeStrategy.PrepareTurnAsync
+  → AgentPromptComposer
+  → IPromptBuilder.BuildTurnAsync
+  → AgentTurnRequest(StablePrefix, DynamicContext, ExtraCliArgs, CliProfileKind)
+```
+
+Full details: [docs/context/README.md](../context/README.md#dummy-section-start-here).
 
 ---
 
@@ -159,30 +180,19 @@ When editing prompt assembly code, follow these rules:
 - **Cursor CLI internal system prompt** — Orchi passes one positional prompt argument; the CLI may add its own layers.
 - **Tool definitions** — owned by the Cursor runtime, not assembled by Orchi.
 - **Provider cache TTL and hit rates** — Anthropic, OpenAI, and others have their own caching semantics.
-- **`--resume` session behavior** — multi-turn continuity is delegated to Cursor; Orchi does not manage prefix stability across resumed sessions.
+- **`--resume` session behavior** — Orchi preserves `ExternalSessionId` when CLI profile unchanged; session summaries supplement transcript replay. See [mode-runtime.md](../context/mode-runtime.md).
 
 ---
 
 ## Future implementation
 
-When provider caching becomes a priority:
+Remaining work for provider caching:
 
-1. Introduce a `PromptComposer` (or extend `AgentTurnRequest`) with explicit `StablePrefix` and `DynamicContext` fields.
-2. Centralize prefix assembly: mode instructions + optional rules loader + optional architecture summary.
-3. Keep mode strategies responsible only for dynamic suffix content.
-4. Map structured parts to adapter/CLI capabilities (may require per-provider adapter changes).
+1. Fingerprint stable prefix hash in `IPromptBuilder` for cache markers.
+2. Shrink transcript replay as session summaries mature.
+3. Map structured parts to per-provider adapter capabilities when adding non-Cursor agents.
 
-Illustrative shape (not implemented):
-
-```csharp
-public sealed record AgentTurnRequest(
-    string StablePrefix,
-    string DynamicContext,
-    IReadOnlyList<string> ExtraCliArgs)
-{
-    public string PreparedPrompt => $"{StablePrefix}\n\n---\n\n{DynamicContext}";
-}
-```
+Implemented: explicit `StablePrefix` / `DynamicContext` on `AgentTurnRequest`; centralized `IPromptBuilder`. See [prompt-builder.md](../context/prompt-builder.md).
 
 ---
 

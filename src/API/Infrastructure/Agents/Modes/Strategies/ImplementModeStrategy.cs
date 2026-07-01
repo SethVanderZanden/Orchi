@@ -3,11 +3,17 @@ using Orchi.Api.Infrastructure.Agents.Modes.Plan;
 
 namespace Orchi.Api.Infrastructure.Agents.Modes.Strategies;
 
-public sealed class ImplementModeStrategy(PlanManager planManager) : IChatModeStrategy
+public sealed class ImplementModeStrategy(
+    PlanManager planManager,
+    AgentPromptComposer promptComposer) : IChatModeStrategy
 {
     public ChatMode Mode => ChatMode.Implement;
 
-    public Result<AgentTurnRequest> PrepareTurn(ChatSession session, string userContent, IPlanStore plans)
+    public async ValueTask<Result<AgentTurnRequest>> PrepareTurnAsync(
+        ChatSession session,
+        string userContent,
+        IPlanStore plans,
+        CancellationToken cancellationToken)
     {
         Result validation = planManager.ValidateAttachedPlan(session.AttachedPlanId);
         if (validation.IsFailure)
@@ -21,20 +27,13 @@ public sealed class ImplementModeStrategy(PlanManager planManager) : IChatModeSt
             return Result.Failure<AgentTurnRequest>(planContent.Error);
         }
 
-        string prepared =
-            $"""
-            {ModeInstructions.Implement}
-
-            ## Attached plan
-
-            {planContent.Value}
-
-            ---
-
-            {userContent.Trim()}
-            """;
-
-        return Result.Success(new AgentTurnRequest(prepared, []));
+        string planSection = $"## Attached plan\n\n{planContent.Value}";
+        return await promptComposer.ComposeAsync(
+            session,
+            userContent,
+            ModeInstructions.Implement,
+            planSection,
+            cancellationToken);
     }
 
     public ValueTask OnTurnCompletedAsync(

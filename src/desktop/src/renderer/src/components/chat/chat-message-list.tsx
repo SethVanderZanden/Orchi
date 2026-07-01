@@ -3,6 +3,7 @@ import { ChevronRightIcon, LoaderCircleIcon, UserIcon, WrenchIcon } from 'lucide
 import { OrchiAiIcon } from '@/components/brand/orchi-ai-icon'
 
 import { AssistantMessageContent } from '@/components/chat/assistant-message-content'
+import { PlanMessageTeaser } from '@/components/chat/plan-message-teaser'
 import type { ChatMarker, ChatMessage } from '@/lib/chat/types'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Bubble, BubbleContent } from '@/components/ui/bubble'
@@ -28,9 +29,16 @@ import { cn } from '@/lib/utils'
 type ChatMessageListProps = {
   messages: ChatMessage[]
   markers: ChatMarker[]
+  isPlanResponseMessage?: (message: ChatMessage) => boolean
+  onOpenPlan?: () => void
 }
 
-export function ChatMessageList({ messages, markers }: ChatMessageListProps): React.JSX.Element {
+export function ChatMessageList({
+  messages,
+  markers,
+  isPlanResponseMessage,
+  onOpenPlan
+}: ChatMessageListProps): React.JSX.Element {
   if (messages.length === 0 && markers.length === 0) {
     return (
       <div className="flex flex-1 items-center justify-center p-8">
@@ -68,6 +76,8 @@ export function ChatMessageList({ messages, markers }: ChatMessageListProps): Re
                 <ChatMessageRow
                   message={message}
                   markers={index === lastAssistantIndex ? activeMarkers : []}
+                  showPlanTeaser={isPlanResponseMessage?.(message) ?? false}
+                  onOpenPlan={onOpenPlan}
                 />
               </MessageScrollerItem>
             ))}
@@ -127,9 +137,16 @@ function AssistantActivity({ markers }: AssistantActivityProps): React.JSX.Eleme
 type ChatMessageRowProps = {
   message: ChatMessage
   markers: ChatMarker[]
+  showPlanTeaser?: boolean
+  onOpenPlan?: () => void
 }
 
-function ChatMessageRow({ message, markers }: ChatMessageRowProps): React.JSX.Element {
+function ChatMessageRow({
+  message,
+  markers,
+  showPlanTeaser = false,
+  onOpenPlan
+}: ChatMessageRowProps): React.JSX.Element {
   const isUser = message.role === 'user'
   const showPlaceholder = !isUser && message.status === 'processing' && message.content.length === 0
   const showActivity = !isUser && markers.length > 0
@@ -150,21 +167,31 @@ function ChatMessageRow({ message, markers }: ChatMessageRowProps): React.JSX.El
 
       <MessageContent className={cn(isUser ? 'w-auto max-w-[85%]' : 'max-w-[85%]')}>
         {isUser ? (
-          <p className="whitespace-pre-wrap px-1 text-sm leading-relaxed text-foreground">
-            {message.content}
-          </p>
+          <Bubble variant="user" align="end">
+            <BubbleContent>
+              <p className="whitespace-pre-wrap">{message.content}</p>
+            </BubbleContent>
+          </Bubble>
         ) : (
           <>
             <Bubble
-              variant={message.status === 'error' ? 'destructive' : 'muted'}
+              variant={message.status === 'error' ? 'destructive' : 'assistant'}
               align="start"
             >
               <BubbleContent>
-                <AssistantMessageContent
-                  content={message.content}
-                  status={message.status}
-                  showPlaceholder={showPlaceholder}
-                />
+                {showPlanTeaser && onOpenPlan && message.status !== 'error' ? (
+                  <PlanMessageTeaser
+                    content={message.content}
+                    status={message.status}
+                    onOpenPlan={onOpenPlan}
+                  />
+                ) : (
+                  <AssistantMessageContent
+                    content={message.content}
+                    status={message.status}
+                    showPlaceholder={showPlaceholder}
+                  />
+                )}
               </BubbleContent>
             </Bubble>
             {showActivity ? <AssistantActivity markers={markers} /> : null}

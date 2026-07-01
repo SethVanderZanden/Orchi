@@ -3,15 +3,16 @@ using Orchi.Api.Infrastructure.Agents.Modes.Plan;
 
 namespace Orchi.Api.Infrastructure.Agents.Modes.Strategies;
 
-public sealed class AgentModeStrategy : IChatModeStrategy
+public sealed class AgentModeStrategy(AgentPromptComposer promptComposer) : IChatModeStrategy
 {
     public ChatMode Mode => ChatMode.Agent;
 
-    public Result<AgentTurnRequest> PrepareTurn(ChatSession session, string userContent, IPlanStore plans)
-    {
-        string prepared = $"{ModeInstructions.Agent}\n\n---\n\n{userContent.Trim()}";
-        return Result.Success(new AgentTurnRequest(prepared, []));
-    }
+    public ValueTask<Result<AgentTurnRequest>> PrepareTurnAsync(
+        ChatSession session,
+        string userContent,
+        IPlanStore plans,
+        CancellationToken cancellationToken) =>
+        new(promptComposer.ComposeAsync(session, userContent, ModeInstructions.Agent, null, cancellationToken));
 
     public ValueTask OnTurnCompletedAsync(
         ChatSession session,

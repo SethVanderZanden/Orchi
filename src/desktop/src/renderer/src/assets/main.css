@@ -43,6 +43,9 @@
   --color-chart-3: var(--chart-3);
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
+  --color-message-foreground: var(--message-foreground);
+  --color-message-user: var(--message-user);
+  --color-message-assistant: var(--message-assistant);
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
@@ -82,6 +85,9 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --message-foreground: oklch(0.145 0 0);
+  --message-user: oklch(from var(--primary) 0.92 calc(c * 0.35) h);
+  --message-assistant: oklch(0.965 0.002 286);
 }
 
 .dark {
@@ -117,6 +123,9 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  --message-foreground: oklch(0.96 0 0);
+  --message-user: oklch(from var(--primary) 0.32 calc(c * 0.4) h);
+  --message-assistant: oklch(0.24 0.004 286);
 }
 
 @layer base {

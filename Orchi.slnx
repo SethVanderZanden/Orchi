@@ -1,5 +1,7 @@
 <Solution>
-  <Folder Name="/src/" />
+  <Folder Name="/src/">
+    <Project Path="src/SharedContext/Orchi.SharedContext.csproj" />
+  </Folder>
   <Folder Name="/src/API/">
     <Project Path="src/API/Orchi.Api.csproj" />
   </Folder>

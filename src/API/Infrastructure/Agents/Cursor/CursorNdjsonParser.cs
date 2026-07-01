@@ -47,6 +47,14 @@ internal static class CursorNdjsonParser
 
             switch (type)
             {
+                case "system":
+                    foreach (AgentEvent started in ParseSystemEvent(root))
+                    {
+                        yield return started;
+                    }
+
+                    break;
+
                 case "assistant":
                     foreach (AgentEvent delta in ParseAssistantEvent(root))
                     {
@@ -126,6 +134,28 @@ internal static class CursorNdjsonParser
                 }
             }
         }
+    }
+
+    private static IEnumerable<AgentEvent> ParseSystemEvent(JsonElement root)
+    {
+        if (!root.TryGetProperty("subtype", out JsonElement subtypeElement) ||
+            !string.Equals(subtypeElement.GetString(), "init", StringComparison.Ordinal))
+        {
+            yield break;
+        }
+
+        if (!root.TryGetProperty("session_id", out JsonElement sessionIdElement))
+        {
+            yield break;
+        }
+
+        string? sessionId = sessionIdElement.GetString();
+        if (string.IsNullOrWhiteSpace(sessionId))
+        {
+            yield break;
+        }
+
+        yield return new AgentSessionStartedEvent(sessionId);
     }
 
     private static IEnumerable<AgentEvent> ParseResultEvent(JsonElement root)

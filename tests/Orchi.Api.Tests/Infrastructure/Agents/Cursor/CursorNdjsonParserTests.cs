@@ -1,5 +1,6 @@
 using Orchi.Api.Infrastructure.Agents;
 using Orchi.Api.Infrastructure.Agents.Cursor;
+using Orchi.Api.Infrastructure.Agents.Modes;
 
 namespace Orchi.Api.Tests.Infrastructure.Agents.Cursor;
 
@@ -26,6 +27,17 @@ public class CursorNdjsonParserTests
             """;
 
         Assert.Empty(CursorNdjsonParser.ParseLine(line));
+    }
+
+    [Fact]
+    public void ParseLine_SystemInit_ReturnsSessionStartedEvent()
+    {
+        const string line = """
+            {"type":"system","subtype":"init","cwd":"/tmp","session_id":"cursor-session-init"}
+            """;
+
+        AgentSessionStartedEvent started = Assert.IsType<AgentSessionStartedEvent>(Assert.Single(CursorNdjsonParser.ParseLine(line)));
+        Assert.Equal("cursor-session-init", started.ExternalSessionId);
     }
 
     [Fact]

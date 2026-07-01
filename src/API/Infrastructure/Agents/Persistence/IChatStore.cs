@@ -31,6 +31,11 @@ public interface IChatStore
         string? externalSessionId,
         CancellationToken cancellationToken);
 
+    Task UpdateExternalSessionIdAsync(
+        Guid chatId,
+        string externalSessionId,
+        CancellationToken cancellationToken);
+
     Task UpdateGoalChatIdAsync(Guid chatId, Guid goalChatId, CancellationToken cancellationToken);
 
     Task UpdateModeAsync(

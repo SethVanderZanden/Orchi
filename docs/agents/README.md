@@ -60,12 +60,19 @@ Agent integration lives under `src/API/Infrastructure/Agents/`.
 | `implement` | default agent | Requires `attachedPlanId`; injects plan content |
 | `orchestrate` | `--mode=plan` | Parses sub-plans; dispatch + handoff APIs |
 | `goal` | `--mode=ask` / `plan` | Event-driven check-ins on child chat activity |
+| `participant` | `--mode=ask` | Conversational chat member; fact-checks claims against the codebase |
 
 Modes are set at `POST /chats` (default `agent`) and can be changed mid-lifecycle via `PATCH /chats/{id}` — the new mode applies to the **next message** only. Cannot change mode while a turn is in progress. See `src/API/Infrastructure/Agents/Modes/`.
 
+**Mode authority:** Orchi owns mode semantics via `IModeRuntime` (CLI profile mapping) and `IPromptBuilder` (instructions + context). Cursor CLI `--mode` flags are an implementation detail, not the source of truth. See [mode-runtime.md](../context/mode-runtime.md#dummy-section-start-here).
+
+### SharedContext
+
+Workspace knowledge (indexed files, session summaries, retrieval) lives in [`Orchi.SharedContext`](../context/README.md#dummy-section-start-here) — shared across all chats in the same workspace path.
+
 ### Prompt composition
 
-Each mode strategy builds a `PreparedPrompt` by prepending stable mode instructions, then a `---` delimiter, then per-turn user content. See [prompt composition](prompt-composition.md#dummy-section-start-here) for the stable-prefix / dynamic-context pattern and provider caching guidance.
+Each mode strategy delegates to `AgentPromptComposer` → `IPromptBuilder`, which builds stable prefix + dynamic context. See [prompt composition](prompt-composition.md#dummy-section-start-here) and [prompt-builder.md](../context/prompt-builder.md#dummy-section-start-here).
 
 Sessions and messages persist to **SQLite** via EF Core (`orchi.db`). User messages are saved immediately; assistant messages are saved once when a turn completes or errors (streaming tokens stay in-memory only). Plans and sub-plans are also persisted. Active chats are cached in memory for streaming and process handles; `GET /chats` and `GET /chats/{id}` hydrate from the database when needed.
 

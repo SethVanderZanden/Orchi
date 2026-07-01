@@ -4,6 +4,7 @@ import type {
   ChatSummaryResponse,
   CreateChatRequest,
   CreateChatResponse,
+  PlanResponse,
   SseHandlers,
   UpdateChatRequest
 } from '@/lib/chat/types'
@@ -229,6 +230,16 @@ function parseSseEvent(rawEvent: string, handlers: SseHandlers) {
       )
       break
   }
+}
+
+export async function getPlan(planId: string): Promise<PlanResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/plans/${planId}`)
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response))
+  }
+
+  return response.json() as Promise<PlanResponse>
 }
 
 export type CreateChatPlanRequest = {

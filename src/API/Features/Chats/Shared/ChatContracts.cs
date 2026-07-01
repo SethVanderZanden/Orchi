@@ -47,6 +47,7 @@ public static class ChatMapper
                 ChatMode.Orchestrate => "Orchestration",
                 ChatMode.Goal => "Goal tracker",
                 ChatMode.Implement => "Implementation",
+                ChatMode.Participant => "Participant",
                 _ => "New chat"
             };
         }

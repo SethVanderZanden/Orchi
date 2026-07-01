@@ -23,6 +23,10 @@ export default defineConfig({
         '/chats': {
           target: 'http://localhost:5265',
           changeOrigin: true
+        },
+        '/plans': {
+          target: 'http://localhost:5265',
+          changeOrigin: true
         }
       }
     },
