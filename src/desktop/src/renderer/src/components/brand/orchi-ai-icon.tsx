@@ -1,7 +1,5 @@
 import { useId } from 'react'
 
-import { cn } from '@/lib/utils'
-
 type OrchiAiIconProps = {
   className?: string
 }
@@ -22,7 +20,7 @@ export function OrchiAiIcon({ className }: OrchiAiIconProps): React.JSX.Element 
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
-      className={cn('size-6 shrink-0', className)}
+      className={className ? `size-6 shrink-0 ${className}` : 'size-6 shrink-0'}
     >
       <defs>
         <linearGradient id={gradientId} x1="5" y1="5" x2="19" y2="20" gradientUnits="userSpaceOnUse">

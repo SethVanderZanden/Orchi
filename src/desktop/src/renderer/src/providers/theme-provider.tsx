@@ -1,11 +1,10 @@
-import { ThemeProvider as NextThemesProvider } from 'next-themes'
+import { Theme } from '@astryxdesign/core/theme'
+import { neutralTheme } from '@astryxdesign/theme-neutral'
 
-type ThemeProviderProps = React.ComponentProps<typeof NextThemesProvider>
+type ThemeProviderProps = {
+  children: React.ReactNode
+}
 
-export function ThemeProvider({ children, ...props }: ThemeProviderProps): React.JSX.Element {
-  return (
-    <NextThemesProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange {...props}>
-      {children}
-    </NextThemesProvider>
-  )
+export function ThemeProvider({ children }: ThemeProviderProps): React.JSX.Element {
+  return <Theme theme={neutralTheme}>{children}</Theme>
 }

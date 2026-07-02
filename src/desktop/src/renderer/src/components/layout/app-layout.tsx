@@ -1,18 +1,32 @@
 import { Outlet } from '@tanstack/react-router'
+import { HStack, Layout, LayoutContent } from '@astryxdesign/core/Layout'
+import type { CSSProperties } from 'react'
 
-import { ChatSidebar } from '@/components/chat/chat-sidebar'
-import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
-import { TooltipProvider } from '@/components/ui/tooltip'
+import { WorkspaceNavigator } from '@/components/workspace/workspace-navigator'
+
+const mainPane: CSSProperties = {
+  flex: 1,
+  minWidth: 0,
+  minHeight: 0,
+  height: '100%',
+  display: 'flex',
+  flexDirection: 'column'
+}
 
 export function AppLayout(): React.JSX.Element {
   return (
-    <TooltipProvider>
-      <SidebarProvider defaultOpen className="h-svh min-h-0">
-        <ChatSidebar />
-        <SidebarInset className="min-h-0 overflow-hidden">
-          <Outlet />
-        </SidebarInset>
-      </SidebarProvider>
-    </TooltipProvider>
+    <Layout
+      height="fill"
+      content={
+        <LayoutContent padding={0} isScrollable={false}>
+          <HStack height="100%">
+            <WorkspaceNavigator />
+            <div style={mainPane}>
+              <Outlet />
+            </div>
+          </HStack>
+        </LayoutContent>
+      }
+    />
   )
 }

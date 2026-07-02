@@ -1,54 +1,34 @@
-import { ChevronRightIcon, LoaderCircleIcon, UserIcon, WrenchIcon } from 'lucide-react'
-
-import { OrchiAiIcon } from '@/components/brand/orchi-ai-icon'
-
-import { AssistantMessageContent } from '@/components/chat/assistant-message-content'
-import type { ChatMarker, ChatMessage } from '@/lib/chat/types'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Bubble, BubbleContent } from '@/components/ui/bubble'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { Message, MessageAvatar, MessageContent } from '@/components/ui/message'
+import { Avatar } from '@astryxdesign/core/Avatar'
 import {
-  MessageScroller,
-  MessageScrollerButton,
-  MessageScrollerContent,
-  MessageScrollerItem,
-  MessageScrollerProvider,
-  MessageScrollerViewport
-} from '@/components/ui/message-scroller'
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle
-} from '@/components/ui/empty'
-import { cn } from '@/lib/utils'
+  ChatMessage,
+  ChatMessageBubble,
+  ChatMessageList,
+  ChatToolCalls
+} from '@astryxdesign/core/Chat'
+import { Markdown } from '@astryxdesign/core/Markdown'
+import { Text } from '@astryxdesign/core/Text'
+import { EmptyState } from '@astryxdesign/core/EmptyState'
+import { Icon } from '@astryxdesign/core/Icon'
+import { ChatBubbleLeftEllipsisIcon } from '@heroicons/react/24/outline'
+
+import type { ChatMarker, ChatMessage as OrchiChatMessage } from '@/lib/chat/types'
 
 type ChatMessageListProps = {
-  messages: ChatMessage[]
+  messages: OrchiChatMessage[]
   markers: ChatMarker[]
 }
 
-export function ChatMessageList({
+export function OrchiChatMessageList({
   messages,
   markers
 }: ChatMessageListProps): React.JSX.Element {
   if (messages.length === 0 && markers.length === 0) {
     return (
-      <div className="flex flex-1 items-center justify-center p-8">
-        <Empty className="border-none">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <OrchiAiIcon className="size-5" />
-            </EmptyMedia>
-            <EmptyTitle>Start a conversation</EmptyTitle>
-            <EmptyDescription>
-              Ask Orchi to help with coding tasks in your workspace.
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      </div>
+      <EmptyState
+        title="Start a conversation"
+        description="Ask Orchi to help with coding tasks in your workspace."
+        icon={<Icon icon={ChatBubbleLeftEllipsisIcon} size="md" />}
+      />
     )
   }
 
@@ -59,126 +39,72 @@ export function ChatMessageList({
   const activeMarkers = isActiveTurn ? markers : []
 
   return (
-    <MessageScrollerProvider>
-      <MessageScroller className="flex-1">
-        <MessageScrollerViewport>
-          <MessageScrollerContent className="mx-auto w-full max-w-3xl px-4 py-6 md:px-8">
-            {messages.map((message, index) => (
-              <MessageScrollerItem
-                key={message.id}
-                scrollAnchor={index === messages.length - 1}
-              >
-                <ChatMessageRow
-                  message={message}
-                  markers={index === lastAssistantIndex ? activeMarkers : []}
-                />
-              </MessageScrollerItem>
-            ))}
-          </MessageScrollerContent>
-        </MessageScrollerViewport>
-        <MessageScrollerButton />
-      </MessageScroller>
-    </MessageScrollerProvider>
-  )
-}
-
-type AssistantActivityProps = {
-  markers: ChatMarker[]
-}
-
-function AssistantActivity({ markers }: AssistantActivityProps): React.JSX.Element | null {
-  const toolMarkers = markers.filter((marker) => marker.variant === 'tool')
-  const hasStatus = markers.some((marker) => marker.variant === 'status')
-
-  if (toolMarkers.length === 0 && !hasStatus) {
-    return null
-  }
-
-  if (toolMarkers.length === 0) {
-    return (
-      <div className="text-muted-foreground flex items-center gap-1.5 px-1 pt-2 text-xs">
-        <LoaderCircleIcon className="size-3 animate-spin" />
-        <span>Working…</span>
-      </div>
-    )
-  }
-
-  const stepLabel =
-    toolMarkers.length === 1 ? '1 step' : `${toolMarkers.length} steps`
-
-  return (
-    <Collapsible className="pt-2">
-      <CollapsibleTrigger className="text-muted-foreground hover:text-foreground flex w-full items-center gap-1.5 px-1 text-xs transition-colors [&[data-state=open]>svg:first-child]:rotate-90">
-        <ChevronRightIcon className="size-3 shrink-0 transition-transform" />
-        <WrenchIcon className="size-3 shrink-0" />
-        <span>{stepLabel}</span>
-        {hasStatus ? <LoaderCircleIcon className="ml-auto size-3 animate-spin" /> : null}
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <ul className="text-muted-foreground mt-1.5 space-y-1 border-l pl-3 text-xs">
-          {toolMarkers.map((marker) => (
-            <li key={marker.id} className="leading-relaxed">
-              {marker.content}
-            </li>
-          ))}
-        </ul>
-      </CollapsibleContent>
-    </Collapsible>
+    <ChatMessageList>
+      {messages.map((message, index) => (
+        <ChatMessageRow
+          key={message.id}
+          message={message}
+          markers={index === lastAssistantIndex ? activeMarkers : []}
+        />
+      ))}
+    </ChatMessageList>
   )
 }
 
 type ChatMessageRowProps = {
-  message: ChatMessage
+  message: OrchiChatMessage
   markers: ChatMarker[]
 }
 
-function ChatMessageRow({
-  message,
-  markers
-}: ChatMessageRowProps): React.JSX.Element {
+function ChatMessageRow({ message, markers }: ChatMessageRowProps): React.JSX.Element {
   const isUser = message.role === 'user'
-  const showPlaceholder = !isUser && message.status === 'processing' && message.content.length === 0
+  const showPlaceholder =
+    !isUser && message.status === 'processing' && message.content.length === 0
   const showActivity = !isUser && markers.length > 0
 
-  return (
-    <Message align={isUser ? 'end' : 'start'} className="gap-3">
-      <MessageAvatar>
-        <Avatar size="default">
-          <AvatarFallback className={isUser ? undefined : 'bg-muted/40'}>
-            {isUser ? (
-              <UserIcon className="size-5" />
-            ) : (
-              <OrchiAiIcon className="size-5" />
-            )}
-          </AvatarFallback>
-        </Avatar>
-      </MessageAvatar>
+  if (isUser) {
+    return (
+      <ChatMessage sender="user">
+        <ChatMessageBubble>
+          <Text type="body">{message.content}</Text>
+        </ChatMessageBubble>
+      </ChatMessage>
+    )
+  }
 
-      <MessageContent className={cn(isUser ? 'w-auto max-w-[85%]' : 'max-w-[85%]')}>
-        {isUser ? (
-          <Bubble variant="user" align="end">
-            <BubbleContent>
-              <p className="whitespace-pre-wrap">{message.content}</p>
-            </BubbleContent>
-          </Bubble>
+  const toolCalls = markers
+    .filter((marker) => marker.variant === 'tool')
+    .map((marker) => ({
+      key: marker.id,
+      name: 'tool',
+      target: marker.content,
+      status: markers.some((item) => item.variant === 'status')
+        ? ('running' as const)
+        : ('complete' as const)
+    }))
+
+  return (
+    <ChatMessage sender="assistant" avatar={<Avatar name="Orchi" size="small" />}>
+      <ChatMessageBubble variant={message.status === 'error' ? 'filled' : 'ghost'}>
+        {showPlaceholder ? (
+          <Text type="body" color="secondary">
+            …
+          </Text>
+        ) : message.status === 'processing' || message.status === 'streaming' ? (
+          <Text type="body">{message.content}</Text>
         ) : (
-          <>
-            <Bubble
-              variant={message.status === 'error' ? 'destructive' : 'assistant'}
-              align="start"
-            >
-              <BubbleContent>
-                <AssistantMessageContent
-                  content={message.content}
-                  status={message.status}
-                  showPlaceholder={showPlaceholder}
-                />
-              </BubbleContent>
-            </Bubble>
-            {showActivity ? <AssistantActivity markers={markers} /> : null}
-          </>
+          <Markdown>{message.content}</Markdown>
         )}
-      </MessageContent>
-    </Message>
+      </ChatMessageBubble>
+      {showActivity ? (
+        toolCalls.length > 0 ? (
+          <ChatToolCalls calls={toolCalls} defaultIsExpanded />
+        ) : (
+          <Text type="supporting" color="secondary">
+            Working…
+          </Text>
+        )
+      ) : null}
+    </ChatMessage>
   )
 }

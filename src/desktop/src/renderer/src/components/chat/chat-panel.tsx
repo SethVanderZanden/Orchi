@@ -1,12 +1,30 @@
 import { useNavigate } from '@tanstack/react-router'
-import { XIcon } from 'lucide-react'
+import { VStack } from '@astryxdesign/core/Layout'
+import { ChatLayout } from '@astryxdesign/core/Chat'
+import { Button } from '@astryxdesign/core/Button'
+import { Icon } from '@astryxdesign/core/Icon'
+import { Toolbar } from '@astryxdesign/core/Toolbar'
+import { Text } from '@astryxdesign/core/Text'
+import { XMarkIcon } from '@heroicons/react/24/outline'
+import type { CSSProperties } from 'react'
 
+import { OrchiChatComposer } from '@/components/chat/chat-composer'
+import { OrchiChatMessageList } from '@/components/chat/chat-message-list'
 import type { ChatThread } from '@/lib/chat/types'
 import { useChat } from '@/providers/chat-provider'
-import { AppPageHeader } from '@/components/layout/app-page-header'
-import { ChatComposer } from '@/components/chat/chat-composer'
-import { ChatMessageList } from '@/components/chat/chat-message-list'
-import { Button } from '@/components/ui/button'
+
+const chatShell: CSSProperties = {
+  flex: 1,
+  minHeight: 0,
+  height: '100%',
+  display: 'flex',
+  flexDirection: 'column'
+}
+
+const chatLayout: CSSProperties = {
+  flex: 1,
+  minHeight: 0
+}
 
 type ChatPanelProps = {
   chat: ChatThread
@@ -22,26 +40,46 @@ export function ChatPanel({ chat }: ChatPanelProps): React.JSX.Element {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col">
-      <AppPageHeader
-        title={chat.title}
-        description={`${chat.workspacePath} · ${chat.messages.length} message${chat.messages.length === 1 ? '' : 's'}`}
+    <VStack style={chatShell}>
+      <Toolbar
+        label="Chat header"
+        size="sm"
+        dividers={['bottom']}
+        startContent={
+          <VStack gap={0}>
+            <Text type="label" weight="semibold">
+              {chat.title}
+            </Text>
+            <Text type="supporting" color="secondary">
+              {chat.workspacePath} · {chat.messages.length} message
+              {chat.messages.length === 1 ? '' : 's'}
+            </Text>
+          </VStack>
+        }
+        endContent={
+          <Button
+            label="Close chat"
+            variant="ghost"
+            size="sm"
+            icon={<Icon icon={XMarkIcon} size="sm" />}
+            isIconOnly
+            onClick={() => void handleCloseChat()}
+          />
+        }
+      />
+
+      <ChatLayout
+        density="spacious"
+        style={chatLayout}
+        composer={
+          <OrchiChatComposer
+            disabled={isSending}
+            onSend={(content) => sendMessage(chat.id, content)}
+          />
+        }
       >
-        <Button size="icon-sm" variant="ghost" onClick={handleCloseChat} aria-label="Close chat">
-          <XIcon />
-        </Button>
-      </AppPageHeader>
-
-      <div className="flex min-h-0 flex-1 flex-col">
-        <ChatMessageList messages={chat.messages} markers={getMarkers(chat.id)} />
-      </div>
-
-      <div className="shrink-0 border-t bg-background/80 px-4 py-4 backdrop-blur-sm">
-        <ChatComposer
-          disabled={isSending}
-          onSend={(content) => sendMessage(chat.id, content)}
-        />
-      </div>
-    </div>
+        <OrchiChatMessageList messages={chat.messages} markers={getMarkers(chat.id)} />
+      </ChatLayout>
+    </VStack>
   )
 }

@@ -1,14 +1,9 @@
-import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Layout, LayoutContent, VStack } from '@astryxdesign/core/Layout'
+import { Button } from '@astryxdesign/core/Button'
+import { Dialog, DialogHeader } from '@astryxdesign/core/Dialog'
+import { TextInput } from '@astryxdesign/core/TextInput'
+import { Text } from '@astryxdesign/core/Text'
+import { HStack } from '@astryxdesign/core/Layout'
 
 export type NewChatOptions = {
   workspacePath: string
@@ -33,44 +28,48 @@ export function NewChatDialog({
 }: NewChatDialogProps): React.JSX.Element {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
-
     await onCreateChat({ workspacePath })
     onOpenChange(false)
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <form onSubmit={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle>New chat in {workspaceName}</DialogTitle>
-            <DialogDescription>
-              Start a conversation with the Cursor agent in this project.
-            </DialogDescription>
-          </DialogHeader>
+    <Dialog isOpen={open} onOpenChange={onOpenChange} purpose="form" width={440}>
+      <Layout
+        header={
+          <DialogHeader
+            title={`New chat in ${workspaceName}`}
+            subtitle="Start a conversation with the Cursor agent in this project."
+            onOpenChange={onOpenChange}
+          />
+        }
+        content={
+          <LayoutContent>
+            <form onSubmit={handleSubmit}>
+              <VStack gap={4}>
+                <VStack gap={1}>
+                  <Text type="label" weight="semibold">
+                    {workspaceName}
+                  </Text>
+                  <Text type="supporting" color="secondary">
+                    {workspacePath}
+                  </Text>
+                </VStack>
 
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-1 rounded-lg border px-3 py-2">
-              <p className="text-sm font-medium">{workspaceName}</p>
-              <p className="text-muted-foreground truncate text-xs">{workspacePath}</p>
-            </div>
+                <TextInput label="Agent" value="Cursor" onChange={() => {}} isDisabled />
 
-            <div className="grid gap-2">
-              <Label htmlFor="agent">Agent</Label>
-              <Input id="agent" value="Cursor" readOnly disabled />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              Create chat
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
+                <HStack gap={2} hAlign="end">
+                  <Button
+                    label="Cancel"
+                    variant="secondary"
+                    onClick={() => onOpenChange(false)}
+                  />
+                  <Button label="Create chat" type="submit" isDisabled={isSubmitting} />
+                </HStack>
+              </VStack>
+            </form>
+          </LayoutContent>
+        }
+      />
     </Dialog>
   )
 }

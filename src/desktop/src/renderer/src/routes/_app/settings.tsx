@@ -1,11 +1,15 @@
 import { useState } from 'react'
-import { createFileRoute, Link } from '@tanstack/react-router'
-import { FolderPlusIcon, SettingsIcon, Trash2Icon } from 'lucide-react'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { Layout, LayoutContent, VStack, HStack } from '@astryxdesign/core/Layout'
+import { Button } from '@astryxdesign/core/Button'
+import { TextInput } from '@astryxdesign/core/TextInput'
+import { Text } from '@astryxdesign/core/Text'
+import { Section } from '@astryxdesign/core/Section'
+import { List, ListItem } from '@astryxdesign/core/List'
+import { Toolbar } from '@astryxdesign/core/Toolbar'
+import { Icon } from '@astryxdesign/core/Icon'
+import { FolderPlusIcon, TrashIcon } from '@heroicons/react/24/outline'
 
-import { AppPageHeader } from '@/components/layout/app-page-header'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { useWorkspaces } from '@/providers/workspace-provider'
 import { displayWorkspacePath } from '@/lib/workspaces/store'
 
@@ -14,8 +18,14 @@ export const Route = createFileRoute('/_app/settings')({
 })
 
 function SettingsPage(): React.JSX.Element {
-  const { workspaces, addWorkspace: registerWorkspace, removeWorkspace, renameWorkspace, pickDirectory } =
-    useWorkspaces()
+  const navigate = useNavigate()
+  const {
+    workspaces,
+    addWorkspace: registerWorkspace,
+    removeWorkspace,
+    renameWorkspace,
+    pickDirectory
+  } = useWorkspaces()
   const [manualPath, setManualPath] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
@@ -59,99 +69,127 @@ function SettingsPage(): React.JSX.Element {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col">
-      <AppPageHeader title="Settings" description="Projects and app preferences" />
-
-      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 overflow-y-auto p-6">
-        <section className="space-y-4">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h2 className="text-sm font-medium">Projects</h2>
-              <p className="text-muted-foreground text-sm leading-relaxed">
-                Register project folders once, then create many chats per project from the sidebar.
-              </p>
-            </div>
-            <Button variant="outline" size="sm" onClick={handlePickDirectory} disabled={isPicking}>
-              <FolderPlusIcon />
-              Add project
-            </Button>
-          </div>
-
-          {workspaces.length === 0 ? (
-            <p className="text-muted-foreground rounded-xl border border-dashed p-4 text-sm">
-              No projects registered yet. Add a folder to organize chats by workspace.
-            </p>
-          ) : (
-            <ul className="divide-y rounded-xl border">
-              {workspaces.map((workspace) => (
-                <li key={workspace.id} className="flex items-start gap-3 p-4">
-                  <div className="min-w-0 flex-1">
-                    {editingId === workspace.id ? (
-                      <Input
-                        value={editingName}
-                        onChange={(event) => setEditingName(event.target.value)}
-                        onBlur={saveEditing}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter') {
-                            saveEditing()
-                          }
-                        }}
-                        autoFocus
-                      />
-                    ) : (
-                      <button
-                        type="button"
-                        className="text-left text-sm font-medium hover:underline"
-                        onClick={() => startEditing(workspace.id, workspace.name)}
-                      >
-                        {workspace.name}
-                      </button>
-                    )}
-                    <p className="text-muted-foreground mt-1 truncate text-xs">{workspace.path}</p>
-                  </div>
+    <Layout
+      height="fill"
+      header={
+        <Toolbar
+          label="Settings"
+          size="sm"
+          dividers={['bottom']}
+          startContent={
+            <VStack gap={0}>
+              <Text type="label" weight="semibold">
+                Settings
+              </Text>
+              <Text type="supporting" color="secondary">
+                Projects and app preferences
+              </Text>
+            </VStack>
+          }
+        />
+      }
+      content={
+        <LayoutContent>
+          <VStack gap={6} style={{ maxWidth: 640, marginInline: 'auto', width: '100%' }}>
+            <Section variant="section" padding={4}>
+              <VStack gap={4}>
+                <HStack hAlign="between" vAlign="start" gap={4}>
+                  <VStack gap={1}>
+                    <Text type="label" weight="semibold">
+                      Projects
+                    </Text>
+                    <Text type="supporting" color="secondary">
+                      Register project folders once, then create many chats per project from the
+                      navigator.
+                    </Text>
+                  </VStack>
                   <Button
-                    size="icon-sm"
-                    variant="ghost"
-                    aria-label={`Remove ${workspace.name}`}
-                    onClick={() => removeWorkspace(workspace.id)}
-                  >
-                    <Trash2Icon />
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          )}
+                    label="Add project"
+                    variant="secondary"
+                    size="sm"
+                    icon={<Icon icon={FolderPlusIcon} size="sm" />}
+                    onClick={() => void handlePickDirectory()}
+                    isDisabled={isPicking}
+                  />
+                </HStack>
 
-          <div className="space-y-2 rounded-xl border p-4">
-            <Label htmlFor="manualPath">Or paste a path</Label>
-            <div className="flex gap-2">
-              <Input
-                id="manualPath"
-                value={manualPath}
-                onChange={(event) => setManualPath(event.target.value)}
-                placeholder="e.g. E:\Projects\Orchi"
-              />
-              <Button variant="secondary" onClick={handleManualAdd} disabled={!manualPath.trim()}>
-                Add
-              </Button>
-            </div>
-          </div>
-        </section>
+                {workspaces.length === 0 ? (
+                  <Text type="supporting" color="secondary">
+                    No projects registered yet. Add a folder to organize chats by workspace.
+                  </Text>
+                ) : (
+                  <List density="balanced" hasDividers>
+                    {workspaces.map((workspace) => (
+                      <ListItem
+                        key={workspace.id}
+                        label={
+                          editingId === workspace.id ? editingName : workspace.name
+                        }
+                        description={workspace.path}
+                        onClick={() => startEditing(workspace.id, workspace.name)}
+                        endContent={
+                          <Button
+                            label={`Remove ${workspace.name}`}
+                            variant="ghost"
+                            size="sm"
+                            icon={<Icon icon={TrashIcon} size="sm" />}
+                            isIconOnly
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              removeWorkspace(workspace.id)
+                            }}
+                          />
+                        }
+                      />
+                    ))}
+                  </List>
+                )}
 
-        <section className="rounded-xl border p-4">
-          <p className="text-muted-foreground mb-4 text-sm">
-            Jump back to a conversation without losing sidebar state.
-          </p>
-          <Button asChild variant="outline">
-            <Link to="/">Open chats</Link>
-          </Button>
-        </section>
+                {editingId ? (
+                  <TextInput
+                    label="Project name"
+                    value={editingName}
+                    onChange={setEditingName}
+                    onBlur={saveEditing}
+                    hasAutoFocus
+                  />
+                ) : null}
 
-        <section className="text-muted-foreground flex items-center gap-2 text-xs">
-          <SettingsIcon className="size-3.5" />
-          Removing a project does not delete its chats — they appear under Other until re-registered.
-        </section>
-      </main>
-    </div>
+                <VStack gap={2}>
+                  <TextInput
+                    label="Or paste a path"
+                    value={manualPath}
+                    onChange={setManualPath}
+                    placeholder="e.g. E:\\Projects\\Orchi"
+                  />
+                  <HStack hAlign="end">
+                    <Button
+                      label="Add"
+                      variant="secondary"
+                      onClick={handleManualAdd}
+                      isDisabled={!manualPath.trim()}
+                    />
+                  </HStack>
+                </VStack>
+              </VStack>
+            </Section>
+
+            <Section variant="section" padding={4}>
+              <VStack gap={3}>
+                <Text type="supporting" color="secondary">
+                  Jump back to a conversation without losing navigator state.
+                </Text>
+                <Button label="Open chats" variant="secondary" onClick={() => navigate({ to: '/' })} />
+              </VStack>
+            </Section>
+
+            <Text type="supporting" color="secondary">
+              Removing a project does not delete its chats — they appear under Other until
+              re-registered.
+            </Text>
+          </VStack>
+        </LayoutContent>
+      }
+    />
   )
 }

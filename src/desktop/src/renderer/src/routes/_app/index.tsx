@@ -1,4 +1,6 @@
 import { createFileRoute, Navigate } from '@tanstack/react-router'
+import { Text } from '@astryxdesign/core/Text'
+import { VStack } from '@astryxdesign/core/Layout'
 
 import { useChat } from '@/providers/chat-provider'
 
@@ -12,9 +14,11 @@ function AppIndexPage(): React.JSX.Element {
 
   if (!firstChatId) {
     return (
-      <div className="text-muted-foreground flex flex-1 items-center justify-center text-sm">
-        No chats yet. Create one from the sidebar.
-      </div>
+      <VStack height="100%" hAlign="center" vAlign="center">
+        <Text type="supporting" color="secondary">
+          No chats yet. Create one from the navigator.
+        </Text>
+      </VStack>
     )
   }
 
