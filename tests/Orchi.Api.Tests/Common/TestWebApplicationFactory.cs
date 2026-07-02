@@ -8,16 +8,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Orchi.Api.Data;
 using Orchi.Api.Entities;
-using Orchi.Api.Infrastructure.Agents.Modes.Plan;
 using Orchi.Api.Infrastructure.Agents.Persistence;
-using Orchi.SharedContext.Storage;
 
 namespace Orchi.Api.Tests.Common;
 
 public sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
 {
     private readonly string _databasePath = Path.Combine(Path.GetTempPath(), $"orchi-test-{Guid.NewGuid():N}.db");
-    private readonly string _contextDatabasePath = Path.Combine(Path.GetTempPath(), $"orchi-context-test-{Guid.NewGuid():N}.db");
     private bool _databaseInitialized;
 
     public string DatabasePath => _databasePath;
@@ -37,20 +34,14 @@ public sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
             services.RemoveAll<DbContextOptions<AppDbContext>>();
             services.RemoveAll<AppDbContext>();
             services.RemoveAll<IChatStore>();
-            services.RemoveAll<IPlanStore>();
-            services.RemoveAll<IDbContextFactory<SharedContextDbContext>>();
 
             services.AddDbContextFactory<AppDbContext>(options =>
                 options.UseSqlite($"Data Source={_databasePath}"));
-
-            services.AddDbContextFactory<SharedContextDbContext>(options =>
-                options.UseSqlite($"Data Source={_contextDatabasePath}"));
 
             services.AddScoped(static sp =>
                 sp.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext());
 
             services.AddSingleton<IChatStore, EfChatStore>();
-            services.AddSingleton<IPlanStore, EfPlanStore>();
         });
     }
 
@@ -119,7 +110,6 @@ public sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
 public sealed class SharedDatabaseWebApplicationFactory : WebApplicationFactory<Program>
 {
     private readonly string _databasePath;
-    private readonly string _contextDatabasePath = Path.Combine(Path.GetTempPath(), $"orchi-context-shared-{Guid.NewGuid():N}.db");
     private bool _databaseInitialized;
 
     public SharedDatabaseWebApplicationFactory(string databasePath)
@@ -144,20 +134,14 @@ public sealed class SharedDatabaseWebApplicationFactory : WebApplicationFactory<
             services.RemoveAll<DbContextOptions<AppDbContext>>();
             services.RemoveAll<AppDbContext>();
             services.RemoveAll<IChatStore>();
-            services.RemoveAll<IPlanStore>();
-            services.RemoveAll<IDbContextFactory<SharedContextDbContext>>();
 
             services.AddDbContextFactory<AppDbContext>(options =>
                 options.UseSqlite($"Data Source={_databasePath}"));
-
-            services.AddDbContextFactory<SharedContextDbContext>(options =>
-                options.UseSqlite($"Data Source={_contextDatabasePath}"));
 
             services.AddScoped(static sp =>
                 sp.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext());
 
             services.AddSingleton<IChatStore, EfChatStore>();
-            services.AddSingleton<IPlanStore, EfPlanStore>();
         });
     }
 

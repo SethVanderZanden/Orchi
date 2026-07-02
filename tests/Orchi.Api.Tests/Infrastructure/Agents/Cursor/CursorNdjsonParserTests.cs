@@ -1,6 +1,5 @@
 using Orchi.Api.Infrastructure.Agents;
 using Orchi.Api.Infrastructure.Agents.Cursor;
-using Orchi.Api.Infrastructure.Agents.Modes;
 
 namespace Orchi.Api.Tests.Infrastructure.Agents.Cursor;
 

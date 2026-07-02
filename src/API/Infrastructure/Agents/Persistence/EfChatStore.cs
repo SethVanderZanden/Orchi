@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Orchi.Api.Data;
 using Orchi.Api.Entities;
-using Orchi.Api.Infrastructure.Agents.Modes;
 using DomainChatMessage = Orchi.Api.Infrastructure.Agents.ChatMessage;
 
 namespace Orchi.Api.Infrastructure.Agents.Persistence;
@@ -18,9 +17,6 @@ public sealed class EfChatStore(IDbContextFactory<AppDbContext> dbContextFactory
             Id = model.Id,
             AgentId = model.AgentId,
             WorkspacePath = model.WorkspacePath,
-            Mode = ChatStoreMapper.ModeToString(model.Mode),
-            ParentChatId = model.ParentChatId,
-            AttachedPlanId = model.AttachedPlanId,
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -36,7 +32,6 @@ public sealed class EfChatStore(IDbContextFactory<AppDbContext> dbContextFactory
         Chat? entity = await db.Chats
             .AsNoTracking()
             .Include(chat => chat.Messages)
-            .Include(chat => chat.GoalJournal)
             .FirstOrDefaultAsync(chat => chat.Id == chatId, cancellationToken);
 
         return entity is null ? null : ChatStoreMapper.ToSession(entity);
@@ -54,7 +49,6 @@ public sealed class EfChatStore(IDbContextFactory<AppDbContext> dbContextFactory
         List<Chat> entities = await db.Chats
             .AsNoTracking()
             .Include(chat => chat.Messages)
-            .Include(chat => chat.GoalJournal)
             .ToListAsync(cancellationToken);
 
         return entities
@@ -161,61 +155,6 @@ public sealed class EfChatStore(IDbContextFactory<AppDbContext> dbContextFactory
         }
 
         chat.ExternalSessionId = externalSessionId;
-        chat.UpdatedAt = DateTimeOffset.UtcNow;
-        await db.SaveChangesAsync(cancellationToken);
-    }
-
-    public async Task UpdateGoalChatIdAsync(Guid chatId, Guid goalChatId, CancellationToken cancellationToken)
-    {
-        await using AppDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-        Chat? chat = await db.Chats.FirstOrDefaultAsync(existing => existing.Id == chatId, cancellationToken);
-        if (chat is null)
-        {
-            return;
-        }
-
-        chat.GoalChatId = goalChatId;
-        chat.UpdatedAt = DateTimeOffset.UtcNow;
-        await db.SaveChangesAsync(cancellationToken);
-    }
-
-    public async Task UpdateModeAsync(
-        Guid chatId,
-        ChatMode mode,
-        Guid? attachedPlanId,
-        CancellationToken cancellationToken)
-    {
-        await using AppDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-        Chat? chat = await db.Chats.FirstOrDefaultAsync(existing => existing.Id == chatId, cancellationToken);
-        if (chat is null)
-        {
-            return;
-        }
-
-        chat.Mode = ChatStoreMapper.ModeToString(mode);
-        chat.AttachedPlanId = attachedPlanId;
-        chat.ExternalSessionId = null;
-        chat.UpdatedAt = DateTimeOffset.UtcNow;
-        await db.SaveChangesAsync(cancellationToken);
-    }
-
-    public async Task AppendGoalJournalAsync(Guid chatId, string entry, CancellationToken cancellationToken)
-    {
-        await using AppDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-        Chat? chat = await db.Chats.FirstOrDefaultAsync(existing => existing.Id == chatId, cancellationToken);
-        if (chat is null)
-        {
-            return;
-        }
-
-        db.GoalJournalEntries.Add(new GoalJournalEntry
-        {
-            Id = Guid.NewGuid(),
-            ChatId = chatId,
-            Content = entry,
-            CreatedAt = DateTimeOffset.UtcNow
-        });
-
         chat.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
     }

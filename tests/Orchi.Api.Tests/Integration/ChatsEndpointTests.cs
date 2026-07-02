@@ -52,7 +52,6 @@ public class ChatsEndpointTests : IClassFixture<TestWebApplicationFactory>, IAsy
         CreateChatResponse? created = await createResponse.Content.ReadFromJsonAsync<CreateChatResponse>();
         Assert.NotNull(created);
         Assert.Equal("cursor", created.AgentId);
-        Assert.Equal("agent", created.Mode);
 
         HttpResponseMessage listResponse = await _client.GetAsync("/chats");
         ChatSummaryResponse[]? chats = await listResponse.Content.ReadFromJsonAsync<ChatSummaryResponse[]>();

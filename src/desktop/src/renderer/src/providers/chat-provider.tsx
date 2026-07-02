@@ -2,9 +2,9 @@ import { createContext, useCallback, useContext, useMemo, useRef, useState } fro
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 
-import { closeChat, createChat, getChat, listChats, sendMessageStream, updateChat } from '@/lib/chat/api'
+import { closeChat, createChat, getChat, listChats, sendMessageStream } from '@/lib/chat/api'
 import type { NewChatOptions } from '@/components/chat/new-chat-dialog'
-import type { ChatMarker, ChatMessage, ChatMode, ChatThread } from '@/lib/chat/types'
+import type { ChatMarker, ChatMessage, ChatThread } from '@/lib/chat/types'
 import { chatKeys } from '@/lib/query-keys'
 
 type ChatContextValue = {
@@ -18,9 +18,7 @@ type ChatContextValue = {
   createChat: (options: NewChatOptions) => Promise<ChatThread>
   closeChat: (chatId: string) => Promise<void>
   sendMessage: (chatId: string, content: string) => Promise<void>
-  updateChatMode: (chatId: string, mode: ChatMode, attachedPlanId?: string) => Promise<void>
   isSending: boolean
-  isUpdatingMode: boolean
   getMarkers: (chatId: string) => ChatMarker[]
 }
 
@@ -72,9 +70,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
     mutationFn: (options: NewChatOptions) =>
       createChat({
         agent: 'cursor',
-        workspacePath: options.workspacePath,
-        mode: options.mode,
-        attachedPlanId: options.attachedPlanId ?? null
+        workspacePath: options.workspacePath
       }),
     onSuccess: (chat) => {
       queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) => [chat, ...current])
@@ -96,41 +92,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
         delete next[chatId]
         return next
       })
-    }
-  })
-
-  const updateModeMutation = useMutation({
-    mutationFn: ({
-      chatId,
-      mode,
-      attachedPlanId
-    }: {
-      chatId: string
-      mode: ChatMode
-      attachedPlanId?: string
-    }) =>
-      updateChat(chatId, {
-        mode,
-        attachedPlanId: attachedPlanId ?? null
-      }),
-    onSuccess: (updated) => {
-      queryClient.setQueryData<ChatThread>(chatKeys.detail(updated.id), (current) =>
-        current
-          ? {
-              ...current,
-              mode: updated.mode,
-              attachedPlanId: updated.attachedPlanId
-            }
-          : current
-      )
-
-      queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) =>
-        current.map((chat) =>
-          chat.id === updated.id
-            ? { ...chat, mode: updated.mode, attachedPlanId: updated.attachedPlanId }
-            : chat
-        )
-      )
     }
   })
 
@@ -250,12 +211,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
             onError: (code, message) => {
               updateAssistantMessage(chatId, (currentMessage) => ({
                 ...currentMessage,
-                content: code === 'Plan.Required' ? message : currentMessage.content || message,
+                content: currentMessage.content || message,
                 status: 'error'
               }))
               appendMarker(chatId, {
                 id: crypto.randomUUID(),
-                content: code === 'Plan.Required' ? message : `${code}: ${message}`,
+                content: `${code}: ${message}`,
                 variant: 'tool'
               })
               clearMarkers(chatId)
@@ -284,12 +245,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
       loadChat,
       createChat: (options: NewChatOptions) => createChatMutation.mutateAsync(options),
       closeChat: (chatId: string) => closeChatMutation.mutateAsync(chatId),
-      updateChatMode: async (chatId: string, mode: ChatMode, attachedPlanId?: string) => {
-        await updateModeMutation.mutateAsync({ chatId, mode, attachedPlanId })
-      },
       sendMessage,
       isSending,
-      isUpdatingMode: updateModeMutation.isPending,
       getMarkers: (chatId: string) => markersByChat[chatId] ?? []
     }),
     [
@@ -301,10 +258,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
       loadChat,
       createChatMutation.mutateAsync,
       closeChatMutation.mutateAsync,
-      updateModeMutation.mutateAsync,
       sendMessage,
       isSending,
-      updateModeMutation.isPending,
       markersByChat
     ]
   )

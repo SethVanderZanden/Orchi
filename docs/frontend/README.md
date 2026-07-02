@@ -10,6 +10,7 @@ Guides for the Orchi Electron desktop app — React, TanStack Router, TanStack Q
 |-------|-------------------|
 | [TanStack Router](tanstack-router.md) | Routes, layouts, `<Outlet />`, navigation — start with the [Dummy section](tanstack-router.md#dummy-section-start-here) |
 | [TanStack Query](tanstack-query.md) | Fetching API data, caching, loading/error states — start with the [Dummy section](tanstack-query.md#dummy-section-start-here) |
+| [Chat streaming](chat-streaming.md) | SSE message flow, markers, ChatProvider — start with the [Dummy section](chat-streaming.md#dummy-section-start-here) |
 
 ## Coming from Blazor or Next.js?
 

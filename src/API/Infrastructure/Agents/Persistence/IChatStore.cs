@@ -1,15 +1,11 @@
 using Orchi.Api.Infrastructure.Agents;
-using Orchi.Api.Infrastructure.Agents.Modes;
 
 namespace Orchi.Api.Infrastructure.Agents.Persistence;
 
 public sealed record ChatCreateModel(
     Guid Id,
     string AgentId,
-    string WorkspacePath,
-    ChatMode Mode,
-    Guid? ParentChatId,
-    Guid? AttachedPlanId);
+    string WorkspacePath);
 
 public interface IChatStore
 {
@@ -35,14 +31,4 @@ public interface IChatStore
         Guid chatId,
         string externalSessionId,
         CancellationToken cancellationToken);
-
-    Task UpdateGoalChatIdAsync(Guid chatId, Guid goalChatId, CancellationToken cancellationToken);
-
-    Task UpdateModeAsync(
-        Guid chatId,
-        ChatMode mode,
-        Guid? attachedPlanId,
-        CancellationToken cancellationToken);
-
-    Task AppendGoalJournalAsync(Guid chatId, string entry, CancellationToken cancellationToken);
 }

@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using Orchi.Api.Infrastructure.Agents.Modes;
 
 namespace Orchi.Api.Infrastructure.Agents;
 
@@ -11,23 +10,9 @@ public sealed class ChatSession
 
     public required string WorkspacePath { get; init; }
 
-    public required ChatMode Mode { get; set; }
-
-    public string? PreviousModeKey { get; set; }
-
-    public DateTimeOffset? ModeChangedAt { get; set; }
-
-    public Guid? ParentChatId { get; init; }
-
-    public Guid? AttachedPlanId { get; set; }
-
-    public Guid? GoalChatId { get; set; }
-
     public string? ExternalSessionId { get; set; }
 
     public List<ChatMessage> Messages { get; } = [];
-
-    public List<string> GoalJournal { get; } = [];
 
     public Process? RunningProcess { get; set; }
 

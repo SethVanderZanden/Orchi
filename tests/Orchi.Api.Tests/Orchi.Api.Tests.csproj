@@ -17,7 +17,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\API\Orchi.Api.csproj" />
-    <ProjectReference Include="..\..\src\SharedContext\Orchi.SharedContext.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,12 +1,9 @@
 import type {
   ChatDetailResponse,
-  ChatMode,
   ChatSummaryResponse,
   CreateChatRequest,
   CreateChatResponse,
-  PlanResponse,
-  SseHandlers,
-  UpdateChatRequest
+  SseHandlers
 } from '@/lib/chat/types'
 import { getApiBaseUrl } from '@/lib/api'
 
@@ -19,17 +16,6 @@ async function readErrorMessage(response: Response): Promise<string> {
   }
 }
 
-function mapSummaryFields(
-  summary: Pick<ChatSummaryResponse, 'mode' | 'parentChatId' | 'attachedPlanId' | 'goalChatId'>
-) {
-  return {
-    mode: summary.mode ?? 'agent',
-    parentChatId: summary.parentChatId ?? null,
-    attachedPlanId: summary.attachedPlanId ?? null,
-    goalChatId: summary.goalChatId ?? null
-  }
-}
-
 function mapSummary(summary: ChatSummaryResponse) {
   return {
     id: summary.id,
@@ -38,8 +24,7 @@ function mapSummary(summary: ChatSummaryResponse) {
     updatedAt: summary.updatedAt,
     agentId: summary.agentId,
     workspacePath: summary.workspacePath,
-    messages: [] as ChatDetailResponse['messages'],
-    ...mapSummaryFields(summary)
+    messages: [] as ChatDetailResponse['messages']
   }
 }
 
@@ -51,8 +36,7 @@ function mapDetail(detail: ChatDetailResponse) {
     updatedAt: detail.messages.at(-1)?.createdAt ?? new Date().toISOString(),
     agentId: detail.agentId,
     workspacePath: detail.workspacePath,
-    messages: detail.messages,
-    ...mapSummaryFields(detail)
+    messages: detail.messages
   }
 }
 
@@ -72,10 +56,7 @@ export async function createChat(request: CreateChatRequest) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       agent: request.agent,
-      workspacePath: request.workspacePath,
-      mode: request.mode ?? 'agent',
-      parentChatId: request.parentChatId ?? null,
-      attachedPlanId: request.attachedPlanId ?? null
+      workspacePath: request.workspacePath
     })
   })
 
@@ -91,10 +72,6 @@ export async function createChat(request: CreateChatRequest) {
     updatedAt: new Date().toISOString(),
     agentId: created.agentId,
     workspacePath: created.workspacePath,
-    mode: created.mode ?? 'agent',
-    parentChatId: created.parentChatId ?? null,
-    attachedPlanId: created.attachedPlanId ?? null,
-    goalChatId: created.goalChatId ?? null,
     messages: []
   }
 }
@@ -117,24 +94,6 @@ export async function closeChat(chatId: string) {
   if (!response.ok) {
     throw new Error(await readErrorMessage(response))
   }
-}
-
-export async function updateChat(chatId: string, request: UpdateChatRequest) {
-  const response = await fetch(`${getApiBaseUrl()}/chats/${chatId}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      mode: request.mode,
-      attachedPlanId: request.attachedPlanId ?? null
-    })
-  })
-
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response))
-  }
-
-  const updated = (await response.json()) as ChatSummaryResponse
-  return mapSummary(updated)
 }
 
 export async function shutdownChats() {
@@ -230,63 +189,4 @@ function parseSseEvent(rawEvent: string, handlers: SseHandlers) {
       )
       break
   }
-}
-
-export async function getPlan(planId: string): Promise<PlanResponse> {
-  const response = await fetch(`${getApiBaseUrl()}/plans/${planId}`)
-
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response))
-  }
-
-  return response.json() as Promise<PlanResponse>
-}
-
-export type CreateChatPlanRequest = {
-  title: string
-  contentMarkdown: string
-}
-
-export async function createChatPlan(chatId: string, request: CreateChatPlanRequest) {
-  const response = await fetch(`${getApiBaseUrl()}/chats/${chatId}/plans`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(request)
-  })
-
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response))
-  }
-
-  return response.json()
-}
-
-export async function handoffToGoal(orchestratorChatId: string) {
-  const response = await fetch(`${getApiBaseUrl()}/chats/${orchestratorChatId}/handoff-to-goal`, {
-    method: 'POST'
-  })
-
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response))
-  }
-
-  return response.json() as Promise<{ goalChatId: string }>
-}
-
-export async function dispatchSubPlan(
-  planId: string,
-  subPlanId: string,
-  childMode: Extract<ChatMode, 'plan' | 'implement'>
-) {
-  const response = await fetch(`${getApiBaseUrl()}/plans/${planId}/dispatch`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ subPlanId, childMode })
-  })
-
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response))
-  }
-
-  return response.json() as Promise<{ childChatId: string; subPlanId: string }>
 }

@@ -1,6 +1,6 @@
 # Orchi
 
-Orchi is an open-source AI engineering orchestrator that coordinates multiple coding agents, Git worktrees, and review workflows into a repeatable software delivery pipeline. Bring your own AI subscriptions; Orchi manages the engineering process.
+Orchi is a desktop chat shell for coding agents. Bring your own AI subscriptions; Orchi persists chats and routes messages to local agent CLIs (Cursor today).
 
 ## Prerequisites
 
@@ -18,14 +18,17 @@ src/
 tests/
 └── Orchi.Api.Tests/   # xUnit handler + integration tests
 docs/
+├── agents/            # Agent adapters, Cursor CLI, streaming
 ├── architecture/      # VSA, screaming architecture, CQRS pipeline guides
-├── frontend/          # TanStack Router, TanStack Query (desktop app)
+├── frontend/          # TanStack Router, TanStack Query, chat streaming
 └── patterns/          # Software design patterns used in Orchi
 ```
 
 ## Architecture
 
 The API uses **Vertical Slice Architecture** with a custom CQRS pipeline (no MediatR), minimal APIs, and OpenAPI + Scalar for interactive documentation. See [docs/architecture/README.md](docs/architecture/README.md) for the full guide and [docs/patterns/README.md](docs/patterns/README.md) for design patterns.
+
+The agent stack is intentionally minimal: chats persist in SQLite, user messages go straight to `IAgentAdapter`, and multi-turn continuity uses Cursor `--resume`. See [docs/agents/README.md](docs/agents/README.md).
 
 Run API tests:
 
@@ -73,6 +76,7 @@ The Electron app uses **TanStack Router** (file-based routes, layouts, navigatio
 - [Frontend docs](docs/frontend/README.md)
 - [TanStack Router guide](docs/frontend/tanstack-router.md) — layouts, `<Outlet />`, pages
 - [TanStack Query guide](docs/frontend/tanstack-query.md) — fetching, caching, server state
+- [Chat streaming](docs/frontend/chat-streaming.md) — SSE contract and UI integration
 
 ### shadcn/ui components
 

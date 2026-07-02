@@ -19,7 +19,7 @@ Desktop chat  →  Orchi API  →  IAgentAdapter  →  Cursor CLI (or future age
 | Front desk | `AgentSessionManager` + chat endpoints |
 | Chef roster | `IAgentAdapterFactory` |
 | Cursor chef | `CursorAgentAdapter` |
-| Order ticket | `ChatSession` (workspace, agent id, mode, resume id) |
+| Order ticket | `ChatSession` (workspace, agent id, resume id) |
 | Kitchen chatter | NDJSON stdout → `AgentEvent` → SSE to desktop |
 
 Everything below is the same idea with file paths and extension points.
@@ -43,43 +43,26 @@ Agent integration lives under `src/API/Infrastructure/Agents/`.
 ## Key types
 
 - **`IAgentAdapter`** — send a message for a session; yield `AgentEvent` stream
-- **`AgentSessionManager`** — write-through cache over `IChatStore`, process lifecycle, turn orchestration
-- **`IChatStore`** / **`IPlanStore`** — EF-backed persistence (SQLite); in-memory implementations for unit tests
-- **`ChatSession`** — Orchi chat id, agent id, **chat mode**, workspace path, Cursor resume id, parent/goal/plan links, running process handle
+- **`AgentSessionManager`** — write-through cache over `IChatStore`, process lifecycle, turn execution
+- **`IChatStore`** — EF-backed persistence (SQLite); in-memory implementation for unit tests
+- **`ChatSession`** — Orchi chat id, agent id, workspace path, Cursor resume id, running process handle
 
-## Chat modes vs agents
+## Message flow
 
-**Agent** (`IAgentAdapter`) = which runtime spawns the CLI (e.g. `cursor`).
+Each turn is intentionally simple:
 
-**Mode** (`IChatModeStrategy`) = behavior for a chat: prompt instructions, CLI flags, validation, orchestration hooks.
+1. Persist the user message
+2. Pass the raw user text to `IAgentAdapter.SendMessageAsync`
+3. Stream `AgentEvent` results back to the client
+4. Persist the assistant message and `ExternalSessionId` when the turn completes
 
-| Mode | Cursor CLI | Orchi behavior |
-|------|------------|----------------|
-| `agent` | default agent | General coding assistant (default mode) |
-| `plan` | `--mode=plan` | Standard planning |
-| `implement` | default agent | Requires `attachedPlanId`; injects plan content |
-| `orchestrate` | `--mode=plan` | Parses sub-plans; dispatch + handoff APIs |
-| `goal` | `--mode=ask` / `plan` | Event-driven check-ins on child chat activity |
-| `participant` | `--mode=ask` | Conversational chat member; fact-checks claims against the codebase |
+Multi-turn continuity uses Cursor `--resume` with the stored `ExternalSessionId`. Orchi does not assemble prompts, replay history, or inject workspace context in the basics stack.
 
-Modes are set at `POST /chats` (default `agent`) and can be changed mid-lifecycle via `PATCH /chats/{id}` — the new mode applies to the **next message** only. Cannot change mode while a turn is in progress. See `src/API/Infrastructure/Agents/Modes/`.
-
-**Mode authority:** Orchi owns mode semantics via `IModeRuntime` (CLI profile mapping) and `IPromptBuilder` (instructions + context). Cursor CLI `--mode` flags are an implementation detail, not the source of truth. See [mode-runtime.md](../context/mode-runtime.md#dummy-section-start-here).
-
-### SharedContext
-
-Workspace knowledge (indexed files, session summaries, retrieval) lives in [`Orchi.SharedContext`](../context/README.md#dummy-section-start-here) — shared across all chats in the same workspace path.
-
-### Prompt composition
-
-Each mode strategy delegates to `AgentPromptComposer` → `IPromptBuilder`, which builds stable prefix + dynamic context. See [prompt composition](prompt-composition.md#dummy-section-start-here) and [prompt-builder.md](../context/prompt-builder.md#dummy-section-start-here).
-
-Sessions and messages persist to **SQLite** via EF Core (`orchi.db`). User messages are saved immediately; assistant messages are saved once when a turn completes or errors (streaming tokens stay in-memory only). Plans and sub-plans are also persisted. Active chats are cached in memory for streaming and process handles; `GET /chats` and `GET /chats/{id}` hydrate from the database when needed.
+Sessions and messages persist to **SQLite** via EF Core (`orchi.db`). User messages are saved immediately; assistant messages are saved once when a turn completes or errors (streaming tokens stay in-memory only). Active chats are cached in memory for streaming and process handles; `GET /chats` and `GET /chats/{id}` hydrate from the database when needed.
 
 | Analogy | Code |
 |---------|------|
 | Filing cabinet | `IChatStore` / `EfChatStore` |
-| Recipe cards | `IPlanStore` / `EfPlanStore` |
 
 ## Configuration
 
@@ -99,15 +82,13 @@ The Cursor CLI must be installed and authenticated on the **same machine as the 
 
 ## Lifecycle
 
-1. **Create chat** — `POST /chats` with `{ agent, workspacePath, mode?, parentChatId?, attachedPlanId? }`; validates path; persists chat row; no CLI yet
-2. **Update mode** — `PATCH /chats/{id}` with `{ mode, attachedPlanId? }`; rejects if a message is in progress
-3. **Send message** — `POST /chats/{id}/messages` → SSE stream; spawns/resumes Cursor CLI per turn; persists messages on completion
-4. **Close chat** — `DELETE /chats/{id}` → kills process, soft-deletes chat in database
-5. **App shutdown** — `POST /chats/shutdown` (called from Electron `before-quit`) → kills active sessions (persisted chats remain in database)
+1. **Create chat** — `POST /chats` with `{ agent, workspacePath }`; validates path; persists chat row; no CLI yet
+2. **Send message** — `POST /chats/{id}/messages` → SSE stream; spawns/resumes Cursor CLI per turn; persists messages on completion
+3. **Close chat** — `DELETE /chats/{id}` → kills process, soft-deletes chat in database
+4. **App shutdown** — `POST /chats/shutdown` (called from Electron `before-quit`) → kills active sessions (persisted chats remain in database)
 
 ## Further reading
 
-- [Prompt composition](prompt-composition.md#dummy-section-start-here) — stable prefix vs dynamic context, provider caching
 - [Cursor CLI integration](cursor-cli.md) — install, flags, NDJSON parsing
 - [Concurrent stdout/stderr reading](concurrent-pipe-reading.md#dummy-section-start-here) — why stderr is started before the stdout loop
 - [Adding adapters](adapters.md) — `IAgentAdapter` contract and extension steps

@@ -1,6 +1,5 @@
 using Orchi.Api.Infrastructure.Agents;
 using Orchi.Api.Infrastructure.Agents.Cursor;
-using AgentChatMode = Orchi.Api.Infrastructure.Agents.Modes.ChatMode;
 
 namespace Orchi.Api.Tests.Infrastructure.Agents.Cursor;
 
@@ -153,8 +152,7 @@ public class CursorAgentExecutableResolverTests
         {
             Id = Guid.NewGuid(),
             AgentId = "cursor",
-            WorkspacePath = @"E:\Projects\Orchi",
-            Mode = AgentChatMode.Plan
+            WorkspacePath = @"E:\Projects\Orchi"
         };
 
         IReadOnlyList<string> arguments = CursorAgentAdapter.BuildArguments(options, session, "hello");
@@ -171,7 +169,6 @@ public class CursorAgentExecutableResolverTests
             Id = Guid.NewGuid(),
             AgentId = "cursor",
             WorkspacePath = @"E:\Projects\Orchi",
-            Mode = AgentChatMode.Plan,
             ExternalSessionId = "resume-123"
         };
 

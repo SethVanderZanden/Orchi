@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using Orchi.Api.Infrastructure.Agents.Modes;
 
 namespace Orchi.Api.Infrastructure.Agents.Persistence;
 
@@ -13,10 +12,7 @@ public sealed class InMemoryChatStore : IChatStore
         {
             Id = model.Id,
             AgentId = model.AgentId,
-            WorkspacePath = model.WorkspacePath,
-            Mode = model.Mode,
-            ParentChatId = model.ParentChatId,
-            AttachedPlanId = model.AttachedPlanId
+            WorkspacePath = model.WorkspacePath
         };
 
         _chats[session.Id] = session;
@@ -93,45 +89,6 @@ public sealed class InMemoryChatStore : IChatStore
         if (_chats.TryGetValue(chatId, out ChatSession? session))
         {
             session.ExternalSessionId = externalSessionId;
-        }
-
-        return Task.CompletedTask;
-    }
-
-    public Task UpdateGoalChatIdAsync(Guid chatId, Guid goalChatId, CancellationToken cancellationToken)
-    {
-        if (_chats.TryGetValue(chatId, out ChatSession? session))
-        {
-            session.GoalChatId = goalChatId;
-        }
-
-        return Task.CompletedTask;
-    }
-
-    public Task UpdateModeAsync(
-        Guid chatId,
-        ChatMode mode,
-        Guid? attachedPlanId,
-        CancellationToken cancellationToken)
-    {
-        if (_chats.TryGetValue(chatId, out ChatSession? session))
-        {
-            session.Mode = mode;
-            session.AttachedPlanId = attachedPlanId;
-            session.ExternalSessionId = null;
-        }
-
-        return Task.CompletedTask;
-    }
-
-    public Task AppendGoalJournalAsync(Guid chatId, string entry, CancellationToken cancellationToken)
-    {
-        if (_chats.TryGetValue(chatId, out ChatSession? session))
-        {
-            lock (session.Sync)
-            {
-                session.GoalJournal.Add(entry);
-            }
         }
 
         return Task.CompletedTask;

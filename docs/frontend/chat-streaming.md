@@ -13,10 +13,6 @@ If the oven breaks, you get an `error` text instead.
 
 The desktop **does not** poll. It opens one HTTP response and reads events as they arrive (SSE).
 
-**Blazor version:** closest pattern is `HttpClient` with `ResponseHeadersRead` and manual stream reading, or SignalR hub pushing events to a component that appends to a `List<Message>`.
-
-**Next.js version:** Client Component with `fetch` + `ReadableStream` reader (same as Orchi), or Route Handlers that proxy SSE — not Server Component streaming for bidirectional agent turns.
-
 **Orchi translation:**
 
 | Pizza tracker | Orchi |
@@ -110,9 +106,7 @@ The API reads Cursor CLI stdout as **UTF-8** (`StandardOutputEncoding` on `Proce
 
 ## Create chat
 
-Desktop starts with **zero chats**. Register **project folders** in Settings or via **Add project** in the sidebar. Chats are grouped by project; each group has a `(+)` button that opens a workspace-scoped new-chat dialog (mode picker only — path is fixed). Agent is Cursor in v1. `POST /chats` then navigates to `/chat/$chatId`.
-
-Mode can be changed on an active chat via the header selector (`PATCH /chats/{id}`); implement mode prompts for a plan ID.
+Desktop starts with **zero chats**. Register **project folders** in Settings or via **Add project** in the sidebar. Chats are grouped by project; each group has a `(+)` button that opens a workspace-scoped new-chat dialog. Agent is Cursor in v1. `POST /chats` then navigates to `/chat/$chatId`.
 
 ## Project workspaces
 

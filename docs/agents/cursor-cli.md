@@ -66,7 +66,7 @@ agent -p --force --trust --workspace "{workspace}" \
 
 Configured via `Agents:Cursor` in `appsettings.json` (executable name or full path, default args, optional `AdditionalSearchPaths`).
 
-Mode strategies assemble the prompt string before it reaches the adapter. See [prompt composition](prompt-composition.md#dummy-section-start-here) for stable-prefix / dynamic-context ordering and provider caching guidance.
+The user message is passed to the CLI as-is — no prompt assembly layer in the basics stack.
 
 ## NDJSON event mapping
 
@@ -98,8 +98,6 @@ Capture happens in two places:
 2. **Terminal** — the final `result` event (confirmation / fallback)
 
 This gives multi-turn conversations without keeping a long-lived CLI process, and ensures turn 2+ can resume even when turn 1 did not reach the terminal `result` event (timeout, cancel, non-zero exit).
-
-Orchi also replays recent `ChatSession.Messages` into the prompt dynamic suffix as a fallback when resume is missing, and includes a smaller safety-net transcript when resume is active. See [prompt composition](prompt-composition.md#current-gaps).
 
 ## Error handling
 

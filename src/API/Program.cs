@@ -3,14 +3,12 @@ using Orchi.Api.Infrastructure.Database;
 using Orchi.Api.Infrastructure.Endpoints;
 using Orchi.Api.Infrastructure.OpenApi;
 using Orchi.Api.Infrastructure.Pipeline;
-using Orchi.SharedContext;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services
     .AddOrchiDatabase(builder.Configuration)
     .AddOrchiPipeline(builder.Configuration)
-    .AddOrchiSharedContext(builder.Configuration)
     .AddOrchiAgents(builder.Configuration)
     .AddOrchiOpenApi();
 
@@ -29,7 +27,6 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 await app.ApplyOrchiMigrationsAsync();
-await app.Services.ApplySharedContextMigrationsAsync();
 
 app.UseCors("DesktopDev");
 app.UseOrchiOpenApi();
