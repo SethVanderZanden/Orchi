@@ -1,12 +1,23 @@
 import { useState } from 'react'
+import { ChevronDown } from 'lucide-react'
 
-import { Layout, LayoutContent, HStack, VStack } from '@astryxdesign/core/Layout'
-import { Button } from '@astryxdesign/core/Button'
-import { Dialog, DialogHeader } from '@astryxdesign/core/Dialog'
-import { DropdownMenu } from '@astryxdesign/core/DropdownMenu'
-import { TextInput } from '@astryxdesign/core/TextInput'
-import { Text } from '@astryxdesign/core/Text'
-
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import type { AgentMode } from '@/lib/chat/types'
 
 const MODE_OPTIONS: Array<{ id: AgentMode; label: string }> = [
@@ -44,62 +55,63 @@ export function NewChatDialog({
     onOpenChange(false)
   }
 
+  const modeLabel = MODE_OPTIONS.find((option) => option.id === mode)?.label ?? 'Default'
+
   return (
-    <Dialog isOpen={open} onOpenChange={onOpenChange} purpose="form" width={440}>
-      <Layout
-        header={
-          <DialogHeader
-            title={`New chat in ${workspaceName}`}
-            subtitle="Start a conversation with the Cursor agent in this project."
-            onOpenChange={onOpenChange}
-          />
-        }
-        content={
-          <LayoutContent>
-            <form onSubmit={handleSubmit}>
-              <VStack gap={4}>
-                <VStack gap={1}>
-                  <Text type="label" weight="semibold">
-                    {workspaceName}
-                  </Text>
-                  <Text type="supporting" color="secondary">
-                    {workspacePath}
-                  </Text>
-                </VStack>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>New chat in {workspaceName}</DialogTitle>
+          <DialogDescription>
+            Start a conversation with the Cursor agent in this project.
+          </DialogDescription>
+        </DialogHeader>
 
-                <TextInput label="Agent" value="Cursor" onChange={() => {}} isDisabled />
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-1">
+            <p className="text-sm font-medium">{workspaceName}</p>
+            <p className="text-xs text-muted-foreground">{workspacePath}</p>
+          </div>
 
-                <VStack gap={1}>
-                  <Text type="label" weight="semibold">
-                    Mode
-                  </Text>
-                  <DropdownMenu
-                    button={{
-                      label: MODE_OPTIONS.find((option) => option.id === mode)?.label ?? 'Default',
-                      variant: 'secondary',
-                      size: 'sm'
-                    }}
-                    items={MODE_OPTIONS.map((option) => ({
-                      label: option.label,
-                      onClick: () => setMode(option.id)
-                    }))}
-                  />
-                  {mode === 'orchestration' ? (
-                    <Text type="supporting" color="secondary">
-                      Splits work into plans that can be kicked off to implementation agents.
-                    </Text>
-                  ) : null}
-                </VStack>
+          <div className="space-y-2">
+            <Label htmlFor="agent">Agent</Label>
+            <Input id="agent" value="Cursor" disabled readOnly />
+          </div>
 
-                <HStack gap={2} hAlign="end">
-                  <Button label="Cancel" variant="secondary" onClick={() => onOpenChange(false)} />
-                  <Button label="Create chat" type="submit" isDisabled={isSubmitting} />
-                </HStack>
-              </VStack>
-            </form>
-          </LayoutContent>
-        }
-      />
+          <div className="space-y-2">
+            <Label>Mode</Label>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" type="button" className="w-full justify-between">
+                  {modeLabel}
+                  <ChevronDown className="size-4 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]">
+                {MODE_OPTIONS.map((option) => (
+                  <DropdownMenuItem key={option.id} onClick={() => setMode(option.id)}>
+                    {option.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {mode === 'orchestration' ? (
+              <p className="text-xs text-muted-foreground">
+                Splits work into plans that can be kicked off to implementation agents.
+              </p>
+            ) : null}
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              Create chat
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
     </Dialog>
   )
 }
