@@ -8,6 +8,12 @@ public class Chat
 
     public required string WorkspacePath { get; set; }
 
+    public string Mode { get; set; } = "default";
+
+    public Guid? ParentChatId { get; set; }
+
+    public string? PlanFilePath { get; set; }
+
     public string? ExternalSessionId { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }

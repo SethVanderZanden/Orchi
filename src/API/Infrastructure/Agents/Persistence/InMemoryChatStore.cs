@@ -12,7 +12,10 @@ public sealed class InMemoryChatStore : IChatStore
         {
             Id = model.Id,
             AgentId = model.AgentId,
-            WorkspacePath = model.WorkspacePath
+            WorkspacePath = model.WorkspacePath,
+            Mode = model.Mode,
+            ParentChatId = model.ParentChatId,
+            PlanFilePath = model.PlanFilePath
         };
 
         _chats[session.Id] = session;

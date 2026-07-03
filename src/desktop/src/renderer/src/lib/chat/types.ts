@@ -2,6 +2,8 @@ export type ChatRole = 'user' | 'assistant'
 
 export type ChatMessageStatus = 'complete' | 'streaming' | 'processing' | 'error'
 
+export type AgentMode = 'default' | 'orchestration'
+
 export type ChatMessage = {
   id: string
   role: ChatRole
@@ -17,6 +19,9 @@ export type ChatThread = {
   updatedAt: string
   agentId: string
   workspacePath: string
+  mode: AgentMode
+  parentChatId: string | null
+  planFilePath: string | null
   messages: ChatMessage[]
 }
 
@@ -29,12 +34,16 @@ export type ChatMarker = {
 export type CreateChatRequest = {
   agent: string
   workspacePath: string
+  mode?: AgentMode
 }
 
 export type CreateChatResponse = {
   id: string
   agentId: string
   workspacePath: string
+  mode: AgentMode
+  parentChatId: string | null
+  planFilePath: string | null
 }
 
 export type ChatSummaryResponse = {
@@ -44,6 +53,9 @@ export type ChatSummaryResponse = {
   updatedAt: string
   agentId: string
   workspacePath: string
+  mode: AgentMode
+  parentChatId: string | null
+  planFilePath: string | null
 }
 
 export type ChatDetailResponse = {
@@ -51,7 +63,22 @@ export type ChatDetailResponse = {
   title: string
   agentId: string
   workspacePath: string
+  mode: AgentMode
+  parentChatId: string | null
+  planFilePath: string | null
   messages: ChatMessage[]
+}
+
+export type KickOffPlanRequest = {
+  planId: string
+  title: string
+  contentMarkdown: string
+}
+
+export type KickOffPlanResponse = {
+  childChatId: string
+  planFilePath: string
+  initialPrompt: string
 }
 
 export type SseHandlers = {

@@ -10,6 +10,12 @@ public sealed class ChatSession
 
     public required string WorkspacePath { get; init; }
 
+    public string Mode { get; init; } = "default";
+
+    public Guid? ParentChatId { get; init; }
+
+    public string? PlanFilePath { get; init; }
+
     public string? ExternalSessionId { get; set; }
 
     public List<ChatMessage> Messages { get; } = [];

@@ -4,6 +4,8 @@ using System.Runtime.CompilerServices;
 using Orchi.Api.Common.Results;
 using Orchi.Api.Infrastructure.Agents.Persistence;
 
+using Orchi.Api.Infrastructure.Agents.Modes;
+
 namespace Orchi.Api.Infrastructure.Agents;
 
 public sealed class AgentSessionManager
@@ -11,15 +13,21 @@ public sealed class AgentSessionManager
     private readonly ConcurrentDictionary<Guid, ChatSession> _sessions = new();
     private readonly IChatStore _chatStore;
     private readonly IAgentAdapterFactory _adapterFactory;
+    private readonly IAgentModeStrategyFactory _modeStrategyFactory;
+    private readonly AgentPromptComposer _promptComposer;
     private readonly ILogger<AgentSessionManager> _logger;
 
     public AgentSessionManager(
         IChatStore chatStore,
         IAgentAdapterFactory adapterFactory,
+        IAgentModeStrategyFactory modeStrategyFactory,
+        AgentPromptComposer promptComposer,
         ILogger<AgentSessionManager> logger)
     {
         _chatStore = chatStore;
         _adapterFactory = adapterFactory;
+        _modeStrategyFactory = modeStrategyFactory;
+        _promptComposer = promptComposer;
         _logger = logger;
     }
 
@@ -65,6 +73,9 @@ public sealed class AgentSessionManager
     public async Task<Result<ChatSession>> CreateSessionAsync(
         string agentId,
         string workspacePath,
+        string? mode = null,
+        Guid? parentChatId = null,
+        string? planFilePath = null,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(agentId))
@@ -75,6 +86,17 @@ public sealed class AgentSessionManager
         if (string.IsNullOrWhiteSpace(workspacePath))
         {
             return Result.Failure<ChatSession>(Error.Validation("Workspace.Required", "Workspace path is required."));
+        }
+
+        string resolvedMode = string.IsNullOrWhiteSpace(mode) ? DefaultAgentModeStrategy.Mode : mode.Trim();
+
+        try
+        {
+            _ = _modeStrategyFactory.GetStrategy(resolvedMode);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Result.Failure<ChatSession>(Error.Validation("Mode.Unsupported", ex.Message));
         }
 
         string fullPath = Path.GetFullPath(workspacePath);
@@ -95,7 +117,7 @@ public sealed class AgentSessionManager
 
         var sessionId = Guid.NewGuid();
         ChatSession session = await _chatStore.CreateAsync(
-            new ChatCreateModel(sessionId, agentId, fullPath),
+            new ChatCreateModel(sessionId, agentId, fullPath, resolvedMode, parentChatId, planFilePath),
             cancellationToken);
 
         _sessions[session.Id] = session;
@@ -164,6 +186,9 @@ public sealed class AgentSessionManager
 
         await AppendUserMessageAsync(chatId, content, cancellationToken);
 
+        string composedPrompt = _promptComposer.Compose(session.Mode, content);
+        IReadOnlyList<string> extraCliArgs = _promptComposer.GetExtraCliArgs(session.Mode);
+
         var runCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         session.RunCts = runCts;
 
@@ -185,8 +210,8 @@ public sealed class AgentSessionManager
 
         await foreach (AgentEvent agentEvent in adapter.SendMessageAsync(
                            session,
-                           content,
-                           [],
+                           composedPrompt,
+                           extraCliArgs,
                            runCts.Token))
         {
             switch (agentEvent)

@@ -14,7 +14,10 @@ public static class ChatMapper
             lastMessage?.Content ?? "Start a conversation with Orchi",
             lastMessage?.CreatedAt ?? DateTimeOffset.UtcNow,
             session.AgentId,
-            session.WorkspacePath);
+            session.WorkspacePath,
+            session.Mode,
+            session.ParentChatId,
+            session.PlanFilePath);
     }
 
     public static ChatDetailResponse ToDetail(ChatSession session) =>
@@ -23,6 +26,9 @@ public static class ChatMapper
             DeriveTitle(session),
             session.AgentId,
             session.WorkspacePath,
+            session.Mode,
+            session.ParentChatId,
+            session.PlanFilePath,
             session.Messages.Select(ToMessage).ToArray());
 
     public static ChatMessageResponse ToMessage(ChatMessage message) =>
@@ -47,13 +53,19 @@ public sealed record ChatSummaryResponse(
     string Preview,
     DateTimeOffset UpdatedAt,
     string AgentId,
-    string WorkspacePath);
+    string WorkspacePath,
+    string Mode,
+    Guid? ParentChatId,
+    string? PlanFilePath);
 
 public sealed record ChatDetailResponse(
     Guid Id,
     string Title,
     string AgentId,
     string WorkspacePath,
+    string Mode,
+    Guid? ParentChatId,
+    string? PlanFilePath,
     IReadOnlyList<ChatMessageResponse> Messages);
 
 public sealed record ChatMessageResponse(
@@ -65,14 +77,28 @@ public sealed record ChatMessageResponse(
 
 public sealed record CreateChatRequest(
     string Agent,
-    string WorkspacePath);
+    string WorkspacePath,
+    string? Mode = null);
 
 public sealed record SendMessageRequest(string Content);
 
 public sealed record CreateChatResponse(
     Guid Id,
     string AgentId,
-    string WorkspacePath);
+    string WorkspacePath,
+    string Mode,
+    Guid? ParentChatId,
+    string? PlanFilePath);
+
+public sealed record KickOffPlanRequest(
+    string PlanId,
+    string Title,
+    string ContentMarkdown);
+
+public sealed record KickOffPlanResponse(
+    Guid ChildChatId,
+    string PlanFilePath,
+    string InitialPrompt);
 
 public sealed record SendMessageDoneResponse(Guid MessageId);
 

@@ -2,10 +2,16 @@ import { createContext, useCallback, useContext, useMemo, useRef, useState } fro
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 
-import { closeChat, createChat, getChat, listChats, sendMessageStream } from '@/lib/chat/api'
+import { closeChat, createChat, getChat, kickOffPlan, listChats, sendMessageStream } from '@/lib/chat/api'
 import type { NewChatOptions } from '@/components/chat/new-chat-dialog'
 import type { ChatMarker, ChatMessage, ChatThread } from '@/lib/chat/types'
+import type { ParsedPlan } from '@/lib/orchestration/parse-plans'
 import { chatKeys } from '@/lib/query-keys'
+
+type AgentActivityDetail = {
+  phase: 'tool' | 'done'
+  label?: string
+}
 
 type ChatContextValue = {
   chats: ChatThread[]
@@ -18,8 +24,12 @@ type ChatContextValue = {
   createChat: (options: NewChatOptions) => Promise<ChatThread>
   closeChat: (chatId: string) => Promise<void>
   sendMessage: (chatId: string, content: string) => Promise<void>
+  kickOffPlan: (chatId: string, plan: ParsedPlan) => Promise<void>
   isSending: boolean
+  isKickingOff: boolean
+  kickingOffPlanId: string | null
   getMarkers: (chatId: string) => ChatMarker[]
+  subscribeAgentActivity: (listener: (detail: AgentActivityDetail) => void) => () => void
 }
 
 const ChatContext = createContext<ChatContextValue | null>(null)
@@ -29,8 +39,22 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
   const queryClient = useQueryClient()
   const [searchQuery, setSearchQuery] = useState('')
   const [isSending, setIsSending] = useState(false)
+  const [isKickingOff, setIsKickingOff] = useState(false)
+  const [kickingOffPlanId, setKickingOffPlanId] = useState<string | null>(null)
   const [markersByChat, setMarkersByChat] = useState<Record<string, ChatMarker[]>>({})
   const streamAbortRef = useRef<AbortController | null>(null)
+  const agentActivityListenersRef = useRef(new Set<(detail: AgentActivityDetail) => void>())
+
+  const subscribeAgentActivity = useCallback((listener: (detail: AgentActivityDetail) => void) => {
+    agentActivityListenersRef.current.add(listener)
+    return () => {
+      agentActivityListenersRef.current.delete(listener)
+    }
+  }, [])
+
+  const notifyAgentActivity = useCallback((detail: AgentActivityDetail) => {
+    agentActivityListenersRef.current.forEach((listener) => listener(detail))
+  }, [])
 
   const chatsQuery = useQuery({
     queryKey: chatKeys.lists(),
@@ -70,7 +94,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
     mutationFn: (options: NewChatOptions) =>
       createChat({
         agent: 'cursor',
-        workspacePath: options.workspacePath
+        workspacePath: options.workspacePath,
+        mode: options.mode
       }),
     onSuccess: (chat) => {
       queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) => [chat, ...current])
@@ -200,12 +225,17 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
                 content: label,
                 variant: 'tool'
               })
+
+              if (label.startsWith('Writing') || label.startsWith('Running')) {
+                notifyAgentActivity({ phase: 'tool', label })
+              }
             },
             onDone: () => {
               updateAssistantMessage(chatId, (message) => ({
                 ...message,
                 status: 'complete'
               }))
+              notifyAgentActivity({ phase: 'done' })
               clearMarkers(chatId)
             },
             onError: (code, message) => {
@@ -231,7 +261,45 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
         setIsSending(false)
       }
     },
-    [appendMarker, clearMarkers, loadChat, queryClient, updateAssistantMessage]
+    [appendMarker, clearMarkers, loadChat, notifyAgentActivity, queryClient, updateAssistantMessage]
+  )
+
+  const kickOffPlanAction = useCallback(
+    async (chatId: string, plan: ParsedPlan) => {
+      setIsKickingOff(true)
+      setKickingOffPlanId(plan.planId)
+
+      try {
+        const response = await kickOffPlan(chatId, {
+          planId: plan.planId,
+          title: plan.title,
+          contentMarkdown: plan.contentMarkdown
+        })
+
+        const childChat: ChatThread = {
+          id: response.childChatId,
+          title: plan.title,
+          preview: response.initialPrompt,
+          updatedAt: new Date().toISOString(),
+          agentId: 'cursor',
+          workspacePath: getChatLocal(chatId)?.workspacePath ?? '',
+          mode: 'default',
+          parentChatId: chatId,
+          planFilePath: response.planFilePath,
+          messages: []
+        }
+
+        queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) => [childChat, ...current])
+        queryClient.setQueryData(chatKeys.detail(childChat.id), childChat)
+        navigate({ to: '/chat/$chatId', params: { chatId: childChat.id } })
+
+        await sendMessage(childChat.id, response.initialPrompt)
+      } finally {
+        setIsKickingOff(false)
+        setKickingOffPlanId(null)
+      }
+    },
+    [getChatLocal, navigate, queryClient, sendMessage]
   )
 
   const value = useMemo<ChatContextValue>(
@@ -246,8 +314,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
       createChat: (options: NewChatOptions) => createChatMutation.mutateAsync(options),
       closeChat: (chatId: string) => closeChatMutation.mutateAsync(chatId),
       sendMessage,
+      kickOffPlan: kickOffPlanAction,
       isSending,
-      getMarkers: (chatId: string) => markersByChat[chatId] ?? []
+      isKickingOff,
+      kickingOffPlanId,
+      getMarkers: (chatId: string) => markersByChat[chatId] ?? [],
+      subscribeAgentActivity
     }),
     [
       chats,
@@ -259,8 +331,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
       createChatMutation.mutateAsync,
       closeChatMutation.mutateAsync,
       sendMessage,
+      kickOffPlanAction,
       isSending,
-      markersByChat
+      isKickingOff,
+      kickingOffPlanId,
+      markersByChat,
+      subscribeAgentActivity
     ]
   )
 

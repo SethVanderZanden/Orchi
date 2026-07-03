@@ -5,7 +5,10 @@ namespace Orchi.Api.Infrastructure.Agents.Persistence;
 public sealed record ChatCreateModel(
     Guid Id,
     string AgentId,
-    string WorkspacePath);
+    string WorkspacePath,
+    string Mode = "default",
+    Guid? ParentChatId = null,
+    string? PlanFilePath = null);
 
 public interface IChatStore
 {

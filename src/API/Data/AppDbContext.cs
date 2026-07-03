@@ -18,8 +18,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.HasKey(chat => chat.Id);
             entity.Property(chat => chat.AgentId).HasMaxLength(64);
             entity.Property(chat => chat.WorkspacePath).HasMaxLength(2048);
+            entity.Property(chat => chat.Mode).HasMaxLength(32);
+            entity.Property(chat => chat.PlanFilePath).HasMaxLength(512);
             entity.Property(chat => chat.ExternalSessionId).HasMaxLength(256);
             entity.HasIndex(chat => chat.UpdatedAt);
+            entity.HasIndex(chat => chat.ParentChatId);
             entity.HasQueryFilter(chat => !chat.IsDeleted);
         });
 

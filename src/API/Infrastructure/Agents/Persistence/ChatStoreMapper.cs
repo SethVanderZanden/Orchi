@@ -12,6 +12,9 @@ internal static class ChatStoreMapper
             Id = entity.Id,
             AgentId = entity.AgentId,
             WorkspacePath = entity.WorkspacePath,
+            Mode = entity.Mode,
+            ParentChatId = entity.ParentChatId,
+            PlanFilePath = entity.PlanFilePath,
             ExternalSessionId = entity.ExternalSessionId
         };
 

@@ -58,8 +58,7 @@ type ChatMessageRowProps = {
 
 function ChatMessageRow({ message, markers }: ChatMessageRowProps): React.JSX.Element {
   const isUser = message.role === 'user'
-  const showPlaceholder =
-    !isUser && message.status === 'processing' && message.content.length === 0
+  const showPlaceholder = !isUser && message.status === 'processing' && message.content.length === 0
   const showActivity = !isUser && markers.length > 0
 
   if (isUser) {

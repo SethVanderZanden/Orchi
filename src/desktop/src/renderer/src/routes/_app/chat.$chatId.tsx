@@ -3,7 +3,7 @@ import { createFileRoute, Navigate } from '@tanstack/react-router'
 import { Text } from '@astryxdesign/core/Text'
 import { VStack } from '@astryxdesign/core/Layout'
 
-import { ChatPanel } from '@/components/chat/chat-panel'
+import { ChatWorkspacePanel } from '@/components/layout/chat-workspace-panel'
 import { useChat } from '@/providers/chat-provider'
 
 export const Route = createFileRoute('/_app/chat/$chatId')({
@@ -33,5 +33,5 @@ function ChatPage(): React.JSX.Element {
     return <Navigate to="/" replace />
   }
 
-  return <ChatPanel chat={chat} />
+  return <ChatWorkspacePanel chat={chat} />
 }

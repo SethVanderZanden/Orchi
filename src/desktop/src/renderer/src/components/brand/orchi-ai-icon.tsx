@@ -23,7 +23,14 @@ export function OrchiAiIcon({ className }: OrchiAiIconProps): React.JSX.Element 
       className={className ? `size-6 shrink-0 ${className}` : 'size-6 shrink-0'}
     >
       <defs>
-        <linearGradient id={gradientId} x1="5" y1="5" x2="19" y2="20" gradientUnits="userSpaceOnUse">
+        <linearGradient
+          id={gradientId}
+          x1="5"
+          y1="5"
+          x2="19"
+          y2="20"
+          gradientUnits="userSpaceOnUse"
+        >
           {GRADIENT_STOPS.map((stop) => (
             <stop key={stop.offset} offset={stop.offset} stopColor={stop.color} />
           ))}
@@ -36,7 +43,14 @@ export function OrchiAiIcon({ className }: OrchiAiIconProps): React.JSX.Element 
         strokeLinecap="round"
       />
       <circle cx="12" cy="13" r="6.5" stroke={`url(#${gradientId})`} strokeWidth="1.85" />
-      <ellipse cx="12" cy="15.2" rx="2.6" ry="1.8" stroke={`url(#${gradientId})`} strokeWidth="1.85" />
+      <ellipse
+        cx="12"
+        cy="15.2"
+        rx="2.6"
+        ry="1.8"
+        stroke={`url(#${gradientId})`}
+        strokeWidth="1.85"
+      />
       <circle cx="10.4" cy="15.1" r="0.55" fill={`url(#${gradientId})`} />
       <circle cx="13.6" cy="15.1" r="0.55" fill={`url(#${gradientId})`} />
       <circle cx="9.4" cy="11.2" r="0.9" fill={`url(#${gradientId})`} />

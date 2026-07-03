@@ -2,7 +2,6 @@ import { app, shell, BrowserWindow, dialog, ipcMain, nativeTheme } from 'electro
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-
 const apiBaseUrl = process.env.ORCHI_API_URL ?? 'http://localhost:5265'
 let isShuttingDown = false
 

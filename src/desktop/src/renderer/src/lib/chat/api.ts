@@ -3,6 +3,8 @@ import type {
   ChatSummaryResponse,
   CreateChatRequest,
   CreateChatResponse,
+  KickOffPlanRequest,
+  KickOffPlanResponse,
   SseHandlers
 } from '@/lib/chat/types'
 import { getApiBaseUrl } from '@/lib/api'
@@ -24,6 +26,9 @@ function mapSummary(summary: ChatSummaryResponse) {
     updatedAt: summary.updatedAt,
     agentId: summary.agentId,
     workspacePath: summary.workspacePath,
+    mode: summary.mode ?? 'default',
+    parentChatId: summary.parentChatId,
+    planFilePath: summary.planFilePath,
     messages: [] as ChatDetailResponse['messages']
   }
 }
@@ -36,6 +41,9 @@ function mapDetail(detail: ChatDetailResponse) {
     updatedAt: detail.messages.at(-1)?.createdAt ?? new Date().toISOString(),
     agentId: detail.agentId,
     workspacePath: detail.workspacePath,
+    mode: detail.mode ?? 'default',
+    parentChatId: detail.parentChatId,
+    planFilePath: detail.planFilePath,
     messages: detail.messages
   }
 }
@@ -56,7 +64,8 @@ export async function createChat(request: CreateChatRequest) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       agent: request.agent,
-      workspacePath: request.workspacePath
+      workspacePath: request.workspacePath,
+      mode: request.mode ?? 'default'
     })
   })
 
@@ -72,6 +81,9 @@ export async function createChat(request: CreateChatRequest) {
     updatedAt: new Date().toISOString(),
     agentId: created.agentId,
     workspacePath: created.workspacePath,
+    mode: created.mode ?? 'default',
+    parentChatId: created.parentChatId,
+    planFilePath: created.planFilePath,
     messages: []
   }
 }
@@ -100,6 +112,20 @@ export async function shutdownChats() {
   await fetch(`${getApiBaseUrl()}/chats/shutdown`, {
     method: 'POST'
   })
+}
+
+export async function kickOffPlan(parentChatId: string, request: KickOffPlanRequest) {
+  const response = await fetch(`${getApiBaseUrl()}/chats/${parentChatId}/plans/kickoff`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request)
+  })
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response))
+  }
+
+  return (await response.json()) as KickOffPlanResponse
 }
 
 export async function sendMessageStream(

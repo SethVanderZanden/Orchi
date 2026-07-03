@@ -56,13 +56,40 @@ Each turn is intentionally simple:
 3. Stream `AgentEvent` results back to the client
 4. Persist the assistant message and `ExternalSessionId` when the turn completes
 
-Multi-turn continuity uses Cursor `--resume` with the stored `ExternalSessionId`. Orchi does not assemble prompts, replay history, or inject workspace context in the basics stack.
+Multi-turn continuity uses Cursor `--resume` with the stored `ExternalSessionId`. By default, Orchi passes user text verbatim to the CLI. **Agent modes** can prepend static instructions before the user message (see below).
 
 Sessions and messages persist to **SQLite** via EF Core (`orchi.db`). User messages are saved immediately; assistant messages are saved once when a turn completes or errors (streaming tokens stay in-memory only). Active chats are cached in memory for streaming and process handles; `GET /chats` and `GET /chats/{id}` hydrate from the database when needed.
 
 | Analogy | Code |
 |---------|------|
 | Filing cabinet | `IChatStore` / `EfChatStore` |
+
+## Agent modes vs agent adapters
+
+| Concept | Answers | Example |
+|---------|---------|---------|
+| **Agent adapter** | Which CLI provider? | `cursor` |
+| **Agent mode** | How is the prompt shaped? | `default`, `orchestration` |
+
+Agent modes use a strategy + factory pattern under `Infrastructure/Agents/Modes/`:
+
+- `IAgentModeStrategy` — static instructions and optional CLI args per mode
+- `IAgentModeStrategyFactory` — resolve strategy by mode id
+- `AgentPromptComposer` — builds `{instructions}\n\n---\n\nUser message:\n{content}`
+
+User messages are stored **raw** in the database; composition happens only at the CLI boundary so the static instruction prefix can be cached by the agent.
+
+### Orchestration mode
+
+`orchestration` is an enhanced plan mode. The orchestrator decomposes work into several small plans wrapped in `<!-- orchi-plan:id -->` markers. Each plan can be **kicked off** via `POST /chats/{parentChatId}/plans/kickoff`, which:
+
+1. Writes `.orchi/plan-{id}.md` in the workspace
+2. Creates a child chat in `default` mode
+3. Returns an implementation prompt; the desktop auto-sends it to the child agent
+
+```
+Orchestration chat  →  plans in assistant output  →  kick off  →  .orchi/plan-*.md + child chat
+```
 
 ## Configuration
 
@@ -82,10 +109,11 @@ The Cursor CLI must be installed and authenticated on the **same machine as the 
 
 ## Lifecycle
 
-1. **Create chat** — `POST /chats` with `{ agent, workspacePath }`; validates path; persists chat row; no CLI yet
+1. **Create chat** — `POST /chats` with `{ agent, workspacePath, mode? }`; validates path; persists chat row; no CLI yet
 2. **Send message** — `POST /chats/{id}/messages` → SSE stream; spawns/resumes Cursor CLI per turn; persists messages on completion
-3. **Close chat** — `DELETE /chats/{id}` → kills process, soft-deletes chat in database
-4. **App shutdown** — `POST /chats/shutdown` (called from Electron `before-quit`) → kills active sessions (persisted chats remain in database)
+3. **Kick off plan** — `POST /chats/{parentChatId}/plans/kickoff` (orchestration chats only); writes plan file and creates child chat
+4. **Close chat** — `DELETE /chats/{id}` → kills process, soft-deletes chat in database
+5. **App shutdown** — `POST /chats/shutdown` (called from Electron `before-quit`) → kills active sessions (persisted chats remain in database)
 
 ## Further reading
 
