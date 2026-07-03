@@ -7,7 +7,8 @@ Orchi tracks the design patterns and architectural styles used across the codeba
 | Pattern | Where in Orchi | Guide |
 |---------|----------------|-------|
 | **Decorator** | CQRS behaviours (`ValidationBehaviour`, `LoggingBehaviour`, `PerformanceBehaviour`) wired via Scrutor | [Decorator](decorator.md) — start with the [Dummy section](decorator.md#dummy-section-start-here) |
-| **Prompt pipeline** | Agent mode prompt composition (`IPromptSectionContributor`, `OrchiPromptRenderer`) | [Prompt pipeline](prompt-pipeline.md) — start with the [Dummy section](prompt-pipeline.md#dummy-section-start-here) |
+| **Contributor** | Prompt section writers (`IPromptSectionContributor`, `PromptSectionPipeline`) — many classes, one shared document | [Contributor](contributor.md) — start with the [Dummy section](contributor.md#dummy-section-start-here) |
+| **Prompt pipeline** | End-to-end agent prompt composition (contributors + mode strategies + XML renderer) | [Prompt pipeline](prompt-pipeline.md) — start with the [Dummy section](prompt-pipeline.md#dummy-section-start-here) |
 | **Result object** | `Result` / `Result<T>` returned from handlers instead of throwing for expected failures | [Result object](result-object.md) |
 | **Options** | `PerformanceOptions` and other config-bound settings | [Options](options.md) |
 | **Dependency injection** | Constructor injection throughout; handlers and behaviours resolved from the container | [Dependency injection](dependency-injection.md) |

@@ -5,7 +5,7 @@ namespace Orchi.Api.Infrastructure.Agents.Modes;
 public sealed class AgentPromptComposer(
     IAgentModeStrategyFactory modeStrategyFactory,
     PromptSectionPipeline pipeline,
-    OrchiPromptRenderer renderer)
+    OrchiPromptRenderer renderer) : IAgentPromptComposer
 {
     public string Compose(ChatSession session, string userContent)
     {

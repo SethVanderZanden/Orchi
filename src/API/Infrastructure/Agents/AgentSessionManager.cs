@@ -2,7 +2,6 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Orchi.Api.Common.Results;
-using Orchi.Api.Infrastructure.Agents.Cursor;
 using Orchi.Api.Infrastructure.Agents.Persistence;
 
 using Orchi.Api.Infrastructure.Agents.Modes;
@@ -15,14 +14,14 @@ public sealed class AgentSessionManager
     private readonly IChatStore _chatStore;
     private readonly IAgentAdapterFactory _adapterFactory;
     private readonly IAgentModeStrategyFactory _modeStrategyFactory;
-    private readonly AgentPromptComposer _promptComposer;
+    private readonly IAgentPromptComposer _promptComposer;
     private readonly ILogger<AgentSessionManager> _logger;
 
     public AgentSessionManager(
         IChatStore chatStore,
         IAgentAdapterFactory adapterFactory,
         IAgentModeStrategyFactory modeStrategyFactory,
-        AgentPromptComposer promptComposer,
+        IAgentPromptComposer promptComposer,
         ILogger<AgentSessionManager> logger)
     {
         _chatStore = chatStore;
@@ -125,6 +124,51 @@ public sealed class AgentSessionManager
         return Result.Success(session);
     }
 
+    public async Task<Result<ChatSession>> UpdateModeAsync(
+        Guid chatId,
+        string? mode,
+        CancellationToken cancellationToken)
+    {
+        ChatSession? session = await GetOrLoadSessionAsync(chatId, cancellationToken);
+        if (session is null)
+        {
+            return Result.Failure<ChatSession>(Error.NotFound($"Chat '{chatId}' was not found."));
+        }
+
+        lock (session.Sync)
+        {
+            if (session.RunningProcess is not null
+                || session.RunCts is not null
+                || session.Messages.Any(message =>
+                    message.Role == "assistant" && message.Status is "processing" or "streaming"))
+            {
+                return Result.Failure<ChatSession>(
+                    Error.Validation("Mode.Busy", "Mode cannot be changed while the agent is running."));
+            }
+        }
+
+        string resolvedMode = string.IsNullOrWhiteSpace(mode) ? DefaultAgentModeStrategy.Mode : mode.Trim();
+
+        try
+        {
+            _ = _modeStrategyFactory.GetStrategy(resolvedMode);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Result.Failure<ChatSession>(Error.Validation("Mode.Unsupported", ex.Message));
+        }
+
+        bool updated = await _chatStore.UpdateModeAsync(chatId, resolvedMode, cancellationToken);
+        if (!updated)
+        {
+            return Result.Failure<ChatSession>(Error.NotFound($"Chat '{chatId}' was not found."));
+        }
+
+        session.Mode = resolvedMode;
+        _sessions[chatId] = session;
+        return Result.Success(session);
+    }
+
     public async Task<Result> CloseSessionAsync(Guid chatId, CancellationToken cancellationToken)
     {
         if (_sessions.TryRemove(chatId, out ChatSession? session))
@@ -189,26 +233,6 @@ public sealed class AgentSessionManager
 
         string composedPrompt = _promptComposer.Compose(session, content);
         IReadOnlyList<string> extraCliArgs = _promptComposer.GetExtraCliArgs(session.Mode);
-
-        // #region agent log
-        CursorAgentDebugLog.Write(
-            session.WorkspacePath,
-            "D",
-            "AgentSessionManager.SendMessageAsync",
-            "composed prompt before adapter",
-            new
-            {
-                chatId = session.Id,
-                mode = session.Mode,
-                userContentLength = content.Length,
-                composedPromptLength = composedPrompt.Length,
-                composedStartsWithOrchi = composedPrompt.StartsWith("<orchi>", StringComparison.Ordinal),
-                composedEndsWithOrchi = composedPrompt.EndsWith("</orchi>", StringComparison.Ordinal),
-                quoteCount = composedPrompt.Count(c => c == '"'),
-                ltCount = composedPrompt.Count(c => c == '<'),
-                userContent = content.Length <= 200 ? content : content[..200],
-            });
-        // #endregion
 
         var runCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         session.RunCts = runCts;

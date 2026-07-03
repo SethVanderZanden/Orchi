@@ -91,16 +91,16 @@ function ChatMessageRow({ message, markers }: ChatMessageRowProps): React.JSX.El
           {showPlaceholder ? (
             <span className="text-muted-foreground">…</span>
           ) : message.status === 'processing' || message.status === 'streaming' ? (
-            <p className="whitespace-pre-wrap">{message.content}</p>
+            <p className="whitespace-pre-wrap text-foreground">{message.content}</p>
           ) : (
             <MarkdownContent>{message.content}</MarkdownContent>
           )}
         </div>
         {showActivity ? (
           toolCalls.length > 0 ? (
-            <ChatToolCalls calls={toolCalls} defaultOpen />
+            <ChatToolCalls calls={toolCalls} />
           ) : (
-            <p className="text-xs text-muted-foreground">Working…</p>
+            <p className="text-[11px] text-muted-foreground">Working…</p>
           )
         ) : null}
       </div>

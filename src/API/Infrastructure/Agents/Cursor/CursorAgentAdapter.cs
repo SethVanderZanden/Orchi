@@ -36,63 +36,6 @@ internal sealed class CursorAgentAdapter(
         CursorAgentLaunchSpec launch = resolveResult.Launch;
         ProcessStartInfo startInfo = BuildStartInfo(launch, config, session, prompt, extraCliArgs);
 
-        // #region agent log
-        IReadOnlyList<string> arguments = BuildArguments(config, session, prompt, extraCliArgs);
-        string copyPasteCommand = CursorAgentDebugLog.BuildCopyPasteCommand(resolveResult.ExecutablePath!, arguments);
-        int totalArgChars = arguments.Sum(argument => argument.Length);
-        string? lastArgument = arguments.Count > 0 ? arguments[^1] : null;
-
-        CursorAgentDebugLog.Write(
-            session.WorkspacePath,
-            "A",
-            "CursorAgentAdapter.SendMessageAsync",
-            "process launch diagnostics",
-            new
-            {
-                chatId = session.Id,
-                executablePath = resolveResult.ExecutablePath,
-                executableExtension = Path.GetExtension(resolveResult.ExecutablePath),
-                useShellExecute = startInfo.UseShellExecute,
-                argumentCount = arguments.Count,
-                totalArgumentChars = totalArgChars,
-                promptLength = prompt.Length,
-                lastArgumentLength = lastArgument?.Length,
-                promptMatchesLastArg = string.Equals(prompt, lastArgument, StringComparison.Ordinal),
-                copyPasteCommandLength = copyPasteCommand.Length,
-                copyPasteCommandPreview = copyPasteCommand.Length <= 500
-                    ? copyPasteCommand
-                    : copyPasteCommand[..500] + "...",
-            });
-
-        CursorAgentDebugLog.Write(
-            session.WorkspacePath,
-            "B",
-            "CursorAgentAdapter.SendMessageAsync",
-            "command line length check",
-            new
-            {
-                chatId = session.Id,
-                estimatedCommandLineLength = resolveResult.ExecutablePath!.Length + totalArgChars + arguments.Count,
-                windowsLimit = 8191,
-                exceedsWindowsLimit = resolveResult.ExecutablePath!.Length + totalArgChars + arguments.Count > 8191,
-            });
-
-        CursorAgentDebugLog.Write(
-            session.WorkspacePath,
-            "C",
-            "CursorAgentAdapter.SendMessageAsync",
-            "wrapper executable check",
-            new
-            {
-                chatId = session.Id,
-                isCmdWrapper = resolveResult.ExecutablePath!.EndsWith(".cmd", StringComparison.OrdinalIgnoreCase)
-                    || resolveResult.ExecutablePath.EndsWith(".bat", StringComparison.OrdinalIgnoreCase),
-                isPs1Invoked = resolveResult.ExecutablePath!.EndsWith(".cmd", StringComparison.OrdinalIgnoreCase),
-            });
-
-        CursorAgentDebugLog.WriteWorkspaceDiagnostics(session.WorkspacePath, session.Id, prompt, copyPasteCommand);
-        // #endregion
-
         bool hasResume = !string.IsNullOrWhiteSpace(session.ExternalSessionId);
         logger.LogDebug(
             "Starting Cursor agent for chat {ChatId}: launch={LaunchKind}, resume={HasResume}, externalSessionId={ExternalSessionId}",

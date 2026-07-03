@@ -2,11 +2,16 @@ import { createContext, useCallback, useContext, useMemo, useRef, useState } fro
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 
-import { closeChat, createChat, getChat, kickOffPlan, listChats, sendMessageStream } from '@/lib/chat/api'
-import type { NewChatOptions } from '@/components/chat/new-chat-dialog'
-import type { ChatMarker, ChatMessage, ChatThread } from '@/lib/chat/types'
+import { closeChat, createChat, getChat, kickOffPlan, kickOffReview, listChats, sendMessageStream, updateChatMode } from '@/lib/chat/api'
+import type { CreateChatOptions } from '@/components/chat/chat-mode-selector'
+import type { AgentMode, ChatMarker, ChatMessage, ChatThread } from '@/lib/chat/types'
 import type { ParsedPlan } from '@/lib/orchestration/parse-plans'
 import { chatKeys } from '@/lib/query-keys'
+import {
+  findReviewChildForPlan,
+  isImplementationChildChat,
+  planIdFromPlanFilePath
+} from '@/lib/workspaces/chat-tree'
 
 type AgentActivityDetail = {
   phase: 'tool' | 'done'
@@ -20,12 +25,16 @@ type ChatContextValue = {
   searchQuery: string
   setSearchQuery: (query: string) => void
   getChat: (chatId: string) => ChatThread | undefined
+  getChildChats: (parentChatId: string) => ChatThread[]
   loadChat: (chatId: string) => Promise<ChatThread | undefined>
-  createChat: (options: NewChatOptions) => Promise<ChatThread>
+  createChat: (options: CreateChatOptions) => Promise<ChatThread>
+  updateChatMode: (chatId: string, mode: AgentMode) => Promise<void>
+  getModeUpdateError: (chatId: string) => string | undefined
   closeChat: (chatId: string) => Promise<void>
   sendMessage: (chatId: string, content: string) => Promise<void>
   kickOffPlan: (chatId: string, plan: ParsedPlan) => Promise<void>
-  isSending: boolean
+  kickOffAllPlans: (chatId: string, plans: ParsedPlan[]) => Promise<void>
+  isChatSending: (chatId: string) => boolean
   isKickingOff: boolean
   kickingOffPlanId: string | null
   getMarkers: (chatId: string) => ChatMarker[]
@@ -34,15 +43,23 @@ type ChatContextValue = {
 
 const ChatContext = createContext<ChatContextValue | null>(null)
 
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'AbortError'
+}
+
 export function ChatProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [searchQuery, setSearchQuery] = useState('')
-  const [isSending, setIsSending] = useState(false)
+  const [sendingChatIds, setSendingChatIds] = useState<Set<string>>(() => new Set())
   const [isKickingOff, setIsKickingOff] = useState(false)
   const [kickingOffPlanId, setKickingOffPlanId] = useState<string | null>(null)
   const [markersByChat, setMarkersByChat] = useState<Record<string, ChatMarker[]>>({})
-  const streamAbortRef = useRef<AbortController | null>(null)
+  const [modeUpdateErrorByChat, setModeUpdateErrorByChat] = useState<Record<string, string>>({})
+  const streamAbortByChatRef = useRef<Map<string, AbortController>>(new Map())
+  const turnGenerationByChatRef = useRef<Map<string, number>>(new Map())
+  const reviewKickOffStartedRef = useRef<Set<string>>(new Set())
+  const maybeKickOffReviewRef = useRef<(chatId: string) => void>(() => {})
   const agentActivityListenersRef = useRef(new Set<(detail: AgentActivityDetail) => void>())
 
   const subscribeAgentActivity = useCallback((listener: (detail: AgentActivityDetail) => void) => {
@@ -71,6 +88,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
     [chats, queryClient]
   )
 
+  const getChildChats = useCallback(
+    (parentChatId: string) =>
+      chats.filter((chat) => chat.parentChatId === parentChatId),
+    [chats]
+  )
+
   const loadChat = useCallback(
     async (chatId: string) => {
       const detail = await queryClient.fetchQuery({
@@ -91,11 +114,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
   )
 
   const createChatMutation = useMutation({
-    mutationFn: (options: NewChatOptions) =>
+    mutationFn: (options: CreateChatOptions) =>
       createChat({
         agent: 'cursor',
         workspacePath: options.workspacePath,
-        mode: options.mode
+        mode: 'default'
       }),
     onSuccess: (chat) => {
       queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) => [chat, ...current])
@@ -135,15 +158,72 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
     })
   }, [])
 
+  const isChatSending = useCallback(
+    (chatId: string) => sendingChatIds.has(chatId),
+    [sendingChatIds]
+  )
+
+  const markChatSending = useCallback((chatId: string, sending: boolean) => {
+    setSendingChatIds((current) => {
+      const hasChat = current.has(chatId)
+      if (sending === hasChat) {
+        return current
+      }
+
+      const next = new Set(current)
+      if (sending) {
+        next.add(chatId)
+      } else {
+        next.delete(chatId)
+      }
+
+      return next
+    })
+  }, [])
+
+  const finalizeInterruptedAssistant = useCallback(
+    (chatId: string) => {
+      queryClient.setQueryData<ChatThread>(chatKeys.detail(chatId), (current) => {
+        if (!current) {
+          return current
+        }
+
+        let changed = false
+        const messages = current.messages.map((message) => {
+          if (
+            message.role === 'assistant' &&
+            (message.status === 'processing' || message.status === 'streaming')
+          ) {
+            changed = true
+            return { ...message, status: 'complete' as const }
+          }
+
+          return message
+        })
+
+        if (!changed) {
+          return current
+        }
+
+        return {
+          ...current,
+          messages,
+          updatedAt: new Date().toISOString()
+        }
+      })
+    },
+    [queryClient]
+  )
+
   const updateAssistantMessage = useCallback(
-    (chatId: string, updater: (message: ChatMessage) => ChatMessage) => {
+    (chatId: string, assistantMessageId: string, updater: (message: ChatMessage) => ChatMessage) => {
       queryClient.setQueryData<ChatThread>(chatKeys.detail(chatId), (current) => {
         if (!current) {
           return current
         }
 
         const messages = [...current.messages]
-        const assistantIndex = messages.findLastIndex((message) => message.role === 'assistant')
+        const assistantIndex = messages.findIndex((message) => message.id === assistantMessageId)
         if (assistantIndex === -1) {
           return current
         }
@@ -161,14 +241,36 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
     [queryClient]
   )
 
+  const releaseStream = useCallback(
+    (chatId: string, controller: AbortController) => {
+      if (streamAbortByChatRef.current.get(chatId) !== controller) {
+        return
+      }
+
+      streamAbortByChatRef.current.delete(chatId)
+      markChatSending(chatId, false)
+    },
+    [markChatSending]
+  )
+
   const sendMessage = useCallback(
     async (chatId: string, content: string) => {
-      streamAbortRef.current?.abort()
-      const controller = new AbortController()
-      streamAbortRef.current = controller
+      streamAbortByChatRef.current.get(chatId)?.abort()
+      streamAbortByChatRef.current.delete(chatId)
+      finalizeInterruptedAssistant(chatId)
 
-      setIsSending(true)
+      const controller = new AbortController()
+      streamAbortByChatRef.current.set(chatId, controller)
+
+      const turnGeneration = (turnGenerationByChatRef.current.get(chatId) ?? 0) + 1
+      turnGenerationByChatRef.current.set(chatId, turnGeneration)
+
+      const isActiveTurn = () => turnGenerationByChatRef.current.get(chatId) === turnGeneration
+
+      markChatSending(chatId, true)
       clearMarkers(chatId)
+
+      const assistantMessageId = crypto.randomUUID()
 
       queryClient.setQueryData<ChatThread>(chatKeys.detail(chatId), (current) => {
         if (!current) {
@@ -185,7 +287,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
         }
 
         const assistantMessage: ChatMessage = {
-          id: crypto.randomUUID(),
+          id: assistantMessageId,
           role: 'assistant',
           content: '',
           createdAt: now,
@@ -213,13 +315,21 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
           content,
           {
             onToken: (text) => {
-              updateAssistantMessage(chatId, (message) => ({
+              if (!isActiveTurn()) {
+                return
+              }
+
+              updateAssistantMessage(chatId, assistantMessageId, (message) => ({
                 ...message,
                 content: message.content + text,
                 status: 'streaming'
               }))
             },
             onTool: (label) => {
+              if (!isActiveTurn()) {
+                return
+              }
+
               appendMarker(chatId, {
                 id: crypto.randomUUID(),
                 content: label,
@@ -231,15 +341,24 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
               }
             },
             onDone: () => {
-              updateAssistantMessage(chatId, (message) => ({
+              if (!isActiveTurn()) {
+                return
+              }
+
+              updateAssistantMessage(chatId, assistantMessageId, (message) => ({
                 ...message,
                 status: 'complete'
               }))
               notifyAgentActivity({ phase: 'done' })
               clearMarkers(chatId)
+              maybeKickOffReviewRef.current(chatId)
             },
             onError: (code, message) => {
-              updateAssistantMessage(chatId, (currentMessage) => ({
+              if (!isActiveTurn()) {
+                return
+              }
+
+              updateAssistantMessage(chatId, assistantMessageId, (currentMessage) => ({
                 ...currentMessage,
                 content: currentMessage.content || message,
                 status: 'error'
@@ -255,13 +374,106 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
           controller.signal
         )
 
+        if (!isActiveTurn()) {
+          return
+        }
+
         await queryClient.invalidateQueries({ queryKey: chatKeys.lists() })
         await loadChat(chatId)
+      } catch (error) {
+        if (isAbortError(error) || !isActiveTurn()) {
+          return
+        }
+
+        updateAssistantMessage(chatId, assistantMessageId, (currentMessage) => ({
+          ...currentMessage,
+          content: currentMessage.content || (error instanceof Error ? error.message : 'Failed to send message.'),
+          status: 'error'
+        }))
+        clearMarkers(chatId)
       } finally {
-        setIsSending(false)
+        releaseStream(chatId, controller)
       }
     },
-    [appendMarker, clearMarkers, loadChat, notifyAgentActivity, queryClient, updateAssistantMessage]
+    [
+      appendMarker,
+      clearMarkers,
+      finalizeInterruptedAssistant,
+      loadChat,
+      markChatSending,
+      notifyAgentActivity,
+      queryClient,
+      releaseStream,
+      updateAssistantMessage
+    ]
+  )
+
+  const updateChatModeAction = useCallback(
+    async (chatId: string, mode: AgentMode) => {
+      try {
+        const response = await updateChatMode(chatId, { mode })
+
+        queryClient.setQueryData<ChatThread>(chatKeys.detail(chatId), (current) =>
+          current ? { ...current, mode: response.mode } : current
+        )
+
+        queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) =>
+          current.map((chat) => (chat.id === chatId ? { ...chat, mode: response.mode } : chat))
+        )
+
+        setModeUpdateErrorByChat((current) => {
+          if (!(chatId in current)) {
+            return current
+          }
+
+          const next = { ...current }
+          delete next[chatId]
+          return next
+        })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to update chat mode.'
+        setModeUpdateErrorByChat((current) => ({ ...current, [chatId]: message }))
+      }
+    },
+    [queryClient]
+  )
+
+  const getModeUpdateError = useCallback(
+    (chatId: string) => modeUpdateErrorByChat[chatId],
+    [modeUpdateErrorByChat]
+  )
+
+  const performKickOff = useCallback(
+    async (chatId: string, plan: ParsedPlan, navigateToChild: boolean) => {
+      const response = await kickOffPlan(chatId, {
+        planId: plan.planId,
+        title: plan.title,
+        contentMarkdown: plan.contentMarkdown
+      })
+
+      const childChat: ChatThread = {
+        id: response.childChatId,
+        title: plan.title,
+        preview: response.initialPrompt,
+        updatedAt: new Date().toISOString(),
+        agentId: 'cursor',
+        workspacePath: getChatLocal(chatId)?.workspacePath ?? '',
+        mode: 'default',
+        parentChatId: chatId,
+        planFilePath: response.planFilePath,
+        messages: []
+      }
+
+      queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) => [childChat, ...current])
+      queryClient.setQueryData(chatKeys.detail(childChat.id), childChat)
+
+      if (navigateToChild) {
+        navigate({ to: '/chat/$chatId', params: { chatId: childChat.id } })
+      }
+
+      await sendMessage(childChat.id, response.initialPrompt)
+    },
+    [getChatLocal, navigate, queryClient, sendMessage]
   )
 
   const kickOffPlanAction = useCallback(
@@ -270,37 +482,114 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
       setKickingOffPlanId(plan.planId)
 
       try {
-        const response = await kickOffPlan(chatId, {
-          planId: plan.planId,
-          title: plan.title,
-          contentMarkdown: plan.contentMarkdown
-        })
-
-        const childChat: ChatThread = {
-          id: response.childChatId,
-          title: plan.title,
-          preview: response.initialPrompt,
-          updatedAt: new Date().toISOString(),
-          agentId: 'cursor',
-          workspacePath: getChatLocal(chatId)?.workspacePath ?? '',
-          mode: 'default',
-          parentChatId: chatId,
-          planFilePath: response.planFilePath,
-          messages: []
-        }
-
-        queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) => [childChat, ...current])
-        queryClient.setQueryData(chatKeys.detail(childChat.id), childChat)
-        navigate({ to: '/chat/$chatId', params: { chatId: childChat.id } })
-
-        await sendMessage(childChat.id, response.initialPrompt)
+        await performKickOff(chatId, plan, true)
       } finally {
         setIsKickingOff(false)
         setKickingOffPlanId(null)
       }
     },
-    [getChatLocal, navigate, queryClient, sendMessage]
+    [performKickOff]
   )
+
+  const kickOffAllPlansAction = useCallback(
+    async (chatId: string, plans: ParsedPlan[]) => {
+      if (plans.length === 0) {
+        return
+      }
+
+      setIsKickingOff(true)
+
+      try {
+        for (const plan of plans) {
+          setKickingOffPlanId(plan.planId)
+          await performKickOff(chatId, plan, false)
+        }
+      } finally {
+        setIsKickingOff(false)
+        setKickingOffPlanId(null)
+      }
+    },
+    [performKickOff]
+  )
+
+  const performKickOffReview = useCallback(
+    async (implementationChildId: string) => {
+      if (reviewKickOffStartedRef.current.has(implementationChildId)) {
+        return
+      }
+
+      const implementationChild = getChatLocal(implementationChildId)
+      if (!implementationChild || !isImplementationChildChat(implementationChild)) {
+        return
+      }
+
+      const parentId = implementationChild.parentChatId
+      if (!parentId) {
+        return
+      }
+
+      const siblings = getChildChats(parentId)
+      const planId = planIdFromPlanFilePath(implementationChild.planFilePath)
+      if (planId && findReviewChildForPlan(planId, siblings)) {
+        reviewKickOffStartedRef.current.add(implementationChildId)
+        return
+      }
+
+      reviewKickOffStartedRef.current.add(implementationChildId)
+
+      const response = await kickOffReview(implementationChildId)
+
+      const reviewChild: ChatThread = {
+        id: response.reviewChildChatId,
+        title: planId
+          ? `${planId
+              .split('-')
+              .map((word, index) =>
+                index === 0 ? word.charAt(0).toUpperCase() + word.slice(1) : word
+              )
+              .join(' ')} review`
+          : 'Review',
+        preview: response.initialPrompt,
+        updatedAt: new Date().toISOString(),
+        agentId: 'cursor',
+        workspacePath: implementationChild.workspacePath,
+        mode: 'review',
+        parentChatId: parentId,
+        planFilePath: response.reviewFilePath,
+        messages: []
+      }
+
+      queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) => [reviewChild, ...current])
+      queryClient.setQueryData(chatKeys.detail(reviewChild.id), reviewChild)
+
+      await sendMessage(reviewChild.id, response.initialPrompt)
+    },
+    [getChatLocal, getChildChats, queryClient, sendMessage]
+  )
+
+  const maybeKickOffReview = useCallback(
+    (chatId: string) => {
+      const chat = getChatLocal(chatId)
+      if (!chat || !isImplementationChildChat(chat)) {
+        return
+      }
+
+      const hasCompleteAssistant = chat.messages.some(
+        (message) => message.role === 'assistant' && message.status === 'complete'
+      )
+
+      if (!hasCompleteAssistant || sendingChatIds.has(chatId)) {
+        return
+      }
+
+      void performKickOffReview(chatId).catch(() => {
+        reviewKickOffStartedRef.current.delete(chatId)
+      })
+    },
+    [getChatLocal, performKickOffReview, sendingChatIds]
+  )
+
+  maybeKickOffReviewRef.current = maybeKickOffReview
 
   const value = useMemo<ChatContextValue>(
     () => ({
@@ -310,12 +599,16 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
       searchQuery,
       setSearchQuery,
       getChat: getChatLocal,
+      getChildChats,
       loadChat,
-      createChat: (options: NewChatOptions) => createChatMutation.mutateAsync(options),
+      createChat: (options: CreateChatOptions) => createChatMutation.mutateAsync(options),
+      updateChatMode: updateChatModeAction,
+      getModeUpdateError,
       closeChat: (chatId: string) => closeChatMutation.mutateAsync(chatId),
       sendMessage,
       kickOffPlan: kickOffPlanAction,
-      isSending,
+      kickOffAllPlans: kickOffAllPlansAction,
+      isChatSending,
       isKickingOff,
       kickingOffPlanId,
       getMarkers: (chatId: string) => markersByChat[chatId] ?? [],
@@ -327,12 +620,16 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
       chatsQuery.error,
       searchQuery,
       getChatLocal,
+      getChildChats,
       loadChat,
       createChatMutation.mutateAsync,
+      updateChatModeAction,
+      getModeUpdateError,
       closeChatMutation.mutateAsync,
       sendMessage,
       kickOffPlanAction,
-      isSending,
+      kickOffAllPlansAction,
+      isChatSending,
       isKickingOff,
       kickingOffPlanId,
       markersByChat,

@@ -161,4 +161,20 @@ public sealed class EfChatStore(IDbContextFactory<AppDbContext> dbContextFactory
         chat.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task<bool> UpdateModeAsync(Guid chatId, string mode, CancellationToken cancellationToken)
+    {
+        await using AppDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        Chat? chat = await db.Chats.FirstOrDefaultAsync(existing => existing.Id == chatId, cancellationToken);
+
+        if (chat is null)
+        {
+            return false;
+        }
+
+        chat.Mode = mode;
+        chat.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
 }

@@ -1,8 +1,9 @@
+using System.Text.RegularExpressions;
 using Orchi.Api.Infrastructure.Agents;
 
 namespace Orchi.Api.Features.Chats.Shared;
 
-public static class ChatMapper
+public static partial class ChatMapper
 {
     public static ChatSummaryResponse ToSummary(ChatSession session)
     {
@@ -36,6 +37,12 @@ public static class ChatMapper
 
     private static string DeriveTitle(ChatSession session)
     {
+        string? planTitle = DeriveTitleFromPlanFilePath(session.PlanFilePath);
+        if (planTitle is not null)
+        {
+            return planTitle;
+        }
+
         ChatMessage? firstUser = session.Messages.FirstOrDefault(message => message.Role == "user");
         if (firstUser is null)
         {
@@ -45,6 +52,47 @@ public static class ChatMapper
         string trimmed = firstUser.Content.Trim();
         return trimmed.Length > 42 ? $"{trimmed[..42]}…" : trimmed;
     }
+
+    private static string? DeriveTitleFromPlanFilePath(string? planFilePath)
+    {
+        if (string.IsNullOrWhiteSpace(planFilePath))
+        {
+            return null;
+        }
+
+        string normalized = planFilePath.Replace('\\', '/');
+        Match reviewMatch = ReviewFilePathPattern().Match(normalized);
+        if (reviewMatch.Success)
+        {
+            return $"{FormatPlanIdAsTitle(reviewMatch.Groups[1].Value)} review";
+        }
+
+        Match planMatch = PlanFilePathPattern().Match(normalized);
+        if (!planMatch.Success)
+        {
+            return null;
+        }
+
+        return FormatPlanIdAsTitle(planMatch.Groups[1].Value);
+    }
+
+    private static string FormatPlanIdAsTitle(string planId)
+    {
+        string[] words = planId.Split('-', StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length == 0)
+        {
+            return planId;
+        }
+
+        words[0] = char.ToUpperInvariant(words[0][0]) + words[0][1..];
+        return string.Join(' ', words);
+    }
+
+    [GeneratedRegex(@"(?:^|[\\/])plan-([a-z0-9]+(?:-[a-z0-9]+)*)\.md$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex PlanFilePathPattern();
+
+    [GeneratedRegex(@"(?:^|[\\/])review-([a-z0-9]+(?:-[a-z0-9]+)*)\.md$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex ReviewFilePathPattern();
 }
 
 public sealed record ChatSummaryResponse(
@@ -80,6 +128,10 @@ public sealed record CreateChatRequest(
     string WorkspacePath,
     string? Mode = null);
 
+public sealed record UpdateChatModeRequest(string Mode);
+
+public sealed record UpdateChatModeResponse(Guid Id, string Mode);
+
 public sealed record SendMessageRequest(string Content);
 
 public sealed record CreateChatResponse(
@@ -98,6 +150,11 @@ public sealed record KickOffPlanRequest(
 public sealed record KickOffPlanResponse(
     Guid ChildChatId,
     string PlanFilePath,
+    string InitialPrompt);
+
+public sealed record KickOffReviewResponse(
+    Guid ReviewChildChatId,
+    string ReviewFilePath,
     string InitialPrompt);
 
 public sealed record SendMessageDoneResponse(Guid MessageId);

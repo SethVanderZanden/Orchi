@@ -1,5 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Orchi.Api.Data;
+using Orchi.Api.Entities;
 using Orchi.Api.Features.Chats.Shared;
 using Orchi.Api.Infrastructure.Agents.Modes;
 using Orchi.Api.Tests.Common;
@@ -60,6 +64,7 @@ public class KickOffPlanEndpointTests : IClassFixture<TestWebApplicationFactory>
         Assert.NotNull(kickedOff);
         Assert.Equal(".orchi/plan-auth-refactor.md", kickedOff.PlanFilePath);
         Assert.Contains(".orchi/plan-auth-refactor.md", kickedOff.InitialPrompt);
+        Assert.Contains("delete `.orchi/plan-auth-refactor.md`", kickedOff.InitialPrompt);
 
         string planFile = Path.Combine(_workspacePath, ".orchi", "plan-auth-refactor.md");
         Assert.True(File.Exists(planFile));
@@ -72,6 +77,18 @@ public class KickOffPlanEndpointTests : IClassFixture<TestWebApplicationFactory>
         Assert.Equal(DefaultAgentModeStrategy.Mode, child.Mode);
         Assert.Equal(parent.Id, child.ParentChatId);
         Assert.Equal(".orchi/plan-auth-refactor.md", child.PlanFilePath);
+
+        using (IServiceScope scope = _factory.Services.CreateScope())
+        {
+            IDbContextFactory<AppDbContext> factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
+            await using AppDbContext db = await factory.CreateDbContextAsync();
+            Plan? plan = await db.Plans
+                .FirstOrDefaultAsync(row => row.PlanId == "auth-refactor" && row.SourceChatId == parent.Id);
+
+            Assert.NotNull(plan);
+            Assert.Equal("Auth refactor", plan.Title);
+            Assert.Contains("Implement JWT auth", plan.ContentMarkdown);
+        }
     }
 
     [Fact]

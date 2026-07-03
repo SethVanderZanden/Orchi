@@ -11,6 +11,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<ChatMessageEntity> ChatMessages => Set<ChatMessageEntity>();
 
+    public DbSet<Plan> Plans => Set<Plan>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Chat>(entity =>
@@ -35,6 +37,18 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.HasOne(message => message.Chat)
                 .WithMany(chat => chat.Messages)
                 .HasForeignKey(message => message.ChatId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Plan>(entity =>
+        {
+            entity.HasKey(plan => new { plan.PlanId, plan.SourceChatId });
+            entity.Property(plan => plan.PlanId).HasMaxLength(128);
+            entity.Property(plan => plan.Title).HasMaxLength(512);
+            entity.HasIndex(plan => plan.SourceChatId);
+            entity.HasOne(plan => plan.SourceChat)
+                .WithMany()
+                .HasForeignKey(plan => plan.SourceChatId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

@@ -1,26 +1,9 @@
 import { Outlet } from '@tanstack/react-router'
-import type { CSSProperties } from 'react'
-
-const mainPane: CSSProperties = {
-  flex: 1,
-  minWidth: 0,
-  minHeight: 0,
-  height: '100%',
-  display: 'flex',
-  flexDirection: 'column'
-}
-
-const shellRoot: CSSProperties = {
-  flex: 1,
-  minWidth: 0,
-  minHeight: 0,
-  height: '100%'
-}
 
 export function WorkspaceShellLayout(): React.JSX.Element {
   return (
-    <div style={shellRoot}>
-      <div style={mainPane}>
+    <div className="flex h-full min-h-0 min-w-0 flex-1 bg-background">
+      <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
         <Outlet />
       </div>
     </div>

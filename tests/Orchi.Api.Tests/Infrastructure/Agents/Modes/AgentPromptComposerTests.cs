@@ -53,7 +53,19 @@ public class AgentPromptComposerTests
         string prompt = _composer.Compose(session, "Start with the login form");
 
         Assert.Contains($"<task>Implement the plan at `{planPath}`.", prompt);
+        Assert.Contains($"delete `{planPath}`", prompt);
         Assert.Contains("<message>Start with the login form</message>", prompt);
+    }
+
+    [Fact]
+    public void Compose_WithParentChatId_IncludesParentInContext()
+    {
+        var parentChatId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+        var session = PromptTestHelpers.CreateSession(parentChatId: parentChatId);
+
+        string prompt = _composer.Compose(session, "Continue the plan");
+
+        Assert.Contains($"Parent chat: {parentChatId}", prompt);
     }
 
     [Fact]

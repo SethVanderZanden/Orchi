@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useMatch, useNavigate } from '@tanstack/react-router'
 import {
+  Bot,
   ChevronDown,
   ChevronRight,
   Folder,
@@ -11,7 +12,6 @@ import {
 } from 'lucide-react'
 
 import { OrchiAiIcon } from '@/components/brand/orchi-ai-icon'
-import { NewChatDialog, type NewChatOptions } from '@/components/chat/new-chat-dialog'
 import { RelativeTime } from '@/components/relative-time'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -19,24 +19,33 @@ import { PageHeader } from '@/components/ui/page-header'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut'
+import type { ChatThread } from '@/lib/chat/types'
 import { cn } from '@/lib/utils'
-import { useChat } from '@/providers/chat-provider'
-import { useWorkspaces } from '@/providers/workspace-provider'
-import { useWorkspaceLayout } from '@/providers/workspace-layout-provider'
 import {
   filterWorkspaceGroups,
   groupChatsByWorkspace,
   type WorkspaceChatGroup
 } from '@/lib/workspaces/group-chats'
+import type { ChatTreeNode } from '@/lib/workspaces/chat-tree'
+import { useChat } from '@/providers/chat-provider'
+import { useWorkspaces } from '@/providers/workspace-provider'
+import { useWorkspaceLayout } from '@/providers/workspace-layout-provider'
+
+function groupContainsChat(group: WorkspaceChatGroup, chatId: string): boolean {
+  return group.chatNodes.some(
+    (node) => node.chat.id === chatId || node.children.some((child) => child.id === chatId)
+  )
+}
 
 export function WorkspaceNavigator(): React.JSX.Element {
   const navigate = useNavigate()
   const { chats, searchQuery, setSearchQuery, createChat, isLoadingChats, getChat } = useChat()
   const { workspaces, addWorkspace, pickDirectory } = useWorkspaces()
   const { isProjectExpanded, toggleProjectExpanded, ensureProjectExpanded } = useWorkspaceLayout()
-  const [newChatGroup, setNewChatGroup] = useState<WorkspaceChatGroup | null>(null)
   const [isCreating, setIsCreating] = useState(false)
   const [isAddingProject, setIsAddingProject] = useState(false)
+  const [expandedParentChatIds, setExpandedParentChatIds] = useState<Set<string>>(() => new Set())
 
   const chatMatch = useMatch({
     from: '/_app/chat/$chatId',
@@ -55,18 +64,44 @@ export function WorkspaceNavigator(): React.JSX.Element {
     return filterWorkspaceGroups(groups, searchQuery)
   }, [workspaces, chats, searchQuery])
 
+  const ensureParentExpanded = useCallback((parentChatId: string) => {
+    setExpandedParentChatIds((current) => {
+      if (current.has(parentChatId)) {
+        return current
+      }
+
+      const next = new Set(current)
+      next.add(parentChatId)
+      return next
+    })
+  }, [])
+
+  const toggleParentExpanded = useCallback((parentChatId: string) => {
+    setExpandedParentChatIds((current) => {
+      const next = new Set(current)
+      if (next.has(parentChatId)) {
+        next.delete(parentChatId)
+      } else {
+        next.add(parentChatId)
+      }
+      return next
+    })
+  }, [])
+
   useEffect(() => {
     if (!activeChat) {
       return
     }
 
-    const matchingGroup = workspaceGroups.find((group) =>
-      group.chats.some((chat) => chat.id === activeChat.id)
-    )
+    const matchingGroup = workspaceGroups.find((group) => groupContainsChat(group, activeChat.id))
     if (matchingGroup) {
       ensureProjectExpanded(matchingGroup.id)
     }
-  }, [activeChat, ensureProjectExpanded, workspaceGroups])
+
+    if (activeChat.parentChatId) {
+      ensureParentExpanded(activeChat.parentChatId)
+    }
+  }, [activeChat, ensureParentExpanded, ensureProjectExpanded, workspaceGroups])
 
   useEffect(() => {
     if (workspaceGroups.length === 0) {
@@ -79,14 +114,44 @@ export function WorkspaceNavigator(): React.JSX.Element {
     }
   }, [ensureProjectExpanded, isProjectExpanded, workspaceGroups])
 
-  async function handleCreateChat(options: NewChatOptions): Promise<void> {
-    setIsCreating(true)
-    try {
-      await createChat(options)
-    } finally {
-      setIsCreating(false)
+  const defaultWorkspaceGroup = useMemo(() => {
+    if (activeChat?.workspacePath) {
+      const activeGroup = workspaceGroups.find(
+        (group) => !group.isOrphan && group.path === activeChat.workspacePath
+      )
+      if (activeGroup) {
+        return activeGroup
+      }
     }
-  }
+
+    return workspaceGroups.find((group) => !group.isOrphan) ?? null
+  }, [activeChat?.workspacePath, workspaceGroups])
+
+  const createChatInGroup = useCallback(
+    async (group: WorkspaceChatGroup) => {
+      if (group.isOrphan || isCreating) {
+        return
+      }
+
+      setIsCreating(true)
+      try {
+        await createChat({ workspacePath: group.path })
+      } finally {
+        setIsCreating(false)
+      }
+    },
+    [createChat, isCreating]
+  )
+
+  const createDefaultChat = useCallback(() => {
+    if (!defaultWorkspaceGroup) {
+      return
+    }
+
+    void createChatInGroup(defaultWorkspaceGroup)
+  }, [createChatInGroup, defaultWorkspaceGroup])
+
+  useKeyboardShortcut('n', createDefaultChat, { enabled: Boolean(defaultWorkspaceGroup) && !isCreating })
 
   async function handleAddProject(): Promise<void> {
     setIsAddingProject(true)
@@ -102,6 +167,74 @@ export function WorkspaceNavigator(): React.JSX.Element {
 
   function handleRegisterOrphanPath(path: string): void {
     addWorkspace(path)
+  }
+
+  function renderChatRow(chat: ChatThread, isChild = false): React.JSX.Element {
+    return (
+      <button
+        key={chat.id}
+        type="button"
+        title={chat.title}
+        className={cn(
+          'flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent',
+          isChild ? 'text-xs' : 'text-sm',
+          chat.id === activeChatId && 'bg-accent font-medium'
+        )}
+        onClick={() =>
+          navigate({
+            to: '/chat/$chatId',
+            params: { chatId: chat.id }
+          })
+        }
+      >
+        {isChild ? <Bot className="size-3 shrink-0 text-muted-foreground" /> : null}
+        <span className="min-w-0 flex-1 truncate">{chat.title}</span>
+        {isChild ? (
+          <span className="shrink-0 text-[10px] text-muted-foreground">
+            {chat.mode === 'review' || chat.planFilePath?.includes('/review-') ? 'Review' : 'Agent'}
+          </span>
+        ) : null}
+        <RelativeTime
+          value={chat.updatedAt}
+          className={cn('shrink-0 text-muted-foreground', isChild ? 'text-[10px]' : 'text-[11px]')}
+        />
+      </button>
+    )
+  }
+
+  function renderChatNode(node: ChatTreeNode): React.JSX.Element {
+    const hasChildren = node.children.length > 0
+    const isParentExpanded = expandedParentChatIds.has(node.chat.id)
+
+    if (!hasChildren) {
+      return renderChatRow(node.chat)
+    }
+
+    return (
+      <div key={node.chat.id} className="min-w-0">
+        <div className="flex items-center gap-0.5">
+          <button
+            type="button"
+            className="flex size-6 shrink-0 items-center justify-center rounded-md hover:bg-accent"
+            aria-label={isParentExpanded ? 'Collapse child agents' : 'Expand child agents'}
+            onClick={() => toggleParentExpanded(node.chat.id)}
+          >
+            {isParentExpanded ? (
+              <ChevronDown className="size-3 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="size-3 text-muted-foreground" />
+            )}
+          </button>
+          <div className="min-w-0 flex-1">{renderChatRow(node.chat)}</div>
+        </div>
+
+        {isParentExpanded ? (
+          <div className="ml-5 space-y-0.5 border-l pl-1">
+            {node.children.map((child) => renderChatRow(child, true))}
+          </div>
+        ) : null}
+      </div>
+    )
   }
 
   return (
@@ -192,6 +325,7 @@ export function WorkspaceNavigator(): React.JSX.Element {
               <div className="space-y-0.5 p-1">
                 {workspaceGroups.map((group) => {
                   const expanded = isProjectExpanded(group.id)
+                  const firstChat = group.chatNodes[0]?.chat
 
                   return (
                     <div key={group.id} className="min-w-0">
@@ -207,19 +341,22 @@ export function WorkspaceNavigator(): React.JSX.Element {
                             <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
                           )}
                           <Folder className="size-3.5 shrink-0 fill-muted-foreground/30 text-muted-foreground" />
-                          <span className="truncate text-xs font-medium text-muted-foreground">
+                          <span
+                            className="min-w-0 flex-1 truncate text-xs font-medium text-muted-foreground"
+                            title={group.name}
+                          >
                             {group.name}
                           </span>
                         </button>
 
                         {group.isOrphan ? (
-                          group.chats.length > 0 ? (
+                          group.chatNodes.length > 0 ? (
                             <Button
                               variant="ghost"
                               size="sm"
                               className="h-7 shrink-0 px-2 text-xs"
                               onClick={() => {
-                                const path = group.chats[0]?.workspacePath
+                                const path = firstChat?.workspacePath
                                 if (path) {
                                   handleRegisterOrphanPath(path)
                                 }
@@ -236,40 +373,23 @@ export function WorkspaceNavigator(): React.JSX.Element {
                                 size="icon"
                                 className="size-7 shrink-0"
                                 aria-label={`New chat in ${group.name}`}
-                                onClick={() => setNewChatGroup(group)}
+                                disabled={isCreating}
+                                onClick={() => void createChatInGroup(group)}
                               >
                                 <MessageSquarePlus className="size-3.5" />
                               </Button>
                             </TooltipTrigger>
-                            <TooltipContent>New chat</TooltipContent>
+                            <TooltipContent>New chat (Ctrl+N)</TooltipContent>
                           </Tooltip>
                         )}
                       </div>
 
                       {expanded ? (
                         <div className="ml-5 space-y-0.5 border-l pl-1">
-                          {group.chats.length === 0 ? (
+                          {group.chatNodes.length === 0 ? (
                             <p className="px-2 py-1 text-xs text-muted-foreground">No chats yet</p>
                           ) : (
-                            group.chats.map((chat) => (
-                              <button
-                                key={chat.id}
-                                type="button"
-                                className={cn(
-                                  'flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent',
-                                  chat.id === activeChatId && 'bg-accent font-medium'
-                                )}
-                                onClick={() =>
-                                  navigate({
-                                    to: '/chat/$chatId',
-                                    params: { chatId: chat.id }
-                                  })
-                                }
-                              >
-                                <span className="truncate">{chat.title}</span>
-                                <RelativeTime value={chat.updatedAt} className="shrink-0" />
-                              </button>
-                            ))
+                            group.chatNodes.map((node) => renderChatNode(node))
                           )}
                         </div>
                       ) : null}
@@ -298,21 +418,6 @@ export function WorkspaceNavigator(): React.JSX.Element {
             </>
           ) : null}
         </aside>
-
-        {newChatGroup && !newChatGroup.isOrphan ? (
-          <NewChatDialog
-            open={Boolean(newChatGroup)}
-            onOpenChange={(open) => {
-              if (!open) {
-                setNewChatGroup(null)
-              }
-            }}
-            workspacePath={newChatGroup.path}
-            workspaceName={newChatGroup.name}
-            onCreateChat={handleCreateChat}
-            isSubmitting={isCreating}
-          />
-        ) : null}
       </>
     </TooltipProvider>
   )

@@ -6,6 +6,8 @@ using Orchi.Api.Features.Chats.Shared;
 using Orchi.Api.Infrastructure.Agents;
 using Orchi.Api.Infrastructure.Agents.Modes;
 using Orchi.Api.Infrastructure.Agents.Plans;
+using Orchi.Api.Infrastructure.Agents.Plans.Artifacts;
+using Orchi.Api.Infrastructure.Agents.Plans.Persistence;
 
 namespace Orchi.Api.Features.Chats.KickOffPlan;
 
@@ -19,7 +21,8 @@ public static class KickOffPlan
 
     internal sealed class Handler(
         AgentSessionManager sessionManager,
-        IPlanFileWriter planFileWriter)
+        IPlanStore planStore,
+        IOrchiArtifactWriterFactory artifactWriterFactory)
         : ICommandHandler<Command, KickOffPlanResponse>
     {
         public async Task<Result<KickOffPlanResponse>> Handle(Command command, CancellationToken cancellationToken)
@@ -36,14 +39,31 @@ public static class KickOffPlan
                     Error.Validation("Mode.Invalid", "Plan kick-off is only available for orchestration chats."));
             }
 
+            try
+            {
+                await planStore.UpsertAsync(
+                    new PlanUpsertModel(
+                        command.PlanId,
+                        command.ParentChatId,
+                        command.Title,
+                        command.ContentMarkdown),
+                    cancellationToken);
+            }
+            catch (ArgumentException ex)
+            {
+                return Result.Failure<KickOffPlanResponse>(Error.Validation("PlanId.Invalid", ex.Message));
+            }
+
             string planFilePath;
             try
             {
-                planFilePath = await planFileWriter.WritePlanAsync(
-                    parent.WorkspacePath,
-                    command.PlanId,
-                    command.ContentMarkdown,
-                    cancellationToken);
+                planFilePath = await artifactWriterFactory
+                    .GetStrategy(OrchiArtifactKind.Plan)
+                    .WriteAsync(
+                        parent.WorkspacePath,
+                        command.PlanId,
+                        command.ContentMarkdown,
+                        cancellationToken);
             }
             catch (ArgumentException ex)
             {
@@ -64,8 +84,12 @@ public static class KickOffPlan
             }
 
             ChatSession child = childResult.Value;
-            string initialPrompt =
-                $"Implement the plan at `{planFilePath}`. Follow the plan precisely. Do not replan unless blocked.";
+
+             string path = planFilePath.Trim();
+            
+            string initialPrompt =$"Implement the plan at `{path}`. Follow the plan precisely. Do not replan unless blocked. " +
+                $"After the plan is fully implemented and validated, delete `{path}`. " +
+                "If blocked, keep the plan file.";
 
             return Result.Success(new KickOffPlanResponse(
                 child.Id,

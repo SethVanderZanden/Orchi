@@ -6,6 +6,10 @@ public interface IAgentModeStrategy
 {
     string ModeId { get; }
 
+    string DisplayLabel { get; }
+
+    string? Description { get; }
+
     void ContributeSections(PromptBuildContext context, OrchiPromptDocument document);
 
     IReadOnlyList<string> ExtraCliArgs { get; }

@@ -3,7 +3,7 @@ import { WorkspaceShellLayout } from '@/components/layout/workspace-shell-layout
 
 export function AppLayout(): React.JSX.Element {
   return (
-    <div className="flex h-full min-h-0 min-w-0">
+    <div className="flex h-full min-h-0 min-w-0 bg-background text-foreground">
       <WorkspaceNavigator />
       <WorkspaceShellLayout />
     </div>

@@ -1,8 +1,18 @@
 using Orchi.Api.Infrastructure.Agents;
 using Orchi.Api.Infrastructure.Agents.Modes;
 using Orchi.Api.Infrastructure.Agents.Modes.Prompt;
+using Orchi.Api.Infrastructure.Agents.Plans.Artifacts;
+
+using Orchi.Api.Infrastructure.Agents.Workspace;
 
 namespace Orchi.Api.Tests.Infrastructure.Agents.Modes;
+
+internal sealed class FakeWorkspaceDiffProvider : IWorkspaceDiffProvider
+{
+    public string Diff { get; init; } = "diff --git a/file.txt b/file.txt";
+
+    public string GetDiff(string workspacePath) => Diff;
+}
 
 internal static class PromptTestHelpers
 {
@@ -10,7 +20,8 @@ internal static class PromptTestHelpers
     {
         IAgentModeStrategyFactory factory = new AgentModeStrategyFactory([
             new DefaultAgentModeStrategy(),
-            new OrchestrationAgentModeStrategy()
+            new OrchestrationAgentModeStrategy(),
+            new ReviewAgentModeStrategy()
         ]);
 
         return new AgentPromptComposer(
@@ -23,22 +34,40 @@ internal static class PromptTestHelpers
     {
         factory ??= new AgentModeStrategyFactory([
             new DefaultAgentModeStrategy(),
-            new OrchestrationAgentModeStrategy()
+            new OrchestrationAgentModeStrategy(),
+            new ReviewAgentModeStrategy()
         ]);
 
         return new PromptSectionPipeline([
             new ModeSectionContributor(factory),
             new SessionContextContributor(),
-            new SessionTaskContributor(),
+            new ReviewDiffContributor(new FakeWorkspaceDiffProvider()),
+            new SessionTaskContributor(CreateArtifactTaskFactory()),
+            new ParentChatContributor(),
             new GlobalRulesContributor(),
             new MessageContributor(),
         ]);
     }
 
+    private static IOrchiArtifactTaskFactory CreateArtifactTaskFactory()
+    {
+        var fileStore = new OrchiArtifactFileStore();
+        var writerFactory = new OrchiArtifactWriterFactory([
+            new ImplementationPlanWriterStrategy(fileStore),
+            new ReviewBriefWriterStrategy(fileStore)
+        ]);
+
+        return new OrchiArtifactTaskFactory([
+            new ImplementationPlanTaskStrategy(),
+            new ReviewPlanTaskStrategy()
+        ], writerFactory);
+    }
+
     internal static ChatSession CreateSession(
         string mode = DefaultAgentModeStrategy.Mode,
         string workspacePath = "/workspace",
-        string? planFilePath = null) =>
+        string? planFilePath = null,
+        Guid? parentChatId = null) =>
         new()
         {
             Id = Guid.NewGuid(),
@@ -46,5 +75,6 @@ internal static class PromptTestHelpers
             WorkspacePath = workspacePath,
             Mode = mode,
             PlanFilePath = planFilePath,
+            ParentChatId = parentChatId,
         };
 }

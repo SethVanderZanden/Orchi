@@ -1,21 +1,56 @@
 import type {
+  AgentModeOption,
   ChatDetailResponse,
   ChatSummaryResponse,
   CreateChatRequest,
   CreateChatResponse,
   KickOffPlanRequest,
   KickOffPlanResponse,
-  SseHandlers
+  KickOffReviewResponse,
+  SseHandlers,
+  UpdateChatModeRequest,
+  UpdateChatModeResponse
 } from '@/lib/chat/types'
 import { getApiBaseUrl } from '@/lib/api'
 
 async function readErrorMessage(response: Response): Promise<string> {
   try {
-    const body = (await response.json()) as { message?: string; Message?: string }
+    const body = (await response.json()) as {
+      message?: string
+      Message?: string
+      title?: string
+      detail?: string
+      errors?: Record<string, string[]>
+    }
+
+    if (body.errors) {
+      const messages = Object.values(body.errors).flat()
+
+      if (messages.length > 0) {
+        return formatModeUpdateError(messages[0]!, body.title)
+      }
+    }
+
+    if (body.detail) {
+      return formatModeUpdateError(body.detail, body.title)
+    }
+
     return body.message ?? body.Message ?? `API error: ${response.status}`
   } catch {
     return `API error: ${response.status}`
   }
+}
+
+function formatModeUpdateError(message: string, code?: string): string {
+  if (
+    code === 'Mode.Busy' ||
+    message.includes('agent is running') ||
+    message.startsWith('Mode.Busy')
+  ) {
+    return 'Wait for the agent to finish before changing mode.'
+  }
+
+  return message
 }
 
 function mapSummary(summary: ChatSummaryResponse) {
@@ -58,6 +93,15 @@ export async function listChats() {
   return summaries.map(mapSummary)
 }
 
+export async function listAgentModes() {
+  const response = await fetch(`${getApiBaseUrl()}/agents/modes`)
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response))
+  }
+
+  return (await response.json()) as AgentModeOption[]
+}
+
 export async function createChat(request: CreateChatRequest) {
   const response = await fetch(`${getApiBaseUrl()}/chats`, {
     method: 'POST',
@@ -98,6 +142,20 @@ export async function getChat(chatId: string) {
   return mapDetail(detail)
 }
 
+export async function updateChatMode(chatId: string, request: UpdateChatModeRequest) {
+  const response = await fetch(`${getApiBaseUrl()}/chats/${chatId}/mode`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request)
+  })
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response))
+  }
+
+  return (await response.json()) as UpdateChatModeResponse
+}
+
 export async function closeChat(chatId: string) {
   const response = await fetch(`${getApiBaseUrl()}/chats/${chatId}`, {
     method: 'DELETE'
@@ -126,6 +184,21 @@ export async function kickOffPlan(parentChatId: string, request: KickOffPlanRequ
   }
 
   return (await response.json()) as KickOffPlanResponse
+}
+
+export async function kickOffReview(implementationChildChatId: string) {
+  const response = await fetch(
+    `${getApiBaseUrl()}/chats/${implementationChildChatId}/review/kickoff`,
+    {
+      method: 'POST'
+    }
+  )
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response))
+  }
+
+  return (await response.json()) as KickOffReviewResponse
 }
 
 export async function sendMessageStream(

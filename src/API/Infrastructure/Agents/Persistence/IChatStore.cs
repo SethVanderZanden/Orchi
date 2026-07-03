@@ -34,4 +34,6 @@ public interface IChatStore
         Guid chatId,
         string externalSessionId,
         CancellationToken cancellationToken);
+
+    Task<bool> UpdateModeAsync(Guid chatId, string mode, CancellationToken cancellationToken);
 }

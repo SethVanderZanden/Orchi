@@ -1,15 +1,17 @@
+using Orchi.Api.Infrastructure.Agents.Plans.Artifacts;
+
 namespace Orchi.Api.Infrastructure.Agents.Modes.Prompt;
 
-public sealed class SessionTaskContributor : IPromptSectionContributor
+public sealed class SessionTaskContributor(IOrchiArtifactTaskFactory artifactTaskFactory) : IPromptSectionContributor
 {
     public void Contribute(PromptBuildContext context, OrchiPromptDocument document)
     {
-        if (string.IsNullOrWhiteSpace(context.PlanFilePath))
+        string? task = artifactTaskFactory.ResolveTaskFromPath(context.PlanFilePath);
+        if (task is null)
         {
             return;
         }
 
-        document.Task =
-            $"Implement the plan at `{context.PlanFilePath.Trim()}`. Follow the plan precisely. Do not replan unless blocked.";
+        document.Task = task;
     }
 }

@@ -167,6 +167,7 @@ internal static class TestDatabaseCleaner
         using IServiceScope scope = services.CreateScope();
         IDbContextFactory<AppDbContext> factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
         await using AppDbContext db = await factory.CreateDbContextAsync(cancellationToken);
+        db.Plans.RemoveRange(await db.Plans.ToListAsync(cancellationToken));
         List<Chat> chats = await db.Chats.IgnoreQueryFilters().ToListAsync(cancellationToken);
         DateTimeOffset now = DateTimeOffset.UtcNow;
         foreach (Chat chat in chats)

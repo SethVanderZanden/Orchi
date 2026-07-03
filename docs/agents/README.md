@@ -69,7 +69,7 @@ Sessions and messages persist to **SQLite** via EF Core (`orchi.db`). User messa
 | Concept | Answers | Example |
 |---------|---------|---------|
 | **Agent adapter** | Which CLI provider? | `cursor` |
-| **Agent mode** | How is the prompt shaped? | `default`, `orchestration` |
+| **Agent mode** | How is the prompt shaped? | `default`, `orchestration`, `review` |
 
 Agent modes use a strategy + [prompt pipeline](../patterns/prompt-pipeline.md#dummy-section-start-here) under `Infrastructure/Agents/Modes/`:
 
@@ -99,10 +99,35 @@ A global meta-rule tells the agent not to respond to instruction sections — on
 1. Writes `.orchi/plan-{id}.md` in the workspace
 2. Creates a child chat in `default` mode
 3. Returns an implementation prompt; the desktop auto-sends it to the child agent
+4. The child agent deletes the plan file after successful implementation and validation (if blocked, the plan file is kept)
 
 ```
 Orchestration chat  →  plans in assistant output  →  kick off  →  .orchi/plan-*.md + child chat
 ```
+
+### Review mode
+
+After an implementation child agent completes, Orchi automatically kicks off a **review child** in `review` mode via `POST /chats/{implementationChildChatId}/review/kickoff`. The review agent compares the implementation outcome against the original plan and outputs `<!-- orchi-review-plan:id -->` blocks for the user to inspect.
+
+At prompt composition time, Orchi runs **`git diff HEAD`** in the workspace (falling back to **`git show HEAD`** when there are no uncommitted changes) and appends the result to the review agent's `<context>` section. The review agent does not need to run git itself. The `IWorkspaceDiffProvider` abstraction allows swapping in snapshot-based diffs later.
+
+```
+Implementation child completes  →  auto review kickoff  →  .orchi/review-*.md + review child
+  →  git diff appended to <context>  →  orchi-review-plan blocks  →  parent highlights review
+```
+
+The orchestration parent highlights review-ready plan cards and opens the review panel when review plans appear.
+
+### Artifact files (Strategy + Factory)
+
+Plan and review briefs share the same write operation but use different path templates under `.orchi/`:
+
+| Kind | Path | Purpose |
+|------|------|---------|
+| `plan` | `.orchi/plan-{id}.md` | Implementation work for a child agent |
+| `review` | `.orchi/review-{id}.md` | Review brief for a review child agent |
+
+`IOrchiArtifactWriterStrategy` + `OrchiArtifactWriterFactory` select the write policy at runtime (mirrors agent mode registration). `IOrchiArtifactTaskFactory` maps the session's `PlanFilePath` to the correct `<task>` prompt.
 
 ## Configuration
 
@@ -124,14 +149,16 @@ The Cursor CLI must be installed and authenticated on the **same machine as the 
 
 1. **Create chat** — `POST /chats` with `{ agent, workspacePath, mode? }`; validates path; persists chat row; no CLI yet
 2. **Send message** — `POST /chats/{id}/messages` → SSE stream; spawns/resumes Cursor CLI per turn; persists messages on completion
-3. **Kick off plan** — `POST /chats/{parentChatId}/plans/kickoff` (orchestration chats only); writes plan file and creates child chat
-4. **Close chat** — `DELETE /chats/{id}` → kills process, soft-deletes chat in database
-5. **App shutdown** — `POST /chats/shutdown` (called from Electron `before-quit`) → kills active sessions (persisted chats remain in database)
+3. **Kick off plan** — `POST /chats/{parentChatId}/plans/kickoff` (orchestration chats only); writes plan file, creates child chat, and instructs the agent to delete the plan file after validation
+4. **Kick off review** — `POST /chats/{implementationChildChatId}/review/kickoff` (auto-triggered by desktop when implementation completes); writes review brief, creates review child chat
+5. **Close chat** — `DELETE /chats/{id}` → kills process, soft-deletes chat in database
+6. **App shutdown** — `POST /chats/shutdown` (called from Electron `before-quit`) → kills active sessions (persisted chats remain in database)
 
 ## Further reading
 
 - [Cursor CLI integration](cursor-cli.md) — install, flags, NDJSON parsing
 - [Concurrent stdout/stderr reading](concurrent-pipe-reading.md#dummy-section-start-here) — why stderr is started before the stdout loop
 - [Adding adapters](adapters.md) — `IAgentAdapter` contract and extension steps
-- [Prompt pipeline](../patterns/prompt-pipeline.md) — `<orchi>` XML envelope and section contributors
+- [Contributor pattern](../patterns/contributor.md) — `IPromptSectionContributor` and the shared-document pipeline
+- [Prompt pipeline](../patterns/prompt-pipeline.md) — `<orchi>` XML envelope and end-to-end compose flow
 - [Frontend chat streaming](../frontend/chat-streaming.md) — SSE contract and Marker UI

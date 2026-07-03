@@ -34,15 +34,15 @@ export function OrchiChatComposer({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex items-end gap-2">
+    <form onSubmit={handleSubmit} className="flex items-end gap-3">
       <Textarea
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={handleKeyDown}
         placeholder="Message Orchi…"
         disabled={disabled}
-        rows={1}
-        className="min-h-10 max-h-40 resize-none"
+        rows={3}
+        className="min-h-[88px] max-h-52 resize-none py-3 leading-relaxed"
       />
       <Button type="submit" size="icon" disabled={disabled || !draft.trim()} aria-label="Send message">
         <Send className="size-4" />

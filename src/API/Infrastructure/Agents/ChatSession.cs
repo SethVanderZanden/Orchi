@@ -10,7 +10,7 @@ public sealed class ChatSession
 
     public required string WorkspacePath { get; init; }
 
-    public string Mode { get; init; } = "default";
+    public string Mode { get; set; } = "default";
 
     public Guid? ParentChatId { get; init; }
 

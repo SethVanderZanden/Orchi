@@ -121,6 +121,37 @@ namespace Orchi.Api.Migrations
                     b.ToTable("PipelineRuns");
                 });
 
+            modelBuilder.Entity("Orchi.Api.Entities.Plan", b =>
+                {
+                    b.Property<string>("PlanId")
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("SourceChatId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ContentMarkdown")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("PlanId", "SourceChatId");
+
+                    b.HasIndex("SourceChatId");
+
+                    b.ToTable("Plans");
+                });
+
             modelBuilder.Entity("Orchi.Api.Entities.ChatMessageEntity", b =>
                 {
                     b.HasOne("Orchi.Api.Entities.Chat", "Chat")
@@ -130,6 +161,17 @@ namespace Orchi.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("Chat");
+                });
+
+            modelBuilder.Entity("Orchi.Api.Entities.Plan", b =>
+                {
+                    b.HasOne("Orchi.Api.Entities.Chat", "SourceChat")
+                        .WithMany()
+                        .HasForeignKey("SourceChatId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("SourceChat");
                 });
 
             modelBuilder.Entity("Orchi.Api.Entities.Chat", b =>
