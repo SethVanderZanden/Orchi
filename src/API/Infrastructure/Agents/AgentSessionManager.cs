@@ -186,7 +186,7 @@ public sealed class AgentSessionManager
 
         await AppendUserMessageAsync(chatId, content, cancellationToken);
 
-        string composedPrompt = _promptComposer.Compose(session.Mode, content);
+        string composedPrompt = _promptComposer.Compose(session, content);
         IReadOnlyList<string> extraCliArgs = _promptComposer.GetExtraCliArgs(session.Mode);
 
         var runCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);

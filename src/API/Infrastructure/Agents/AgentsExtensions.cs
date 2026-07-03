@@ -1,5 +1,6 @@
 using Orchi.Api.Infrastructure.Agents.Cursor;
 using Orchi.Api.Infrastructure.Agents.Modes;
+using Orchi.Api.Infrastructure.Agents.Modes.Prompt;
 using Orchi.Api.Infrastructure.Agents.Persistence;
 using Orchi.Api.Infrastructure.Agents.Plans;
 
@@ -18,6 +19,13 @@ public static class AgentsExtensions
         services.AddSingleton<IAgentModeStrategy, DefaultAgentModeStrategy>();
         services.AddSingleton<IAgentModeStrategy, OrchestrationAgentModeStrategy>();
         services.AddSingleton<IAgentModeStrategyFactory, AgentModeStrategyFactory>();
+        services.AddSingleton<OrchiPromptRenderer>();
+        services.AddSingleton<IPromptSectionContributor, ModeSectionContributor>();
+        services.AddSingleton<IPromptSectionContributor, SessionContextContributor>();
+        services.AddSingleton<IPromptSectionContributor, SessionTaskContributor>();
+        services.AddSingleton<IPromptSectionContributor, GlobalRulesContributor>();
+        services.AddSingleton<IPromptSectionContributor, MessageContributor>();
+        services.AddSingleton<PromptSectionPipeline>();
         services.AddSingleton<AgentPromptComposer>();
         services.AddSingleton<IPlanFileWriter, PlanFileWriter>();
         services.AddHostedService<AgentSessionShutdownService>();

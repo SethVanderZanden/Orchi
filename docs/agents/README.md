@@ -56,7 +56,7 @@ Each turn is intentionally simple:
 3. Stream `AgentEvent` results back to the client
 4. Persist the assistant message and `ExternalSessionId` when the turn completes
 
-Multi-turn continuity uses Cursor `--resume` with the stored `ExternalSessionId`. By default, Orchi passes user text verbatim to the CLI. **Agent modes** can prepend static instructions before the user message (see below).
+Multi-turn continuity uses Cursor `--resume` with the stored `ExternalSessionId`. **Agent modes** wrap prompts in an `<orchi>` XML envelope at the CLI boundary (see below).
 
 Sessions and messages persist to **SQLite** via EF Core (`orchi.db`). User messages are saved immediately; assistant messages are saved once when a turn completes or errors (streaming tokens stay in-memory only). Active chats are cached in memory for streaming and process handles; `GET /chats` and `GET /chats/{id}` hydrate from the database when needed.
 
@@ -71,13 +71,26 @@ Sessions and messages persist to **SQLite** via EF Core (`orchi.db`). User messa
 | **Agent adapter** | Which CLI provider? | `cursor` |
 | **Agent mode** | How is the prompt shaped? | `default`, `orchestration` |
 
-Agent modes use a strategy + factory pattern under `Infrastructure/Agents/Modes/`:
+Agent modes use a strategy + [prompt pipeline](../patterns/prompt-pipeline.md#dummy-section-start-here) under `Infrastructure/Agents/Modes/`:
 
-- `IAgentModeStrategy` — static instructions and optional CLI args per mode
+- `IAgentModeStrategy` — contributes mode-specific `<orchi>` sections and optional CLI args
 - `IAgentModeStrategyFactory` — resolve strategy by mode id
-- `AgentPromptComposer` — builds `{instructions}\n\n---\n\nUser message:\n{content}`
+- `AgentPromptComposer` — runs the section pipeline and renders the final XML prompt
 
-User messages are stored **raw** in the database; composition happens only at the CLI boundary so the static instruction prefix can be cached by the agent.
+User messages are stored **raw** in the database; composition happens only at the CLI boundary.
+
+### `<orchi>` prompt sections
+
+| Section | Meaning | Who sets it |
+|---------|---------|-------------|
+| `<identity>` | Who the agent is in this mode | Mode strategy |
+| `<rules>` | Behavioral constraints + global meta-rules | Mode strategy + pipeline |
+| `<context>` | Background (workspace, templates) | Mode strategy + session |
+| `<tools>` | Tool/MCP hints (future) | Mode strategy |
+| `<task>` | Assigned work item (e.g. plan to implement) | Session when `PlanFilePath` is set |
+| `<message>` | The user's actual chat input | Always from user content |
+
+A global meta-rule tells the agent not to respond to instruction sections — only to `<message>` (and to treat `<task>` as assigned work when present). See [Prompt pipeline](../patterns/prompt-pipeline.md).
 
 ### Orchestration mode
 
@@ -120,4 +133,5 @@ The Cursor CLI must be installed and authenticated on the **same machine as the 
 - [Cursor CLI integration](cursor-cli.md) — install, flags, NDJSON parsing
 - [Concurrent stdout/stderr reading](concurrent-pipe-reading.md#dummy-section-start-here) — why stderr is started before the stdout loop
 - [Adding adapters](adapters.md) — `IAgentAdapter` contract and extension steps
+- [Prompt pipeline](../patterns/prompt-pipeline.md) — `<orchi>` XML envelope and section contributors
 - [Frontend chat streaming](../frontend/chat-streaming.md) — SSE contract and Marker UI

@@ -1,4 +1,5 @@
 using Orchi.Api.Infrastructure.Agents.Modes;
+using Orchi.Api.Infrastructure.Agents.Modes.Prompt;
 
 namespace Orchi.Api.Tests.Infrastructure.Agents.Modes;
 
@@ -7,15 +8,23 @@ public class OrchestrationAgentModeStrategyTests
     private readonly OrchestrationAgentModeStrategy _strategy = new();
 
     [Fact]
-    public void BuildPrompt_ContainsOrchestrationGuidance()
+    public void ContributeSections_SetsIdentityRulesAndContext()
     {
-        string prompt = _strategy.BuildPrompt("Create an auth system");
+        var document = new OrchiPromptDocument();
+        var context = new PromptBuildContext
+        {
+            ModeId = OrchestrationAgentModeStrategy.Mode,
+            UserContent = "Create an auth system",
+            WorkspacePath = "/workspace",
+        };
 
-        Assert.Contains("You are in Orchestration Mode.", prompt);
-        Assert.Contains("enhanced plan mode", prompt);
-        Assert.Contains("<!-- orchi-plan:kebab-case-id -->", prompt);
-        Assert.Contains("Do not implement code yourself", prompt);
-        Assert.Contains("User message:\nCreate an auth system", prompt);
+        _strategy.ContributeSections(context, document);
+
+        Assert.Contains("You are in Orchestration Mode.", document.Identity);
+        Assert.Contains("enhanced plan mode", document.Identity);
+        Assert.Contains("Do not implement code yourself", document.Rules);
+        Assert.Contains("<!-- orchi-plan:kebab-case-id -->", document.Context);
+        Assert.Null(document.Message);
     }
 
     [Fact]
