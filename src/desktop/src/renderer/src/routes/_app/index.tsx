@@ -1,6 +1,4 @@
 import { createFileRoute, Navigate } from '@tanstack/react-router'
-import { Text } from '@astryxdesign/core/Text'
-import { VStack } from '@astryxdesign/core/Layout'
 
 import { useChat } from '@/providers/chat-provider'
 
@@ -17,10 +15,10 @@ function AppIndexPage(): React.JSX.Element {
   }
 
   return (
-    <VStack height="100%" hAlign="center" vAlign="center" className="min-w-0 px-6">
-      <Text type="supporting" color="secondary">
+    <div className="flex h-full min-w-0 items-center justify-center px-6">
+      <p className="max-w-md text-center text-sm text-muted-foreground">
         Expand a project and start a chat, or create one with the chat button beside a project.
-      </Text>
-    </VStack>
+      </p>
+    </div>
   )
 }

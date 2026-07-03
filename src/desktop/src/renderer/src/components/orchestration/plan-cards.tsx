@@ -1,8 +1,5 @@
-import { Button } from '@astryxdesign/core/Button'
-import { Card } from '@astryxdesign/core/Card'
-import { HStack, VStack } from '@astryxdesign/core/Layout'
-import { Text } from '@astryxdesign/core/Text'
-
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 import type { ParsedPlan } from '@/lib/orchestration/parse-plans'
 
 type PlanCardsProps = {
@@ -23,32 +20,26 @@ export function PlanCards({
   }
 
   return (
-    <VStack gap={2} className="px-4 pb-4">
-      <Text type="label" weight="semibold">
-        Plans
-      </Text>
+    <div className="mx-auto w-full max-w-3xl space-y-2 px-4 pb-4">
+      <p className="text-sm font-semibold">Plans</p>
       {plans.map((plan) => (
         <Card key={plan.planId}>
-          <VStack gap={2}>
-            <HStack gap={2} vAlign="center" hAlign="between">
-              <VStack gap={0}>
-                <Text type="label" weight="semibold">
-                  {plan.title}
-                </Text>
-                <Text type="supporting" color="secondary">
-                  {plan.planId}
-                </Text>
-              </VStack>
-              <Button
-                label={kickingOffPlanId === plan.planId ? 'Kicking off…' : 'Kick off'}
-                size="sm"
-                isDisabled={isKickingOff}
-                onClick={() => onKickOff(plan)}
-              />
-            </HStack>
-          </VStack>
+          <CardContent className="flex items-center justify-between gap-3 p-4">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold">{plan.title}</p>
+              <p className="truncate text-xs text-muted-foreground">{plan.planId}</p>
+            </div>
+            <Button
+              size="sm"
+              disabled={isKickingOff}
+              onClick={() => onKickOff(plan)}
+              className="shrink-0"
+            >
+              {kickingOffPlanId === plan.planId ? 'Kicking off…' : 'Kick off'}
+            </Button>
+          </CardContent>
         </Card>
       ))}
-    </VStack>
+    </div>
   )
 }

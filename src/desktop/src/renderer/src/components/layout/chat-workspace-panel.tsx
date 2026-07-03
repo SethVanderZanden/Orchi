@@ -1,8 +1,5 @@
-import { VStack } from '@astryxdesign/core/Layout'
-import { Toolbar } from '@astryxdesign/core/Toolbar'
-import { Text } from '@astryxdesign/core/Text'
-import { Token } from '@astryxdesign/core/Token'
-
+import { Badge } from '@/components/ui/badge'
+import { PageHeader } from '@/components/ui/page-header'
 import { ChatPanel } from '@/components/chat/chat-panel'
 import { parsePlansFromMessages } from '@/lib/orchestration/parse-plans'
 import type { ChatThread } from '@/lib/chat/types'
@@ -24,29 +21,24 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
   const plans = chat.mode === 'orchestration' ? parsePlansFromMessages(chat.messages) : []
 
   return (
-    <VStack className="min-h-0 min-w-0 flex-1 overflow-hidden">
-      <Toolbar
-        label="Chat header"
-        size="sm"
-        dividers={['bottom']}
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <PageHeader
         startContent={
-          <VStack gap={0}>
-            <Text type="label" weight="semibold">
-              {chat.title}
-            </Text>
-            <Text type="supporting" color="secondary">
+          <div className="min-w-0 space-y-1">
+            <p className="truncate text-sm font-semibold">{chat.title}</p>
+            <p className="truncate text-xs text-muted-foreground">
               {chat.workspacePath} · {chat.messages.length} message
               {chat.messages.length === 1 ? '' : 's'}
-            </Text>
+            </p>
             {chat.mode === 'orchestration' ? (
-              <Token label="Orchestration" color="blue" size="sm" />
+              <Badge variant="secondary" className="text-[10px]">
+                Orchestration
+              </Badge>
             ) : null}
             {chat.planFilePath ? (
-              <Text type="supporting" color="secondary">
-                Plan: {chat.planFilePath}
-              </Text>
+              <p className="truncate text-xs text-muted-foreground">Plan: {chat.planFilePath}</p>
             ) : null}
-          </VStack>
+          </div>
         }
       />
 
@@ -62,6 +54,6 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
           chat.mode === 'orchestration' ? (plan) => kickOffPlan(chat.id, plan) : undefined
         }
       />
-    </VStack>
+    </div>
   )
 }

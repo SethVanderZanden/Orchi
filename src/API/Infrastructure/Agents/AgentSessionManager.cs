@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Orchi.Api.Common.Results;
+using Orchi.Api.Infrastructure.Agents.Cursor;
 using Orchi.Api.Infrastructure.Agents.Persistence;
 
 using Orchi.Api.Infrastructure.Agents.Modes;
@@ -188,6 +189,26 @@ public sealed class AgentSessionManager
 
         string composedPrompt = _promptComposer.Compose(session, content);
         IReadOnlyList<string> extraCliArgs = _promptComposer.GetExtraCliArgs(session.Mode);
+
+        // #region agent log
+        CursorAgentDebugLog.Write(
+            session.WorkspacePath,
+            "D",
+            "AgentSessionManager.SendMessageAsync",
+            "composed prompt before adapter",
+            new
+            {
+                chatId = session.Id,
+                mode = session.Mode,
+                userContentLength = content.Length,
+                composedPromptLength = composedPrompt.Length,
+                composedStartsWithOrchi = composedPrompt.StartsWith("<orchi>", StringComparison.Ordinal),
+                composedEndsWithOrchi = composedPrompt.EndsWith("</orchi>", StringComparison.Ordinal),
+                quoteCount = composedPrompt.Count(c => c == '"'),
+                ltCount = composedPrompt.Count(c => c == '<'),
+                userContent = content.Length <= 200 ? content : content[..200],
+            });
+        // #endregion
 
         var runCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         session.RunCts = runCts;

@@ -1,7 +1,5 @@
 import { useEffect } from 'react'
 import { createFileRoute, Navigate } from '@tanstack/react-router'
-import { Text } from '@astryxdesign/core/Text'
-import { VStack } from '@astryxdesign/core/Layout'
 
 import { ChatWorkspacePanel } from '@/components/layout/chat-workspace-panel'
 import { useChat } from '@/providers/chat-provider'
@@ -21,11 +19,9 @@ function ChatPage(): React.JSX.Element {
 
   if (!chat && isLoadingChats) {
     return (
-      <VStack height="100%" hAlign="center" vAlign="center">
-        <Text type="supporting" color="secondary">
-          Loading chat…
-        </Text>
-      </VStack>
+      <div className="flex h-full items-center justify-center">
+        <p className="text-sm text-muted-foreground">Loading chat…</p>
+      </div>
     )
   }
 

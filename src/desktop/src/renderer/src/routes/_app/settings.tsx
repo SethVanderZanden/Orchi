@@ -1,15 +1,13 @@
 import { useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { Layout, LayoutContent, VStack, HStack } from '@astryxdesign/core/Layout'
-import { Button } from '@astryxdesign/core/Button'
-import { TextInput } from '@astryxdesign/core/TextInput'
-import { Text } from '@astryxdesign/core/Text'
-import { Section } from '@astryxdesign/core/Section'
-import { List, ListItem } from '@astryxdesign/core/List'
-import { Toolbar } from '@astryxdesign/core/Toolbar'
-import { Icon } from '@astryxdesign/core/Icon'
-import { FolderPlusIcon, TrashIcon } from '@heroicons/react/24/outline'
+import { FolderPlus, Trash2 } from 'lucide-react'
 
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { PageHeader } from '@/components/ui/page-header'
+import { Separator } from '@/components/ui/separator'
 import { useWorkspaces } from '@/providers/workspace-provider'
 import { displayWorkspacePath } from '@/lib/workspaces/store'
 
@@ -69,127 +67,112 @@ function SettingsPage(): React.JSX.Element {
   }
 
   return (
-    <Layout
-      height="fill"
-      header={
-        <Toolbar
-          label="Settings"
-          size="sm"
-          dividers={['bottom']}
-          startContent={
-            <VStack gap={0}>
-              <Text type="label" weight="semibold">
-                Settings
-              </Text>
-              <Text type="supporting" color="secondary">
-                Projects and app preferences
-              </Text>
-            </VStack>
-          }
-        />
-      }
-      content={
-        <LayoutContent>
-          <VStack gap={6} style={{ maxWidth: 640, marginInline: 'auto', width: '100%' }}>
-            <Section variant="section" padding={4}>
-              <VStack gap={4}>
-                <HStack hAlign="between" vAlign="start" gap={4}>
-                  <VStack gap={1}>
-                    <Text type="label" weight="semibold">
-                      Projects
-                    </Text>
-                    <Text type="supporting" color="secondary">
-                      Register project folders once, then create many chats per project from the
-                      navigator.
-                    </Text>
-                  </VStack>
-                  <Button
-                    label="Add project"
-                    variant="secondary"
-                    size="sm"
-                    icon={<Icon icon={FolderPlusIcon} size="sm" />}
-                    onClick={() => void handlePickDirectory()}
-                    isDisabled={isPicking}
-                  />
-                </HStack>
+    <div className="flex h-full min-h-0 flex-col">
+      <PageHeader title="Settings" description="Projects and app preferences" />
 
-                {workspaces.length === 0 ? (
-                  <Text type="supporting" color="secondary">
-                    No projects registered yet. Add a folder to organize chats by workspace.
-                  </Text>
-                ) : (
-                  <List density="balanced" hasDividers>
-                    {workspaces.map((workspace) => (
-                      <ListItem
-                        key={workspace.id}
-                        label={
-                          editingId === workspace.id ? editingName : workspace.name
-                        }
-                        description={workspace.path}
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
+          <Card>
+            <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+              <div className="space-y-1">
+                <CardTitle className="text-base">Projects</CardTitle>
+                <CardDescription>
+                  Register project folders once, then create many chats per project from the
+                  navigator.
+                </CardDescription>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => void handlePickDirectory()}
+                disabled={isPicking}
+              >
+                <FolderPlus className="size-4" />
+                Add project
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {workspaces.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No projects registered yet. Add a folder to organize chats by workspace.
+                </p>
+              ) : (
+                <ul className="divide-y rounded-lg border">
+                  {workspaces.map((workspace) => (
+                    <li
+                      key={workspace.id}
+                      className="flex items-center justify-between gap-3 px-3 py-2.5"
+                    >
+                      <button
+                        type="button"
+                        className="min-w-0 flex-1 text-left"
                         onClick={() => startEditing(workspace.id, workspace.name)}
-                        endContent={
-                          <Button
-                            label={`Remove ${workspace.name}`}
-                            variant="ghost"
-                            size="sm"
-                            icon={<Icon icon={TrashIcon} size="sm" />}
-                            isIconOnly
-                            onClick={(event) => {
-                              event.stopPropagation()
-                              removeWorkspace(workspace.id)
-                            }}
-                          />
-                        }
-                      />
-                    ))}
-                  </List>
-                )}
+                      >
+                        <p className="truncate text-sm font-medium">{workspace.name}</p>
+                        <p className="truncate text-xs text-muted-foreground">{workspace.path}</p>
+                      </button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Remove ${workspace.name}`}
+                        onClick={() => removeWorkspace(workspace.id)}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
 
-                {editingId ? (
-                  <TextInput
-                    label="Project name"
+              {editingId ? (
+                <div className="space-y-2">
+                  <Label htmlFor="project-name">Project name</Label>
+                  <Input
+                    id="project-name"
                     value={editingName}
-                    onChange={setEditingName}
+                    onChange={(event) => setEditingName(event.target.value)}
                     onBlur={saveEditing}
-                    hasAutoFocus
+                    autoFocus
                   />
-                ) : null}
+                </div>
+              ) : null}
 
-                <VStack gap={2}>
-                  <TextInput
-                    label="Or paste a path"
-                    value={manualPath}
-                    onChange={setManualPath}
-                    placeholder="e.g. E:\\Projects\\Orchi"
-                  />
-                  <HStack hAlign="end">
-                    <Button
-                      label="Add"
-                      variant="secondary"
-                      onClick={handleManualAdd}
-                      isDisabled={!manualPath.trim()}
-                    />
-                  </HStack>
-                </VStack>
-              </VStack>
-            </Section>
+              <Separator />
 
-            <Section variant="section" padding={4}>
-              <VStack gap={3}>
-                <Text type="supporting" color="secondary">
-                  Jump back to a conversation without losing navigator state.
-                </Text>
-                <Button label="Open chats" variant="secondary" onClick={() => navigate({ to: '/' })} />
-              </VStack>
-            </Section>
+              <div className="space-y-2">
+                <Label htmlFor="manual-path">Or paste a path</Label>
+                <Input
+                  id="manual-path"
+                  value={manualPath}
+                  onChange={(event) => setManualPath(event.target.value)}
+                  placeholder="e.g. E:\Projects\Orchi"
+                />
+                <div className="flex justify-end">
+                  <Button variant="secondary" onClick={handleManualAdd} disabled={!manualPath.trim()}>
+                    Add
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-            <Text type="supporting" color="secondary">
-              Removing a project does not delete its chats — they appear under Other until
-              re-registered.
-            </Text>
-          </VStack>
-        </LayoutContent>
-      }
-    />
+          <Card>
+            <CardContent className="space-y-3 p-4">
+              <p className="text-sm text-muted-foreground">
+                Jump back to a conversation without losing navigator state.
+              </p>
+              <Button variant="secondary" onClick={() => navigate({ to: '/' })}>
+                Open chats
+              </Button>
+            </CardContent>
+          </Card>
+
+          <p className="text-xs text-muted-foreground">
+            Removing a project does not delete its chats — they appear under Other until
+            re-registered.
+          </p>
+        </div>
+      </div>
+    </div>
   )
 }

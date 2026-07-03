@@ -1,6 +1,8 @@
 import { useState } from 'react'
+import { Send } from 'lucide-react'
 
-import { ChatComposer, ChatComposerInput } from '@astryxdesign/core/Chat'
+import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
 
 type ChatComposerProps = {
   disabled?: boolean
@@ -13,8 +15,9 @@ export function OrchiChatComposer({
 }: ChatComposerProps): React.JSX.Element {
   const [draft, setDraft] = useState('')
 
-  function handleSubmit(value: string): void {
-    const content = value.trim()
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>): void {
+    event.preventDefault()
+    const content = draft.trim()
     if (!content || disabled) {
       return
     }
@@ -23,14 +26,27 @@ export function OrchiChatComposer({
     setDraft('')
   }
 
+  function handleKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>): void {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault()
+      event.currentTarget.form?.requestSubmit()
+    }
+  }
+
   return (
-    <ChatComposer
-      value={draft}
-      onChange={setDraft}
-      onSubmit={handleSubmit}
-      placeholder="Message Orchi…"
-      isDisabled={disabled}
-      input={<ChatComposerInput />}
-    />
+    <form onSubmit={handleSubmit} className="flex items-end gap-2">
+      <Textarea
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder="Message Orchi…"
+        disabled={disabled}
+        rows={1}
+        className="min-h-10 max-h-40 resize-none"
+      />
+      <Button type="submit" size="icon" disabled={disabled || !draft.trim()} aria-label="Send message">
+        <Send className="size-4" />
+      </Button>
+    </form>
   )
 }

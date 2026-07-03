@@ -1,16 +1,10 @@
-import { Avatar } from '@astryxdesign/core/Avatar'
-import {
-  ChatMessage,
-  ChatMessageBubble,
-  ChatMessageList,
-  ChatToolCalls
-} from '@astryxdesign/core/Chat'
-import { Markdown } from '@astryxdesign/core/Markdown'
-import { Text } from '@astryxdesign/core/Text'
-import { EmptyState } from '@astryxdesign/core/EmptyState'
-import { Icon } from '@astryxdesign/core/Icon'
-import { ChatBubbleLeftEllipsisIcon } from '@heroicons/react/24/outline'
+import { MessageSquare } from 'lucide-react'
 
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { ChatToolCalls } from '@/components/chat/chat-tool-calls'
+import { EmptyState } from '@/components/empty-state'
+import { MarkdownContent } from '@/components/markdown-content'
+import { cn } from '@/lib/utils'
 import type { ChatMarker, ChatMessage as OrchiChatMessage } from '@/lib/chat/types'
 
 type ChatMessageListProps = {
@@ -27,7 +21,7 @@ export function OrchiChatMessageList({
       <EmptyState
         title="Start a conversation"
         description="Ask Orchi to help with coding tasks in your workspace."
-        icon={<Icon icon={ChatBubbleLeftEllipsisIcon} size="md" />}
+        icon={<MessageSquare className="size-8" />}
       />
     )
   }
@@ -39,7 +33,7 @@ export function OrchiChatMessageList({
   const activeMarkers = isActiveTurn ? markers : []
 
   return (
-    <ChatMessageList>
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6">
       {messages.map((message, index) => (
         <ChatMessageRow
           key={message.id}
@@ -47,7 +41,7 @@ export function OrchiChatMessageList({
           markers={index === lastAssistantIndex ? activeMarkers : []}
         />
       ))}
-    </ChatMessageList>
+    </div>
   )
 }
 
@@ -63,11 +57,11 @@ function ChatMessageRow({ message, markers }: ChatMessageRowProps): React.JSX.El
 
   if (isUser) {
     return (
-      <ChatMessage sender="user">
-        <ChatMessageBubble>
-          <Text type="body">{message.content}</Text>
-        </ChatMessageBubble>
-      </ChatMessage>
+      <div className="flex justify-end">
+        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-sm text-primary-foreground">
+          {message.content}
+        </div>
+      </div>
     )
   }
 
@@ -83,27 +77,33 @@ function ChatMessageRow({ message, markers }: ChatMessageRowProps): React.JSX.El
     }))
 
   return (
-    <ChatMessage sender="assistant" avatar={<Avatar name="Orchi" size="small" />}>
-      <ChatMessageBubble variant={message.status === 'error' ? 'filled' : 'ghost'}>
-        {showPlaceholder ? (
-          <Text type="body" color="secondary">
-            …
-          </Text>
-        ) : message.status === 'processing' || message.status === 'streaming' ? (
-          <Text type="body">{message.content}</Text>
-        ) : (
-          <Markdown>{message.content}</Markdown>
-        )}
-      </ChatMessageBubble>
-      {showActivity ? (
-        toolCalls.length > 0 ? (
-          <ChatToolCalls calls={toolCalls} defaultIsExpanded />
-        ) : (
-          <Text type="supporting" color="secondary">
-            Working…
-          </Text>
-        )
-      ) : null}
-    </ChatMessage>
+    <div className="flex gap-3">
+      <Avatar className="size-7">
+        <AvatarFallback className="text-[10px]">Or</AvatarFallback>
+      </Avatar>
+      <div className="min-w-0 flex-1 space-y-2">
+        <div
+          className={cn(
+            'max-w-none text-sm',
+            message.status === 'error' && 'rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2'
+          )}
+        >
+          {showPlaceholder ? (
+            <span className="text-muted-foreground">…</span>
+          ) : message.status === 'processing' || message.status === 'streaming' ? (
+            <p className="whitespace-pre-wrap">{message.content}</p>
+          ) : (
+            <MarkdownContent>{message.content}</MarkdownContent>
+          )}
+        </div>
+        {showActivity ? (
+          toolCalls.length > 0 ? (
+            <ChatToolCalls calls={toolCalls} defaultOpen />
+          ) : (
+            <p className="text-xs text-muted-foreground">Working…</p>
+          )
+        ) : null}
+      </div>
+    </div>
   )
 }
