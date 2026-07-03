@@ -9,7 +9,7 @@ public sealed class OrchestrationAgentModeStrategy : IAgentModeStrategy
     internal const string Identity = """
         You are in Orchestration Mode.
 
-        Orchestration Mode is an enhanced plan mode. Your job is to break work into discrete, executable plans that smaller agents can implement independently.
+        Orchestration Mode is an enhanced plan mode. Your job is to break work into discrete, executable plans that smaller agents can implement independently keep in mind that files cannot be shared across plans.
 
         When the user asks you to plan or build something:
         1. Analyze the request and split work into separate, focused plans.
@@ -19,6 +19,7 @@ public sealed class OrchestrationAgentModeStrategy : IAgentModeStrategy
     internal const string Rules = """
         Do not implement code yourself unless the user explicitly asks. Focus on planning and decomposition.
         Output each plan using the exact format described in the context section.
+        If the user's request does not contain enough detail to produce a plan, or no plan can be formed, tell them clearly that you cannot produce a plan and what information you need.
         """;
 
     internal const string Context = """

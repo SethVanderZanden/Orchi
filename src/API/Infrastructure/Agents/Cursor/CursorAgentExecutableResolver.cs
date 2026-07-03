@@ -6,7 +6,10 @@ internal static class CursorAgentExecutableResolver
 
     private static readonly string[] PreferredExtensions = [".exe", ".com", ".cmd", ".bat"];
 
-    internal sealed record ResolveResult(bool Success, string? ExecutablePath, string? ErrorMessage);
+    private static readonly System.Text.RegularExpressions.Regex VersionDirectoryPattern =
+        new(@"^\d{4}\.\d{1,2}\.\d{1,2}(-\d{2}-\d{2}-\d{2})?-[a-f0-9]+$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+    internal sealed record ResolveResult(bool Success, CursorAgentLaunchSpec? Launch, string? ErrorMessage);
 
     public static ResolveResult Resolve(CursorAgentOptions options) =>
         Resolve(options, ExecutableEnvironment.Current);
@@ -22,7 +25,16 @@ internal static class CursorAgentExecutableResolver
 
             if (environment.FileExists(absolutePath))
             {
-                return new ResolveResult(true, absolutePath, null);
+                return Success(new CursorAgentLaunchSpec(absolutePath, null));
+            }
+        }
+
+        foreach (string installDirectory in GetInstallDirectories(options, environment))
+        {
+            CursorAgentLaunchSpec? nodeBundle = TryResolveNodeBundle(installDirectory, environment, searchedPaths);
+            if (nodeBundle is not null)
+            {
+                return Success(nodeBundle);
             }
         }
 
@@ -32,17 +44,33 @@ internal static class CursorAgentExecutableResolver
         string? resolved = FindInDirectories(searchDirectories, candidateNames, environment, searchedPaths);
         if (resolved is not null)
         {
-            return new ResolveResult(true, resolved, null);
+            string installDirectory = Path.GetDirectoryName(resolved) ?? resolved;
+            CursorAgentLaunchSpec? nodeBundle = TryResolveNodeBundle(installDirectory, environment, searchedPaths);
+            if (nodeBundle is not null)
+            {
+                return Success(nodeBundle);
+            }
+
+            return Success(new CursorAgentLaunchSpec(resolved, null));
         }
 
         foreach (string fallbackPath in GetWindowsFallbackPaths(environment, candidateNames))
         {
             searchedPaths.Add(fallbackPath);
 
-            if (environment.FileExists(fallbackPath))
+            if (!environment.FileExists(fallbackPath))
             {
-                return new ResolveResult(true, fallbackPath, null);
+                continue;
             }
+
+            string installDirectory = Path.GetDirectoryName(fallbackPath) ?? fallbackPath;
+            CursorAgentLaunchSpec? nodeBundle = TryResolveNodeBundle(installDirectory, environment, searchedPaths);
+            if (nodeBundle is not null)
+            {
+                return Success(nodeBundle);
+            }
+
+            return Success(new CursorAgentLaunchSpec(fallbackPath, null));
         }
 
         string message =
@@ -52,6 +80,122 @@ internal static class CursorAgentExecutableResolver
             $"Searched: {string.Join("; ", searchedPaths.Distinct(StringComparer.OrdinalIgnoreCase))}";
 
         return new ResolveResult(false, null, message);
+    }
+
+    internal static CursorAgentLaunchSpec? TryResolveNodeBundle(
+        string installDirectory,
+        IExecutableEnvironment environment,
+        ICollection<string>? searchedPaths = null)
+    {
+        if (!environment.DirectoryExists(installDirectory))
+        {
+            return null;
+        }
+
+        string coLocatedNode = Path.Combine(installDirectory, "node.exe");
+        string coLocatedIndex = Path.Combine(installDirectory, "index.js");
+        searchedPaths?.Add(coLocatedNode);
+        searchedPaths?.Add(coLocatedIndex);
+
+        if (environment.FileExists(coLocatedNode) && environment.FileExists(coLocatedIndex))
+        {
+            return new CursorAgentLaunchSpec(coLocatedNode, coLocatedIndex);
+        }
+
+        string versionsDirectory = Path.Combine(installDirectory, "versions");
+        searchedPaths?.Add(versionsDirectory);
+
+        if (!environment.DirectoryExists(versionsDirectory))
+        {
+            return null;
+        }
+
+        string? latestVersionDirectory = environment.GetDirectories(versionsDirectory)
+            .Where(path => VersionDirectoryPattern.IsMatch(Path.GetFileName(path)))
+            .OrderByDescending(ParseVersionDirectoryKey)
+            .FirstOrDefault();
+
+        if (latestVersionDirectory is null)
+        {
+            return null;
+        }
+
+        string nodePath = Path.Combine(latestVersionDirectory, "node.exe");
+        string indexPath = Path.Combine(latestVersionDirectory, "index.js");
+        searchedPaths?.Add(nodePath);
+        searchedPaths?.Add(indexPath);
+
+        if (!environment.FileExists(nodePath) || !environment.FileExists(indexPath))
+        {
+            return null;
+        }
+
+        return new CursorAgentLaunchSpec(nodePath, indexPath);
+    }
+
+    private static ResolveResult Success(CursorAgentLaunchSpec launch) =>
+        new(true, launch, null);
+
+    private static int ParseVersionDirectoryKey(string versionDirectory)
+    {
+        string versionString = Path.GetFileName(versionDirectory);
+        string datePart = versionString.Split('-')[0];
+        string[] parts = datePart.Split('.');
+
+        if (parts.Length != 3 ||
+            !int.TryParse(parts[0], out int year) ||
+            !int.TryParse(parts[1], out int month) ||
+            !int.TryParse(parts[2], out int day))
+        {
+            return 0;
+        }
+
+        return year * 10_000 + month * 100 + day;
+    }
+
+    private static IEnumerable<string> GetInstallDirectories(
+        CursorAgentOptions options,
+        IExecutableEnvironment environment)
+    {
+        var directories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (options.AdditionalSearchPaths is { Length: > 0 })
+        {
+            foreach (string searchPath in options.AdditionalSearchPaths)
+            {
+                if (string.IsNullOrWhiteSpace(searchPath))
+                {
+                    continue;
+                }
+
+                directories.Add(environment.ExpandEnvironmentVariables(searchPath.Trim()));
+            }
+        }
+
+        if (environment.IsWindows)
+        {
+            string? localAppData = environment.GetEnvironmentVariable("LOCALAPPDATA");
+            if (!string.IsNullOrWhiteSpace(localAppData))
+            {
+                directories.Add(Path.Combine(localAppData, "cursor-agent"));
+            }
+        }
+
+        foreach (string pathDirectory in environment.GetPathDirectories())
+        {
+            if (string.IsNullOrWhiteSpace(pathDirectory))
+            {
+                continue;
+            }
+
+            string expanded = environment.ExpandEnvironmentVariables(pathDirectory.Trim());
+            if (expanded.EndsWith("cursor-agent", StringComparison.OrdinalIgnoreCase))
+            {
+                directories.Add(expanded);
+            }
+        }
+
+        return directories;
     }
 
     private static string[] GetCandidateNames(string executable)
@@ -199,6 +343,8 @@ internal interface IExecutableEnvironment
 
     bool DirectoryExists(string path);
 
+    IReadOnlyList<string> GetDirectories(string path);
+
     IReadOnlyList<string> GetPathDirectories();
 
     IReadOnlyList<string> GetPathExtensions();
@@ -217,6 +363,9 @@ internal sealed class ExecutableEnvironment : IExecutableEnvironment
     public bool FileExists(string path) => File.Exists(path);
 
     public bool DirectoryExists(string path) => Directory.Exists(path);
+
+    public IReadOnlyList<string> GetDirectories(string path) =>
+        Directory.Exists(path) ? Directory.GetDirectories(path) : [];
 
     public IReadOnlyList<string> GetPathDirectories()
     {

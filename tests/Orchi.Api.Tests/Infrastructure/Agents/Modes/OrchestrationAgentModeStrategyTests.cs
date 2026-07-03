@@ -23,6 +23,7 @@ public class OrchestrationAgentModeStrategyTests
         Assert.Contains("You are in Orchestration Mode.", document.Identity);
         Assert.Contains("enhanced plan mode", document.Identity);
         Assert.Contains("Do not implement code yourself", document.Rules);
+        Assert.Contains("cannot produce a plan", document.Rules);
         Assert.Contains("<!-- orchi-plan:kebab-case-id -->", document.Context);
         Assert.Null(document.Message);
     }

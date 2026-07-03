@@ -31,10 +31,11 @@ Your terminal may find `agent` while the Orchi API cannot. The API is started by
 Orchi resolves the executable before spawning:
 
 1. Absolute path from `Agents:Cursor:Executable` (if set and file exists)
-2. Search merged user + machine PATH with `PATHEXT` (`.exe`, `.cmd`, …)
-3. Windows fallback: `%LOCALAPPDATA%\cursor-agent\agent.exe` (then `cursor-agent.exe`, `.cmd` shims)
+2. **`node.exe` + `index.js` bundle** in `%LOCALAPPDATA%\cursor-agent\versions\{latest}` (bypasses `.cmd`/PowerShell shims on Windows)
+3. Search merged user + machine PATH with `PATHEXT` (`.exe`, `.cmd`, …)
+4. Windows fallback: `%LOCALAPPDATA%\cursor-agent\agent.exe` (then `cursor-agent.exe`, `.cmd` shims)
 
-Prefer **`agent.exe`** over `.cmd`/`.ps1` wrappers when multiple candidates exist.
+Prefer the **node bundle** or **`agent.exe`** over `.cmd`/`.ps1` wrappers — the `.cmd` shim re-invokes PowerShell and can corrupt XML prompts passed as CLI arguments.
 
 **If spawn still fails:**
 

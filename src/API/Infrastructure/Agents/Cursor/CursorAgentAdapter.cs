@@ -22,7 +22,7 @@ internal sealed class CursorAgentAdapter(
         CursorAgentExecutableResolver.ResolveResult resolveResult =
             CursorAgentExecutableResolver.Resolve(config);
 
-        if (!resolveResult.Success)
+        if (!resolveResult.Success || resolveResult.Launch is null)
         {
             logger.LogError(
                 "Unable to resolve Cursor agent executable for chat {ChatId}: {Message}",
@@ -33,16 +33,18 @@ internal sealed class CursorAgentAdapter(
             yield break;
         }
 
-        ProcessStartInfo startInfo = BuildStartInfo(resolveResult.ExecutablePath!, config, session, prompt, extraCliArgs);
+        CursorAgentLaunchSpec launch = resolveResult.Launch;
+        ProcessStartInfo startInfo = BuildStartInfo(launch, config, session, prompt, extraCliArgs);
 
         bool hasResume = !string.IsNullOrWhiteSpace(session.ExternalSessionId);
         logger.LogDebug(
-            "Starting Cursor agent for chat {ChatId}: resume={HasResume}, externalSessionId={ExternalSessionId}",
+            "Starting Cursor agent for chat {ChatId}: launch={LaunchKind}, resume={HasResume}, externalSessionId={ExternalSessionId}",
             session.Id,
+            launch.LaunchKind,
             hasResume,
             hasResume ? TruncateForLog(session.ExternalSessionId!) : "(none)");
 
-        ProcessStartResult start = TryStartProcess(startInfo, session.Id, resolveResult.ExecutablePath!);
+        ProcessStartResult start = TryStartProcess(startInfo, session.Id, launch.ExecutablePath);
         if (start.Error is not null)
         {
             yield return start.Error;
@@ -86,9 +88,15 @@ internal sealed class CursorAgentAdapter(
         CursorAgentOptions config,
         ChatSession session,
         string prompt,
-        IReadOnlyList<string>? extraCliArgs = null)
+        IReadOnlyList<string>? extraCliArgs = null,
+        string? entryScript = null)
     {
         var arguments = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(entryScript))
+        {
+            arguments.Add(entryScript);
+        }
 
         foreach (string defaultArg in config.DefaultArgs.Distinct(StringComparer.Ordinal))
         {
@@ -137,15 +145,22 @@ internal sealed class CursorAgentAdapter(
     }
 
     private static ProcessStartInfo BuildStartInfo(
-        string executablePath,
+        CursorAgentLaunchSpec launch,
         CursorAgentOptions config,
         ChatSession session,
         string prompt,
         IReadOnlyList<string> extraCliArgs)
     {
+        IReadOnlyList<string> arguments = BuildArguments(
+            config,
+            session,
+            prompt,
+            extraCliArgs,
+            launch.EntryScript);
+
         var startInfo = new ProcessStartInfo
         {
-            FileName = executablePath,
+            FileName = launch.ExecutablePath,
             WorkingDirectory = session.WorkspacePath,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -155,7 +170,7 @@ internal sealed class CursorAgentAdapter(
             CreateNoWindow = true
         };
 
-        foreach (string argument in BuildArguments(config, session, prompt, extraCliArgs))
+        foreach (string argument in arguments)
         {
             startInfo.ArgumentList.Add(argument);
         }
