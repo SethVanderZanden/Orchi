@@ -14,6 +14,8 @@ public class Chat
 
     public string Mode { get; set; } = "default";
 
+    public string? ModelId { get; set; }
+
     public Guid? ParentChatId { get; set; }
 
     public string? PlanFilePath { get; set; }

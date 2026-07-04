@@ -10,7 +10,8 @@ public sealed record ChatCreateModel(
     Guid? ParentChatId = null,
     string? PlanFilePath = null,
     Guid? ProjectId = null,
-    Guid? WorkspaceId = null);
+    Guid? WorkspaceId = null,
+    string? ModelId = null);
 
 public interface IChatStore
 {
@@ -38,4 +39,6 @@ public interface IChatStore
         CancellationToken cancellationToken);
 
     Task<bool> UpdateModeAsync(Guid chatId, string mode, CancellationToken cancellationToken);
+
+    Task<bool> UpdateModelIdAsync(Guid chatId, string? modelId, CancellationToken cancellationToken);
 }

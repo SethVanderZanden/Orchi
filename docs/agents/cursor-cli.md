@@ -62,6 +62,7 @@ Orchi runs one CLI process **per user message**, using `--resume` for multi-turn
 agent -p --force --trust --workspace "{workspace}" \
   --output-format stream-json --stream-partial-output \
   [--resume {cursorSessionId}] \
+  [--model {modelSlug}] \
   "{userMessage}"
 ```
 
@@ -93,6 +94,8 @@ Official reference: [Cursor CLI output format](https://cursor.com/docs/cli/refer
 
 When the CLI emits a `session_id`, Orchi stores it on `ChatSession.ExternalSessionId` and passes `--resume` on the next message.
 
+When a chat has a selected model (`ModelId`), Orchi passes `--model {slug}` on every turn. A null `ModelId` uses the Cursor CLI default.
+
 Capture happens in two places:
 
 1. **Early** — the first `system` / `subtype: init` NDJSON line (persisted immediately via `UpdateExternalSessionIdAsync`)
@@ -116,6 +119,7 @@ When reading the CLI process, stdout and stderr must be consumed **concurrently*
 Unit tests:
 
 - `CursorNdjsonParserTests.cs` — NDJSON → `AgentEvent` mapping (partial-output filtering)
+- `CursorModelListParserTests.cs` — `--list-models` output parsing (`(default)` / `(current)` suffixes)
 - `CursorAgentExecutableResolverTests.cs` — PATH search, Windows fallback, argument deduplication
 
 ## Further reading

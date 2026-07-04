@@ -16,6 +16,8 @@ public sealed class ChatSession
 
     public string Mode { get; set; } = "default";
 
+    public string? ModelId { get; set; }
+
     public Guid? ParentChatId { get; init; }
 
     public string? PlanFilePath { get; init; }

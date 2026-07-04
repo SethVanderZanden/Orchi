@@ -9,8 +9,11 @@ import {
   MessageSquarePlus,
   Search,
   Settings,
-  Shield
+  Shield,
+  Trash2
 } from 'lucide-react'
+
+import { DeleteChatDialog } from '@/components/chat/delete-chat-dialog'
 
 import { OrchiAiIcon } from '@/components/brand/orchi-ai-icon'
 import { RelativeTime } from '@/components/relative-time'
@@ -20,6 +23,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { useDeleteChat } from '@/hooks/use-delete-chat'
 import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut'
 import type { ChatThread } from '@/lib/chat/types'
 import {
@@ -47,8 +51,10 @@ export function WorkspaceNavigator(): React.JSX.Element {
     isFetchingChats,
     chatsError,
     refetchChats,
-    getChat
+    getChat,
+    isChatSending
   } = useChat()
+  const { requestDelete, isDeleting, dialogProps } = useDeleteChat()
   const { projects, addProject, pickDirectory, isPendingProjects, projectsError, refetchProjects } =
     useProjects()
   const { isProjectExpanded, toggleProjectExpanded, ensureProjectExpanded } = useWorkspaceLayout()
@@ -251,37 +257,54 @@ export function WorkspaceNavigator(): React.JSX.Element {
     const isReview = isChild && isReviewChildChat(chat)
 
     return (
-      <button
-        key={chat.id}
-        type="button"
-        title={chat.title}
-        className={cn(
-          'flex w-full min-w-0 items-center gap-2 overflow-hidden rounded-md px-2 py-1.5 text-left hover:bg-accent',
-          isChild ? 'text-xs' : 'text-sm',
-          chat.id === activeChatId && 'bg-accent font-medium'
-        )}
-        onClick={() =>
-          navigate({
-            to: '/chat/$chatId',
-            params: { chatId: chat.id }
-          })
-        }
-      >
-        {isChild ? (
-          isReview ? (
-            <Shield className="size-3 shrink-0 text-muted-foreground" aria-hidden />
-          ) : (
-            <Bot className="size-3 shrink-0 text-muted-foreground" aria-hidden />
-          )
-        ) : null}
-        <span className="min-w-0 flex-1 overflow-hidden">
-          <span className="block truncate">{chat.title}</span>
-        </span>
-        <RelativeTime
-          value={chat.updatedAt}
-          className={cn('shrink-0 text-muted-foreground', isChild ? 'text-[10px]' : 'text-[11px]')}
-        />
-      </button>
+      <div key={chat.id} className="group flex min-w-0 items-center gap-0.5">
+        <button
+          type="button"
+          title={chat.title}
+          className={cn(
+            'flex min-w-0 flex-1 items-center gap-2 overflow-hidden rounded-md px-2 py-1.5 text-left hover:bg-accent',
+            isChild ? 'text-xs' : 'text-sm',
+            chat.id === activeChatId && 'bg-accent font-medium'
+          )}
+          onClick={() =>
+            navigate({
+              to: '/chat/$chatId',
+              params: { chatId: chat.id }
+            })
+          }
+        >
+          {isChild ? (
+            isReview ? (
+              <Shield className="size-3 shrink-0 text-muted-foreground" aria-hidden />
+            ) : (
+              <Bot className="size-3 shrink-0 text-muted-foreground" aria-hidden />
+            )
+          ) : null}
+          <span className="min-w-0 flex-1 overflow-hidden">
+            <span className="block truncate">{chat.title}</span>
+          </span>
+          <RelativeTime
+            value={chat.updatedAt}
+            className={cn('shrink-0 text-muted-foreground', isChild ? 'text-[10px]' : 'text-[11px]')}
+          />
+        </button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn(
+            'size-7 shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100',
+            chat.id === activeChatId && 'opacity-100'
+          )}
+          aria-label={`Delete ${chat.title}`}
+          disabled={isChatSending(chat.id) || isDeleting}
+          onClick={(event) => {
+            event.stopPropagation()
+            requestDelete(chat)
+          }}
+        >
+          <Trash2 className={isChild ? 'size-3' : 'size-3.5'} />
+        </Button>
+      </div>
     )
   }
 
@@ -592,6 +615,7 @@ export function WorkspaceNavigator(): React.JSX.Element {
             </>
           ) : null}
         </aside>
+        <DeleteChatDialog {...dialogProps} />
       </>
     </TooltipProvider>
   )

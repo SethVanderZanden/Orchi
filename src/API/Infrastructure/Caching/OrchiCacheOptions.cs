@@ -12,6 +12,8 @@ public sealed class OrchiCacheOptions
 
     public int PlanExpirationMinutes { get; init; } = 10;
 
+    public int AgentModelsExpirationMinutes { get; init; } = 1440;
+
     public DistributedCacheOptions Distributed { get; init; } = new();
 }
 

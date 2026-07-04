@@ -15,6 +15,7 @@ function makeChat(overrides: Partial<ChatThread> & Pick<ChatThread, 'id'>): Chat
     workspaceId: overrides.workspaceId ?? null,
     workspacePath: '/workspace',
     mode: 'default',
+    modelId: overrides.modelId ?? null,
     parentChatId: overrides.parentChatId ?? null,
     planFilePath: overrides.planFilePath ?? null,
     messages: overrides.messages ?? []

@@ -45,7 +45,22 @@ Agent integration lives under `src/API/Infrastructure/Agents/`.
 - **`IAgentAdapter`** — send a message for a session; yield `AgentEvent` stream
 - **`AgentSessionManager`** — write-through cache over `IChatStore`, process lifecycle, turn execution
 - **`IChatStore`** — EF-backed persistence (SQLite); in-memory implementation for unit tests
-- **`ChatSession`** — Orchi chat id, agent id, workspace path, Cursor resume id, running process handle
+- **`ChatSession`** — Orchi chat id, agent id, workspace path, Cursor resume id, optional model slug, running process handle
+
+## Agent model catalog
+
+Each agent can expose a model list (Cursor via `agent --list-models`). Orchi stores catalog entries in SQLite with enable/disable curation and caches list reads in HybridCache (24h default).
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /agents/{agentId}/models` | List enabled (or all) models for dropdown/settings |
+| `POST /agents/{agentId}/models/sync` | Refresh from CLI; absent models are disabled, not deleted |
+| `POST /agents/{agentId}/models` | Manually add a model slug |
+| `PATCH /agents/{agentId}/models/{modelId}` | Enable/disable a catalog entry |
+| `DELETE /agents/{agentId}/models/{modelId}` | Remove a manual entry |
+| `PATCH /chats/{chatId}/model` | Set per-chat model (`null` = CLI default) |
+
+Child chats created via plan/review kickoff inherit the parent's `ModelId`.
 
 ## Message flow
 
@@ -160,7 +175,7 @@ Orchi uses **Microsoft HybridCache** (memory-only L1 today) behind `IOrchiCacheS
 | Analogy | Code |
 |---------|------|
 | Memo pad | `IOrchiCacheService` / `OrchiHybridCacheService` |
-| Note categories | `OrchiCacheKeys` (workspace diff, Cursor executable, plan) |
+| Note categories | `OrchiCacheKeys` (workspace diff, Cursor executable, plan, agent models) |
 | Fresh copy after edits | `CachingPlanStore` invalidates on `UpsertAsync` |
 
 **Cached today:**
@@ -170,6 +185,7 @@ Orchi uses **Microsoft HybridCache** (memory-only L1 today) behind `IOrchiCacheS
 | Git workspace diff (`IWorkspaceDiffProvider`) | 30s | Normalized workspace path + `git rev-parse HEAD` |
 | Cursor executable resolution | 60m | Executable config fingerprint |
 | Plan store reads (`IPlanStore.GetAsync`) | 10m | Source chat id + plan id; invalidated on upsert |
+| Agent model catalog (`IAgentModelCatalogService.ListAsync`) | 24h | Agent id + include-disabled flag; invalidated on sync/curation |
 
 **Not cached (intentionally):**
 

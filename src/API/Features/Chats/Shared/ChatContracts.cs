@@ -19,6 +19,7 @@ public static partial class ChatMapper
             session.WorkspaceId,
             session.WorkspacePath,
             session.Mode,
+            session.ModelId,
             session.ParentChatId,
             session.PlanFilePath);
     }
@@ -32,6 +33,7 @@ public static partial class ChatMapper
             session.WorkspaceId,
             session.WorkspacePath,
             session.Mode,
+            session.ModelId,
             session.ParentChatId,
             session.PlanFilePath,
             session.Messages.Select(ToMessage).ToArray());
@@ -109,6 +111,7 @@ public sealed record ChatSummaryResponse(
     Guid? WorkspaceId,
     string WorkspacePath,
     string Mode,
+    string? ModelId,
     Guid? ParentChatId,
     string? PlanFilePath);
 
@@ -120,6 +123,7 @@ public sealed record ChatDetailResponse(
     Guid? WorkspaceId,
     string WorkspacePath,
     string Mode,
+    string? ModelId,
     Guid? ParentChatId,
     string? PlanFilePath,
     IReadOnlyList<ChatMessageResponse> Messages);
@@ -140,6 +144,10 @@ public sealed record UpdateChatModeRequest(string Mode);
 
 public sealed record UpdateChatModeResponse(Guid Id, string Mode);
 
+public sealed record UpdateChatModelRequest(string? ModelId);
+
+public sealed record UpdateChatModelResponse(Guid Id, string? ModelId);
+
 public sealed record SendMessageRequest(string Content);
 
 public sealed record CreateChatResponse(
@@ -149,6 +157,7 @@ public sealed record CreateChatResponse(
     Guid? WorkspaceId,
     string WorkspacePath,
     string Mode,
+    string? ModelId,
     Guid? ParentChatId,
     string? PlanFilePath);
 

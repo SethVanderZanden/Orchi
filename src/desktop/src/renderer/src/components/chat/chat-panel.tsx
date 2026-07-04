@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ChatLayout } from '@/components/chat/chat-layout'
 import { OrchiChatComposer } from '@/components/chat/chat-composer'
 import { ChatModeSelector, CHAT_MODE_FALLBACK_OPTIONS, getNextAgentMode } from '@/components/chat/chat-mode-selector'
+import { ChatModelSelector } from '@/components/chat/chat-model-selector'
 import { OrchiChatMessageList } from '@/components/chat/chat-message-list'
 import { PlanCards } from '@/components/orchestration/plan-cards'
 import { PlanReviewPanel } from '@/components/orchestration/plan-review-panel'
@@ -21,6 +22,11 @@ type ChatPanelProps = {
   canChangeMode: boolean
   modeUpdateError?: string | null
   onModeChange: (mode: AgentMode) => void
+  agentId: string
+  modelId: string | null
+  canChangeModel: boolean
+  modelUpdateError?: string | null
+  onModelChange: (modelId: string | null) => void
   plans?: ParsedPlan[]
   parentChatId?: string
   isSending?: boolean
@@ -192,6 +198,11 @@ export function ChatPanel({
   canChangeMode,
   modeUpdateError = null,
   onModeChange,
+  agentId,
+  modelId,
+  canChangeModel,
+  modelUpdateError = null,
+  onModelChange,
   plans = [],
   parentChatId,
   isSending = false,
@@ -266,12 +277,21 @@ export function ChatPanel({
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <ChatLayout
           footer={
-            <ChatModeSelector
-              mode={mode}
-              disabled={!canChangeMode}
-              error={modeUpdateError}
-              onModeChange={onModeChange}
-            />
+            <div className="flex flex-wrap items-start gap-6">
+              <ChatModeSelector
+                mode={mode}
+                disabled={!canChangeMode}
+                error={modeUpdateError}
+                onModeChange={onModeChange}
+              />
+              <ChatModelSelector
+                agentId={agentId}
+                modelId={modelId}
+                disabled={!canChangeModel}
+                error={modelUpdateError}
+                onModelChange={onModelChange}
+              />
+            </div>
           }
           composer={<OrchiChatComposer disabled={isSending} onSend={onSend} />}
         >

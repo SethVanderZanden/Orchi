@@ -5,6 +5,7 @@ using Orchi.Api.Common.Results;
 using Orchi.Api.Entities;
 using Orchi.Api.Infrastructure.Agents.Persistence;
 using Orchi.Api.Infrastructure.Agents.Modes;
+using Orchi.Api.Infrastructure.Agents.Models;
 using Orchi.Api.Infrastructure.Projects;
 
 namespace Orchi.Api.Infrastructure.Agents;
@@ -16,6 +17,8 @@ public sealed class AgentSessionManager
     private readonly IProjectStore _projectStore;
     private readonly IAgentAdapterFactory _adapterFactory;
     private readonly IAgentModeStrategyFactory _modeStrategyFactory;
+    private readonly IAgentModelCatalogService _modelCatalogService;
+    private readonly IAgentModeModelDefaultService _modeDefaultService;
     private readonly IAgentPromptComposer _promptComposer;
     private readonly ILogger<AgentSessionManager> _logger;
 
@@ -24,6 +27,8 @@ public sealed class AgentSessionManager
         IProjectStore projectStore,
         IAgentAdapterFactory adapterFactory,
         IAgentModeStrategyFactory modeStrategyFactory,
+        IAgentModelCatalogService modelCatalogService,
+        IAgentModeModelDefaultService modeDefaultService,
         IAgentPromptComposer promptComposer,
         ILogger<AgentSessionManager> logger)
     {
@@ -31,6 +36,8 @@ public sealed class AgentSessionManager
         _projectStore = projectStore;
         _adapterFactory = adapterFactory;
         _modeStrategyFactory = modeStrategyFactory;
+        _modelCatalogService = modelCatalogService;
+        _modeDefaultService = modeDefaultService;
         _promptComposer = promptComposer;
         _logger = logger;
     }
@@ -70,6 +77,7 @@ public sealed class AgentSessionManager
         {
             cached.ProjectId = loaded.ProjectId;
             cached.WorkspaceId = loaded.WorkspaceId;
+            cached.ModelId = loaded.ModelId;
             return cached;
         }
 
@@ -83,6 +91,7 @@ public sealed class AgentSessionManager
         string? mode = null,
         Guid? parentChatId = null,
         string? planFilePath = null,
+        string? modelId = null,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(agentId))
@@ -96,6 +105,7 @@ public sealed class AgentSessionManager
         }
 
         string resolvedMode = string.IsNullOrWhiteSpace(mode) ? DefaultAgentModeStrategy.Mode : mode.Trim();
+        string? resolvedModelId = string.IsNullOrWhiteSpace(modelId) ? null : modelId.Trim();
 
         try
         {
@@ -128,6 +138,21 @@ public sealed class AgentSessionManager
             return Result.Failure<ChatSession>(Error.Validation("Agent.Unsupported", ex.Message));
         }
 
+        if (resolvedModelId is null)
+        {
+            resolvedModelId = await _modeDefaultService.ResolveAsync(agentId, resolvedMode, cancellationToken);
+        }
+
+        if (resolvedModelId is not null)
+        {
+            bool enabled = await _modelCatalogService.IsEnabledModelAsync(agentId, resolvedModelId, cancellationToken);
+            if (!enabled)
+            {
+                return Result.Failure<ChatSession>(
+                    Error.Validation("Model.Unsupported", $"Model '{resolvedModelId}' is not available."));
+            }
+        }
+
         var sessionId = Guid.NewGuid();
         ChatSession session = await _chatStore.CreateAsync(
             new ChatCreateModel(
@@ -138,7 +163,8 @@ public sealed class AgentSessionManager
                 parentChatId,
                 planFilePath,
                 workspace.ProjectId,
-                workspace.Id),
+                workspace.Id,
+                resolvedModelId),
             cancellationToken);
 
         _sessions[session.Id] = session;
@@ -186,6 +212,56 @@ public sealed class AgentSessionManager
         }
 
         session.Mode = resolvedMode;
+        _sessions[chatId] = session;
+        return Result.Success(session);
+    }
+
+    public async Task<Result<ChatSession>> UpdateModelAsync(
+        Guid chatId,
+        string? modelId,
+        CancellationToken cancellationToken)
+    {
+        ChatSession? session = await GetOrLoadSessionAsync(chatId, cancellationToken);
+        if (session is null)
+        {
+            return Result.Failure<ChatSession>(Error.NotFound($"Chat '{chatId}' was not found."));
+        }
+
+        lock (session.Sync)
+        {
+            if (session.RunningProcess is not null
+                || session.RunCts is not null
+                || session.Messages.Any(message =>
+                    message.Role == "assistant" && message.Status is "processing" or "streaming"))
+            {
+                return Result.Failure<ChatSession>(
+                    Error.Validation("Model.Busy", "Model cannot be changed while the agent is running."));
+            }
+        }
+
+        string? resolvedModelId = string.IsNullOrWhiteSpace(modelId) ? null : modelId.Trim();
+
+        if (resolvedModelId is not null)
+        {
+            bool enabled = await _modelCatalogService.IsEnabledModelAsync(
+                session.AgentId,
+                resolvedModelId,
+                cancellationToken);
+
+            if (!enabled)
+            {
+                return Result.Failure<ChatSession>(
+                    Error.Validation("Model.Unsupported", $"Model '{resolvedModelId}' is not available."));
+            }
+        }
+
+        bool updated = await _chatStore.UpdateModelIdAsync(chatId, resolvedModelId, cancellationToken);
+        if (!updated)
+        {
+            return Result.Failure<ChatSession>(Error.NotFound($"Chat '{chatId}' was not found."));
+        }
+
+        session.ModelId = resolvedModelId;
         _sessions[chatId] = session;
         return Result.Success(session);
     }
@@ -253,7 +329,7 @@ public sealed class AgentSessionManager
         await AppendUserMessageAsync(chatId, content, cancellationToken);
 
         string composedPrompt = _promptComposer.Compose(session, content);
-        IReadOnlyList<string> extraCliArgs = _promptComposer.GetExtraCliArgs(session.Mode);
+        IReadOnlyList<string> extraCliArgs = BuildCliArgs(session);
 
         var runCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         session.RunCts = runCts;
@@ -409,6 +485,19 @@ public sealed class AgentSessionManager
         }
 
         session.RunCts = null;
+    }
+
+    private IReadOnlyList<string> BuildCliArgs(ChatSession session)
+    {
+        var args = new List<string>(_promptComposer.GetExtraCliArgs(session.Mode));
+
+        if (!string.IsNullOrWhiteSpace(session.ModelId))
+        {
+            args.Add("--model");
+            args.Add(session.ModelId);
+        }
+
+        return args;
     }
 
     private async Task PersistExternalSessionIdAsync(

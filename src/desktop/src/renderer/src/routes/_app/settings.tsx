@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PageHeader } from '@/components/ui/page-header'
 import { Separator } from '@/components/ui/separator'
+import { AgentModelsCard } from '@/components/settings/agent-models-card'
+import { AgentModeModelDefaultsCard } from '@/components/settings/agent-mode-model-defaults-card'
 import { displayWorkspacePath } from '@/lib/projects/paths'
 import { getDefaultWorkspace } from '@/lib/projects/group-chats'
 import { useProjects } from '@/providers/project-provider'
@@ -182,6 +184,8 @@ function SettingsPage(): React.JSX.Element {
               </div>
             </CardContent>
           </Card>
+
+          <AgentModelsCard agentId="cursor" />
 
           <Card>
             <CardContent className="space-y-3 p-4">

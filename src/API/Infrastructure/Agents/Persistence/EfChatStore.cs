@@ -22,6 +22,7 @@ public sealed class EfChatStore(IDbContextFactory<AppDbContext> dbContextFactory
             Mode = model.Mode,
             ParentChatId = model.ParentChatId,
             PlanFilePath = model.PlanFilePath,
+            ModelId = model.ModelId,
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -175,6 +176,22 @@ public sealed class EfChatStore(IDbContextFactory<AppDbContext> dbContextFactory
         }
 
         chat.Mode = mode;
+        chat.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<bool> UpdateModelIdAsync(Guid chatId, string? modelId, CancellationToken cancellationToken)
+    {
+        await using AppDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        Chat? chat = await db.Chats.FirstOrDefaultAsync(existing => existing.Id == chatId, cancellationToken);
+
+        if (chat is null)
+        {
+            return false;
+        }
+
+        chat.ModelId = string.IsNullOrWhiteSpace(modelId) ? null : modelId.Trim();
         chat.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
         return true;

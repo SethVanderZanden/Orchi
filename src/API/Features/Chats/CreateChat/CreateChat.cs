@@ -35,6 +35,7 @@ public static class CreateChat
                 session.WorkspaceId,
                 session.WorkspacePath,
                 session.Mode,
+                session.ModelId,
                 session.ParentChatId,
                 session.PlanFilePath));
         }

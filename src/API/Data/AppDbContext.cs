@@ -17,6 +17,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<Workspace> Workspaces => Set<Workspace>();
 
+    public DbSet<AgentModel> AgentModels => Set<AgentModel>();
+
+    public DbSet<AgentModeModelDefault> AgentModeModelDefaults => Set<AgentModeModelDefault>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Project>(entity =>
@@ -45,6 +49,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(chat => chat.AgentId).HasMaxLength(64);
             entity.Property(chat => chat.WorkspacePath).HasMaxLength(2048);
             entity.Property(chat => chat.Mode).HasMaxLength(32);
+            entity.Property(chat => chat.ModelId).HasMaxLength(256);
             entity.Property(chat => chat.PlanFilePath).HasMaxLength(512);
             entity.Property(chat => chat.ExternalSessionId).HasMaxLength(256);
             entity.HasIndex(chat => chat.UpdatedAt);
@@ -84,6 +89,24 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .WithMany()
                 .HasForeignKey(plan => plan.SourceChatId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AgentModel>(entity =>
+        {
+            entity.HasKey(model => new { model.AgentId, model.ModelId });
+            entity.Property(model => model.AgentId).HasMaxLength(64);
+            entity.Property(model => model.ModelId).HasMaxLength(256);
+            entity.Property(model => model.Label).HasMaxLength(256);
+            entity.Property(model => model.Source).HasMaxLength(16);
+            entity.HasIndex(model => new { model.AgentId, model.IsEnabled });
+        });
+
+        modelBuilder.Entity<AgentModeModelDefault>(entity =>
+        {
+            entity.HasKey(row => new { row.AgentId, row.Mode });
+            entity.Property(row => row.AgentId).HasMaxLength(64);
+            entity.Property(row => row.Mode).HasMaxLength(32);
+            entity.Property(row => row.ModelId).HasMaxLength(256);
         });
     }
 }

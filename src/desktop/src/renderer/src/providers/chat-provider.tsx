@@ -1,11 +1,12 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from '@tanstack/react-router'
+import { useMatch, useNavigate } from '@tanstack/react-router'
 
-import { closeChat, createChat, getChat, kickOffPlan, kickOffReview, listChats, sendMessageStream, updateChatMode } from '@/lib/chat/api'
+import { closeChat, createChat, getChat, kickOffPlan, kickOffReview, listChats, sendMessageStream, updateChatMode, updateChatModel } from '@/lib/chat/api'
 import type { CreateChatOptions } from '@/components/chat/chat-mode-selector'
 import type { AgentMode, ChatMarker, ChatMessage, ChatThread } from '@/lib/chat/types'
 import type { ParsedPlan } from '@/lib/orchestration/parse-plans'
+import { isLocalChat } from '@/lib/chat/chat-persistence'
 import { mergeChatLists } from '@/lib/chat/merge-chat-lists'
 import { chatKeys } from '@/lib/query-keys'
 import {
@@ -35,7 +36,10 @@ type ChatContextValue = {
   createChat: (options: CreateChatOptions) => Promise<ChatThread>
   updateChatMode: (chatId: string, mode: AgentMode) => Promise<void>
   getModeUpdateError: (chatId: string) => string | undefined
+  updateChatModel: (chatId: string, modelId: string | null) => Promise<void>
+  getModelUpdateError: (chatId: string) => string | undefined
   closeChat: (chatId: string) => Promise<void>
+  deleteChat: (chatId: string) => Promise<void>
   sendMessage: (chatId: string, content: string) => Promise<void>
   kickOffPlan: (chatId: string, plan: ParsedPlan) => Promise<void>
   kickOffAllPlans: (chatId: string, plans: ParsedPlan[]) => Promise<void>
@@ -58,12 +62,17 @@ function isAbortError(error: unknown): boolean {
 
 export function ChatProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
   const navigate = useNavigate()
+  const chatMatch = useMatch({
+    from: '/_app/chat/$chatId',
+    shouldThrow: false
+  })
   const queryClient = useQueryClient()
   const [searchQuery, setSearchQuery] = useState('')
   const [sendingChatIds, setSendingChatIds] = useState<Set<string>>(() => new Set())
   const [kickingOffKeys, setKickingOffKeys] = useState<Set<string>>(() => new Set())
   const [markersByChat, setMarkersByChat] = useState<Record<string, ChatMarker[]>>({})
   const [modeUpdateErrorByChat, setModeUpdateErrorByChat] = useState<Record<string, string>>({})
+  const [modelUpdateErrorByChat, setModelUpdateErrorByChat] = useState<Record<string, string>>({})
   const streamAbortByChatRef = useRef<Map<string, AbortController>>(new Map())
   const turnGenerationByChatRef = useRef<Map<string, number>>(new Map())
   const reviewKickOffStartedRef = useRef<Set<string>>(new Set())
@@ -149,20 +158,104 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
     }
   })
 
-  const closeChatMutation = useMutation({
-    mutationFn: closeChat,
-    onSuccess: (_, chatId) => {
+  const purgeChatFromClient = useCallback(
+    (chatId: string) => {
+      streamAbortByChatRef.current.get(chatId)?.abort()
+      streamAbortByChatRef.current.delete(chatId)
+
+      setSendingChatIds((current) => {
+        if (!current.has(chatId)) {
+          return current
+        }
+
+        const next = new Set(current)
+        next.delete(chatId)
+        return next
+      })
+
       queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) =>
         current.filter((chat) => chat.id !== chatId)
       )
       queryClient.removeQueries({ queryKey: chatKeys.detail(chatId) })
+
       setMarkersByChat((current) => {
+        if (!(chatId in current)) {
+          return current
+        }
+
         const next = { ...current }
         delete next[chatId]
         return next
       })
+
+      setModeUpdateErrorByChat((current) => {
+        if (!(chatId in current)) {
+          return current
+        }
+
+        const next = { ...current }
+        delete next[chatId]
+        return next
+      })
+
+      setModelUpdateErrorByChat((current) => {
+        if (!(chatId in current)) {
+          return current
+        }
+
+        const next = { ...current }
+        delete next[chatId]
+        return next
+      })
+
+      setKickingOffKeys((current) => {
+        const prefix = `${chatId}:`
+        let changed = false
+        const next = new Set<string>()
+
+        for (const key of current) {
+          if (key.startsWith(prefix)) {
+            changed = true
+          } else {
+            next.add(key)
+          }
+        }
+
+        return changed ? next : current
+      })
+    },
+    [queryClient]
+  )
+
+  const navigateAwayIfDeleted = useCallback(
+    (chatId: string) => {
+      if (chatMatch?.params.chatId === chatId) {
+        navigate({ to: '/' })
+      }
+    },
+    [chatMatch, navigate]
+  )
+
+  const closeChatMutation = useMutation({
+    mutationFn: closeChat,
+    onSuccess: (_, chatId) => {
+      purgeChatFromClient(chatId)
     }
   })
+
+  const deleteChat = useCallback(
+    async (chatId: string) => {
+      if (isLocalChat(chatId)) {
+        purgeChatFromClient(chatId)
+        navigateAwayIfDeleted(chatId)
+        return
+      }
+
+      await closeChatMutation.mutateAsync(chatId)
+      navigateAwayIfDeleted(chatId)
+    },
+    [closeChatMutation, navigateAwayIfDeleted, purgeChatFromClient]
+  )
 
   const appendMarker = useCallback((chatId: string, marker: ChatMarker) => {
     setMarkersByChat((current) => ({
@@ -506,6 +599,43 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
     [modeUpdateErrorByChat]
   )
 
+  const updateChatModelAction = useCallback(
+    async (chatId: string, modelId: string | null) => {
+      try {
+        const response = await updateChatModel(chatId, { modelId })
+
+        queryClient.setQueryData<ChatThread>(chatKeys.detail(chatId), (current) =>
+          current ? { ...current, modelId: response.modelId ?? null } : current
+        )
+
+        queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) =>
+          current.map((chat) =>
+            chat.id === chatId ? { ...chat, modelId: response.modelId ?? null } : chat
+          )
+        )
+
+        setModelUpdateErrorByChat((current) => {
+          if (!(chatId in current)) {
+            return current
+          }
+
+          const next = { ...current }
+          delete next[chatId]
+          return next
+        })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to update chat model.'
+        setModelUpdateErrorByChat((current) => ({ ...current, [chatId]: message }))
+      }
+    },
+    [queryClient]
+  )
+
+  const getModelUpdateError = useCallback(
+    (chatId: string) => modelUpdateErrorByChat[chatId],
+    [modelUpdateErrorByChat]
+  )
+
   const performKickOff = useCallback(
     async (chatId: string, plan: ParsedPlan, navigateToChild: boolean) => {
       const response = await kickOffPlan(chatId, {
@@ -524,6 +654,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
         workspaceId: getChatLocal(chatId)?.workspaceId ?? null,
         workspacePath: getChatLocal(chatId)?.workspacePath ?? '',
         mode: 'implementation',
+        modelId: getChatLocal(chatId)?.modelId ?? null,
         parentChatId: chatId,
         planFilePath: response.planFilePath,
         messages: []
@@ -627,6 +758,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
         workspaceId: implementationChild.workspaceId,
         workspacePath: implementationChild.workspacePath,
         mode: 'review',
+        modelId: implementationChild.modelId,
         parentChatId: parentId,
         planFilePath: response.reviewFilePath,
         messages: []
@@ -680,7 +812,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
       createChat: (options: CreateChatOptions) => createChatMutation.mutateAsync(options),
       updateChatMode: updateChatModeAction,
       getModeUpdateError,
+      updateChatModel: updateChatModelAction,
+      getModelUpdateError,
       closeChat: (chatId: string) => closeChatMutation.mutateAsync(chatId),
+      deleteChat,
       sendMessage,
       kickOffPlan: kickOffPlanAction,
       kickOffAllPlans: kickOffAllPlansAction,
@@ -704,7 +839,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
       createChatMutation.mutateAsync,
       updateChatModeAction,
       getModeUpdateError,
+      updateChatModelAction,
+      getModelUpdateError,
       closeChatMutation.mutateAsync,
+      deleteChat,
       sendMessage,
       kickOffPlanAction,
       kickOffAllPlansAction,

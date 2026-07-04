@@ -50,6 +50,9 @@ public sealed class OrchiHybridCacheService(
     public HybridCacheEntryOptions CreatePlanEntryOptions() =>
         CreateEntryOptions(TimeSpan.FromMinutes(_options.PlanExpirationMinutes));
 
+    public HybridCacheEntryOptions CreateAgentModelsEntryOptions() =>
+        CreateEntryOptions(TimeSpan.FromMinutes(_options.AgentModelsExpirationMinutes));
+
     private static HybridCacheEntryOptions CreateEntryOptions(TimeSpan expiration) =>
         new()
         {

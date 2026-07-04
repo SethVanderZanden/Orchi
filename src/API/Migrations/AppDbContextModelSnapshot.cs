@@ -17,6 +17,70 @@ namespace Orchi.Api.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.9");
 
+            modelBuilder.Entity("Orchi.Api.Entities.AgentModeModelDefault", b =>
+                {
+                    b.Property<string>("AgentId")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Mode")
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ModelId")
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("AgentId", "Mode");
+
+                    b.ToTable("AgentModeModelDefaults");
+                });
+
+            modelBuilder.Entity("Orchi.Api.Entities.AgentModel", b =>
+                {
+                    b.Property<string>("AgentId")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ModelId")
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsCurrent")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("AgentId", "ModelId");
+
+                    b.HasIndex("AgentId", "IsEnabled");
+
+                    b.ToTable("AgentModels");
+                });
+
             modelBuilder.Entity("Orchi.Api.Entities.Chat", b =>
                 {
                     b.Property<Guid>("Id")
@@ -41,6 +105,10 @@ namespace Orchi.Api.Migrations
                     b.Property<string>("Mode")
                         .IsRequired()
                         .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ModelId")
+                        .HasMaxLength(256)
                         .HasColumnType("TEXT");
 
                     b.Property<Guid?>("ParentChatId")

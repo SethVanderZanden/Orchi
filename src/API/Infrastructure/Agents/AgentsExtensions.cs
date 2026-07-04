@@ -1,6 +1,7 @@
 using Orchi.Api.Infrastructure.Caching;
 using Orchi.Api.Infrastructure.Agents.Cursor;
 using Orchi.Api.Infrastructure.Agents.Modes;
+using Orchi.Api.Infrastructure.Agents.Models;
 using Orchi.Api.Infrastructure.Agents.Modes.Prompt;
 using Orchi.Api.Infrastructure.Agents.Modes.Prompt.Behaviours;
 using Orchi.Api.Infrastructure.Agents.Persistence;
@@ -17,8 +18,15 @@ public static class AgentsExtensions
     public static IServiceCollection AddOrchiAgents(this IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<CursorAgentOptions>(configuration.GetSection(CursorAgentOptions.SectionName));
+        services.Configure<AgentModelCatalogOptions>(configuration.GetSection(AgentModelCatalogOptions.SectionName));
 
         services.AddSingleton<IChatStore, EfChatStore>();
+        services.AddSingleton<IAgentModelStore, EfAgentModelStore>();
+        services.AddSingleton<IAgentModeModelDefaultStore, EfAgentModeModelDefaultStore>();
+        services.AddSingleton<IAgentModelListProvider, CursorAgentModelListProvider>();
+        services.AddSingleton<AgentModelListProviderFactory>();
+        services.AddSingleton<IAgentModelCatalogService, AgentModelCatalogService>();
+        services.AddSingleton<IAgentModeModelDefaultService, AgentModeModelDefaultService>();
         services.AddSingleton<IProjectStore, EfProjectStore>();
         services.AddSingleton<EfPlanStore>();
         services.AddSingleton<IPlanStore, CachingPlanStore>();

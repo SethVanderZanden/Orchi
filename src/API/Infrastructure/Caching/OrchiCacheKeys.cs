@@ -11,6 +11,9 @@ public static class OrchiCacheKeys
     public static string Plan(Guid sourceChatId, string planId) =>
         $"plan:{sourceChatId:N}:{planId}";
 
+    public static string AgentModels(string agentId, bool includeDisabled) =>
+        $"agent-models:{agentId}:{includeDisabled}";
+
     private static string NormalizePath(string path) =>
         Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 }

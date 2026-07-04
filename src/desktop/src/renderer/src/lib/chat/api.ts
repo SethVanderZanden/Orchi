@@ -9,7 +9,9 @@ import type {
   KickOffReviewResponse,
   SseHandlers,
   UpdateChatModeRequest,
-  UpdateChatModeResponse
+  UpdateChatModeResponse,
+  UpdateChatModelRequest,
+  UpdateChatModelResponse
 } from '@/lib/chat/types'
 import { getApiBaseUrl } from '@/lib/api'
 
@@ -53,6 +55,46 @@ function formatModeUpdateError(message: string, code?: string): string {
   return message
 }
 
+function formatModelUpdateError(message: string, code?: string): string {
+  if (
+    code === 'Model.Busy' ||
+    message.includes('agent is running') ||
+    message.startsWith('Model.Busy')
+  ) {
+    return 'Wait for the agent to finish before changing model.'
+  }
+
+  return message
+}
+
+async function readModelUpdateErrorMessage(response: Response): Promise<string> {
+  try {
+    const body = (await response.json()) as {
+      message?: string
+      Message?: string
+      title?: string
+      detail?: string
+      errors?: Record<string, string[]>
+    }
+
+    if (body.errors) {
+      const messages = Object.values(body.errors).flat()
+
+      if (messages.length > 0) {
+        return formatModelUpdateError(messages[0]!, body.title)
+      }
+    }
+
+    if (body.detail) {
+      return formatModelUpdateError(body.detail, body.title)
+    }
+
+    return body.message ?? body.Message ?? `API error: ${response.status}`
+  } catch {
+    return `API error: ${response.status}`
+  }
+}
+
 function mapSummary(summary: ChatSummaryResponse) {
   return {
     id: summary.id,
@@ -64,6 +106,7 @@ function mapSummary(summary: ChatSummaryResponse) {
     workspaceId: summary.workspaceId,
     workspacePath: summary.workspacePath,
     mode: summary.mode ?? 'default',
+    modelId: summary.modelId ?? null,
     parentChatId: summary.parentChatId,
     planFilePath: summary.planFilePath,
     messages: [] as ChatDetailResponse['messages']
@@ -81,6 +124,7 @@ function mapDetail(detail: ChatDetailResponse) {
     workspaceId: detail.workspaceId,
     workspacePath: detail.workspacePath,
     mode: detail.mode ?? 'default',
+    modelId: detail.modelId ?? null,
     parentChatId: detail.parentChatId,
     planFilePath: detail.planFilePath,
     messages: detail.messages
@@ -132,6 +176,7 @@ export async function createChat(request: CreateChatRequest) {
     workspaceId: created.workspaceId,
     workspacePath: created.workspacePath,
     mode: created.mode ?? 'default',
+    modelId: created.modelId ?? null,
     parentChatId: created.parentChatId,
     planFilePath: created.planFilePath,
     messages: []
@@ -160,6 +205,20 @@ export async function updateChatMode(chatId: string, request: UpdateChatModeRequ
   }
 
   return (await response.json()) as UpdateChatModeResponse
+}
+
+export async function updateChatModel(chatId: string, request: UpdateChatModelRequest) {
+  const response = await fetch(`${getApiBaseUrl()}/chats/${chatId}/model`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request)
+  })
+
+  if (!response.ok) {
+    throw new Error(await readModelUpdateErrorMessage(response))
+  }
+
+  return (await response.json()) as UpdateChatModelResponse
 }
 
 export async function closeChat(chatId: string) {

@@ -10,6 +10,41 @@ export type AgentModeOption = {
   description: string | null
 }
 
+export type AgentModel = {
+  id: string
+  label: string
+  isDefault: boolean
+  isCurrent: boolean
+  isEnabled: boolean
+  source: string
+}
+
+export type AgentModelListResponse = {
+  models: AgentModel[]
+  lastSyncedAt: string | null
+}
+
+export type AgentModelSyncResponse = {
+  models: AgentModel[]
+  syncedAt: string
+}
+
+export type AgentModeModelDefault = {
+  mode: string
+  label: string
+  modelId: string | null
+}
+
+export type AgentModeModelDefaultsListResponse = {
+  defaults: AgentModeModelDefault[]
+}
+
+export type UpdateAgentModeModelDefaultRequest = {
+  modelId: string | null
+}
+
+export type UpdateAgentModeModelDefaultResponse = AgentModeModelDefault
+
 export type ChatMessage = {
   id: string
   role: ChatRole
@@ -28,6 +63,7 @@ export type ChatThread = {
   workspaceId: string | null
   workspacePath: string
   mode: AgentMode
+  modelId: string | null
   parentChatId: string | null
   planFilePath: string | null
   messages: ChatMessage[]
@@ -52,6 +88,7 @@ export type CreateChatResponse = {
   workspaceId: string | null
   workspacePath: string
   mode: AgentMode
+  modelId: string | null
   parentChatId: string | null
   planFilePath: string | null
 }
@@ -65,6 +102,15 @@ export type UpdateChatModeResponse = {
   mode: AgentMode
 }
 
+export type UpdateChatModelRequest = {
+  modelId: string | null
+}
+
+export type UpdateChatModelResponse = {
+  id: string
+  modelId: string | null
+}
+
 export type ChatSummaryResponse = {
   id: string
   title: string
@@ -75,6 +121,7 @@ export type ChatSummaryResponse = {
   workspaceId: string | null
   workspacePath: string
   mode: AgentMode
+  modelId: string | null
   parentChatId: string | null
   planFilePath: string | null
 }
@@ -87,6 +134,7 @@ export type ChatDetailResponse = {
   workspaceId: string | null
   workspacePath: string
   mode: AgentMode
+  modelId: string | null
   parentChatId: string | null
   planFilePath: string | null
   messages: ChatMessage[]

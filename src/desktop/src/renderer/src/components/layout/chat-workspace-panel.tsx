@@ -1,12 +1,16 @@
 import { useEffect, useMemo } from 'react'
+import { Trash2 } from 'lucide-react'
 
+import { DeleteChatDialog } from '@/components/chat/delete-chat-dialog'
 import { PageHeader } from '@/components/ui/page-header'
+import { Button } from '@/components/ui/button'
 import { ChatPanel } from '@/components/chat/chat-panel'
 import { parsePlansFromMessages } from '@/lib/orchestration/parse-plans'
 import { parseReviewPlansFromMessages } from '@/lib/orchestration/parse-review-plans'
 import type { ParsedReviewPlan } from '@/lib/orchestration/parse-review-plans'
 import type { ChatThread } from '@/lib/chat/types'
 import { findReviewChildForPlan } from '@/lib/workspaces/chat-tree'
+import { useDeleteChat } from '@/hooks/use-delete-chat'
 import { useChat } from '@/providers/chat-provider'
 import { useProjects } from '@/providers/project-provider'
 
@@ -26,10 +30,13 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
     kickOffAllPlans,
     updateChatMode,
     getModeUpdateError,
+    updateChatModel,
+    getModelUpdateError,
     isChatSending,
     isPlanKickingOff,
     isParentKickingOffAny
   } = useChat()
+  const { requestDelete, isDeleting, dialogProps } = useDeleteChat()
   const { projects } = useProjects()
   const projectName =
     projects.find((project) => project.id === chat.projectId)?.name ??
@@ -69,6 +76,7 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
   const canChangeMode = !chat.messages.some(
     (message) => message.status === 'processing' || message.status === 'streaming'
   )
+  const canChangeModel = canChangeMode
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
@@ -89,7 +97,21 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
             ) : null}
           </div>
         }
+        endContent={
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8"
+            aria-label={`Delete ${chat.title}`}
+            disabled={isChatSending(chat.id) || isDeleting}
+            onClick={() => requestDelete(chat)}
+          >
+            <Trash2 className="size-4" />
+          </Button>
+        }
       />
+
+      <DeleteChatDialog {...dialogProps} />
 
       <ChatPanel
         messages={chat.messages}
@@ -99,6 +121,11 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
         canChangeMode={canChangeMode}
         modeUpdateError={getModeUpdateError(chat.id)}
         onModeChange={(mode) => void updateChatMode(chat.id, mode)}
+        agentId={chat.agentId}
+        modelId={chat.modelId}
+        canChangeModel={canChangeModel}
+        modelUpdateError={getModelUpdateError(chat.id)}
+        onModelChange={(modelId) => void updateChatModel(chat.id, modelId)}
         plans={plans}
         parentChatId={chat.id}
         isSending={isChatSending(chat.id)}
