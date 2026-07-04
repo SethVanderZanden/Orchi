@@ -187,6 +187,8 @@ function SettingsPage(): React.JSX.Element {
 
           <AgentModelsCard agentId="cursor" />
 
+          <AgentModeModelDefaultsCard agentId="cursor" />
+
           <Card>
             <CardContent className="space-y-3 p-4">
               <p className="text-sm text-muted-foreground">

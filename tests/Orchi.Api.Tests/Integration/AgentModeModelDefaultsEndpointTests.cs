@@ -1,5 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Orchi.Api.Data;
 using Orchi.Api.Features.Agents.AddAgentModel;
 using Orchi.Api.Features.Agents.ListAgentModeModelDefaults;
 using Orchi.Api.Features.Agents.UpdateAgentModeModelDefault;
@@ -8,7 +11,11 @@ using Orchi.Api.Tests.Common;
 
 namespace Orchi.Api.Tests.Integration;
 
-public class AgentModeModelDefaultsEndpointTests : IClassFixture<TestWebApplicationFactory>
+[CollectionDefinition("AgentModeModelDefaultsTests", DisableParallelization = true)]
+public sealed class AgentModeModelDefaultsTestsCollection;
+
+[Collection("AgentModeModelDefaultsTests")]
+public class AgentModeModelDefaultsEndpointTests : IClassFixture<TestWebApplicationFactory>, IAsyncLifetime
 {
     private readonly TestWebApplicationFactory _factory;
     private readonly HttpClient _client;
@@ -20,9 +27,28 @@ public class AgentModeModelDefaultsEndpointTests : IClassFixture<TestWebApplicat
         _client = factory.CreateClient();
     }
 
+    public async Task InitializeAsync()
+    {
+        await ClearModeDefaultsAsync();
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
+
+    private async Task ClearModeDefaultsAsync()
+    {
+        using IServiceScope scope = _factory.Services.CreateScope();
+        IDbContextFactory<AppDbContext> factory =
+            scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
+        await using AppDbContext db = await factory.CreateDbContextAsync();
+        db.AgentModeModelDefaults.RemoveRange(await db.AgentModeModelDefaults.ToListAsync());
+        await db.SaveChangesAsync();
+    }
+
     [Fact]
     public async Task ListAgentModeModelDefaults_ReturnsFourModesWithNullDefaultsInitially()
     {
+        await ClearModeDefaultsAsync();
+
         HttpResponseMessage response = await _client.GetAsync("/agents/cursor/mode-model-defaults");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);

@@ -1,15 +1,17 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ChevronDown } from 'lucide-react'
 
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
+import { Label } from '@/components/ui/label'
 import { DEFAULT_MODEL_VALUE } from '@/components/chat/chat-model-selector'
 import { listAgentModels } from '@/lib/chat/agent-models-api'
 import {
@@ -28,11 +30,11 @@ function modeDefaultsQueryKey(agentId: string): readonly unknown[] {
   return ['agent-mode-model-defaults', agentId]
 }
 
-function toSelectValue(modelId: string | null): string {
+function toRadioValue(modelId: string | null): string {
   return modelId ?? DEFAULT_MODEL_VALUE
 }
 
-function fromSelectValue(value: string): string | null {
+function fromRadioValue(value: string): string | null {
   return value === DEFAULT_MODEL_VALUE ? null : value
 }
 
@@ -72,17 +74,20 @@ export function AgentModeModelDefaultsCard({
         return next
       })
 
-      queryClient.setQueryData(modeDefaultsQueryKey(agentId), (current: { defaults: AgentModeModelDefault[] } | undefined) => {
-        if (!current) {
-          return current
-        }
+      queryClient.setQueryData(
+        modeDefaultsQueryKey(agentId),
+        (current: { defaults: AgentModeModelDefault[] } | undefined) => {
+          if (!current) {
+            return current
+          }
 
-        return {
-          defaults: current.defaults.map((row) =>
-            row.mode === updated.mode ? updated : row
-          )
+          return {
+            defaults: current.defaults.map((row) =>
+              row.mode === updated.mode ? updated : row
+            )
+          }
         }
-      })
+      )
     },
     onError: (error: Error, variables) => {
       setRowErrors((current) => ({ ...current, [variables.mode]: error.message }))
@@ -128,32 +133,41 @@ export function AgentModeModelDefaultsCard({
                         <p className="text-xs text-muted-foreground">{description}</p>
                       ) : null}
                     </div>
-                    <Select
-                      value={toSelectValue(row.modelId)}
-                      disabled={updateMutation.isPending}
-                      onValueChange={(value) =>
-                        updateMutation.mutate({
-                          mode: row.mode,
-                          modelId: fromSelectValue(value)
-                        })
-                      }
-                    >
-                      <SelectTrigger
-                        id={`mode-default-${row.mode}`}
-                        className="w-full sm:w-56"
-                        aria-label={`Default model for ${row.label}`}
-                      >
-                        <SelectValue placeholder="Default (CLI)">{triggerLabel}</SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={DEFAULT_MODEL_VALUE}>Default (CLI)</SelectItem>
-                        {enabledModels.map((model) => (
-                          <SelectItem key={model.id} value={model.id}>
-                            {model.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          id={`mode-default-${row.mode}`}
+                          variant="outline"
+                          size="sm"
+                          disabled={updateMutation.isPending}
+                          className="h-8 w-full justify-between gap-1.5 px-2.5 text-xs font-normal sm:w-56"
+                          aria-label={`Default model for ${row.label}`}
+                        >
+                          <span className="truncate">{triggerLabel}</span>
+                          <ChevronDown className="size-3.5 shrink-0 opacity-60" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="max-h-64 overflow-y-auto">
+                        <DropdownMenuRadioGroup
+                          value={toRadioValue(row.modelId)}
+                          onValueChange={(value) =>
+                            updateMutation.mutate({
+                              mode: row.mode,
+                              modelId: fromRadioValue(value)
+                            })
+                          }
+                        >
+                          <DropdownMenuRadioItem value={DEFAULT_MODEL_VALUE}>
+                            Default (CLI)
+                          </DropdownMenuRadioItem>
+                          {enabledModels.map((model) => (
+                            <DropdownMenuRadioItem key={model.id} value={model.id}>
+                              {model.label}
+                            </DropdownMenuRadioItem>
+                          ))}
+                        </DropdownMenuRadioGroup>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                   {rowErrors[row.mode] ? (
                     <p className="text-sm text-destructive">{rowErrors[row.mode]}</p>
