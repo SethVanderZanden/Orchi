@@ -1,7 +1,7 @@
-import { useEffect } from 'react'
 import { createFileRoute, Navigate } from '@tanstack/react-router'
 
 import { ChatWorkspacePanel } from '@/components/layout/chat-workspace-panel'
+import { useChatDetail } from '@/hooks/use-chat-detail'
 import { useChat } from '@/providers/chat-provider'
 
 export const Route = createFileRoute('/_app/chat/$chatId')({
@@ -10,14 +10,11 @@ export const Route = createFileRoute('/_app/chat/$chatId')({
 
 function ChatPage(): React.JSX.Element {
   const { chatId } = Route.useParams()
-  const { getChat, loadChat, isLoadingChats } = useChat()
-  const chat = getChat(chatId)
+  const { isLoadingChats } = useChat()
+  const chatQuery = useChatDetail(chatId)
+  const chat = chatQuery.data
 
-  useEffect(() => {
-    void loadChat(chatId)
-  }, [chatId, loadChat])
-
-  if (!chat && isLoadingChats) {
+  if (!chat && (chatQuery.isPending || isLoadingChats)) {
     return (
       <div className="flex h-full items-center justify-center">
         <p className="text-sm text-muted-foreground">Loading chat…</p>
@@ -29,5 +26,5 @@ function ChatPage(): React.JSX.Element {
     return <Navigate to="/" replace />
   }
 
-  return <ChatWorkspacePanel chat={chat} />
+  return <ChatWorkspacePanel key={chatId} chat={chat} />
 }

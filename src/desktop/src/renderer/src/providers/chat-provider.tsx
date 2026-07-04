@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMatch, useNavigate } from '@tanstack/react-router'
 
@@ -7,6 +7,11 @@ import type { CreateChatOptions } from '@/components/chat/chat-mode-selector'
 import type { AgentMode, ChatMarker, ChatMessage, ChatThread } from '@/lib/chat/types'
 import type { ParsedPlan } from '@/lib/orchestration/parse-plans'
 import { isLocalChat } from '@/lib/chat/chat-persistence'
+import { markChatRead as markChatReadInStorage } from '@/lib/chat/chat-read-state'
+import {
+  getChatSidebarStatus,
+  type ChatSidebarStatusVariant
+} from '@/lib/chat/chat-sidebar-status'
 import { mergeChatLists } from '@/lib/chat/merge-chat-lists'
 import { chatKeys } from '@/lib/query-keys'
 import {
@@ -48,6 +53,9 @@ type ChatContextValue = {
   isParentKickingOffAny: (parentChatId: string) => boolean
   getMarkers: (chatId: string) => ChatMarker[]
   subscribeAgentActivity: (listener: (detail: AgentActivityDetail) => void) => () => void
+  activeChatId?: string
+  markChatRead: (chatId: string) => void
+  getChatSidebarStatus: (chat: ChatThread) => ChatSidebarStatusVariant
 }
 
 const ChatContext = createContext<ChatContextValue | null>(null)
@@ -113,8 +121,14 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
 
   const getChatLocal = useCallback(
     (chatId: string) => {
-      const cachedDetail = queryClient.getQueryData<ChatThread>(chatKeys.detail(chatId))
-      return cachedDetail ?? chats.find((chat) => chat.id === chatId)
+      const detail = queryClient.getQueryData<ChatThread>(chatKeys.detail(chatId))
+      const summary = chats.find((chat) => chat.id === chatId)
+
+      if (detail && summary) {
+        return { ...summary, ...detail, messages: detail.messages }
+      }
+
+      return detail ?? summary
     },
     [chats, queryClient]
   )
@@ -316,6 +330,62 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
       return false
     },
     [kickingOffKeys]
+  )
+
+  const activeChatId = chatMatch?.params?.chatId
+  const activeChat = activeChatId ? getChatLocal(activeChatId) : undefined
+
+  useEffect(() => {
+    if (!activeChatId || !activeChat) {
+      return
+    }
+
+    markChatReadInStorage(activeChatId, activeChat.updatedAt)
+  }, [activeChatId, activeChat?.updatedAt, activeChat?.messages.length])
+
+  useEffect(() => {
+    for (const chat of chats) {
+      if (chat.mode !== 'orchestration') {
+        continue
+      }
+
+      const resolved = getChatLocal(chat.id)
+      if (!resolved?.messages.length) {
+        void loadChat(chat.id)
+      }
+
+      for (const child of getChildChats(chat.id)) {
+        const resolvedChild = getChatLocal(child.id)
+        if (!resolvedChild?.messages.length) {
+          void loadChat(child.id)
+        }
+      }
+    }
+  }, [chats, getChatLocal, getChildChats, loadChat])
+
+  const markChatRead = useCallback(
+    (chatId: string) => {
+      const chat = getChatLocal(chatId)
+      if (!chat) {
+        return
+      }
+
+      markChatReadInStorage(chatId, chat.updatedAt)
+    },
+    [getChatLocal]
+  )
+
+  const getChatSidebarStatusForChat = useCallback(
+    (chat: ChatThread) =>
+      getChatSidebarStatus({
+        chat,
+        activeChatId,
+        isSending: isChatSending(chat.id),
+        isParentKickingOff: isParentKickingOffAny(chat.id),
+        getChat: getChatLocal,
+        getChildChats
+      }),
+    [activeChatId, getChatLocal, getChildChats, isChatSending, isParentKickingOffAny]
   )
 
   const markChatSending = useCallback((chatId: string, sending: boolean) => {
@@ -823,7 +893,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
       isPlanKickingOff,
       isParentKickingOffAny,
       getMarkers: (chatId: string) => markersByChat[chatId] ?? [],
-      subscribeAgentActivity
+      subscribeAgentActivity,
+      activeChatId,
+      markChatRead,
+      getChatSidebarStatus: getChatSidebarStatusForChat
     }),
     [
       chats,
@@ -850,7 +923,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
       isPlanKickingOff,
       isParentKickingOffAny,
       markersByChat,
-      subscribeAgentActivity
+      subscribeAgentActivity,
+      activeChatId,
+      markChatRead,
+      getChatSidebarStatusForChat
     ]
   )
 

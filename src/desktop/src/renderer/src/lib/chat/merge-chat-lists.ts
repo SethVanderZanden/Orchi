@@ -1,5 +1,16 @@
 import type { ChatThread } from '@/lib/chat/types'
 
+function mergeChatThread(existing: ChatThread, incoming: ChatThread): ChatThread {
+  const messages =
+    incoming.messages.length > 0 ? incoming.messages : existing.messages
+
+  return {
+    ...existing,
+    ...incoming,
+    messages
+  }
+}
+
 export function mergeChatLists(cached: ChatThread[], incoming: ChatThread[]): ChatThread[] {
   const merged = new Map<string, ChatThread>()
 
@@ -8,7 +19,8 @@ export function mergeChatLists(cached: ChatThread[], incoming: ChatThread[]): Ch
   }
 
   for (const chat of incoming) {
-    merged.set(chat.id, chat)
+    const existing = merged.get(chat.id)
+    merged.set(chat.id, existing ? mergeChatThread(existing, chat) : chat)
   }
 
   return Array.from(merged.values()).sort(

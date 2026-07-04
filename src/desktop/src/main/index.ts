@@ -3,6 +3,7 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { getApiBaseUrl, startApiHost, stopApiHost } from './api-host'
+import { openInEditor, type EditorId } from './open-in-editor'
 
 let isShuttingDown = false
 
@@ -51,6 +52,10 @@ app.whenReady().then(async () => {
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
+  })
+
+  ipcMain.handle('shell:openInEditor', async (_event, folderPath: string, editor: EditorId) => {
+    return openInEditor(folderPath, editor)
   })
 
   ipcMain.handle('dialog:openDirectory', async (event) => {

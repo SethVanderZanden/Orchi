@@ -18,8 +18,16 @@ else {
 
 Push-Location $config.RepoRoot
 try {
+    $apiCmd = if ($usingIsolatedDev) {
+        $devApiUrl = "http://localhost:$($config.DevPort)"
+        "dotnet run --project src/API --no-launch-profile --urls $devApiUrl"
+    }
+    else {
+        "dotnet run --project src/API"
+    }
+
     npx concurrently -n api,desktop -c blue,green `
-        "dotnet run --project src/API" `
+        $apiCmd `
         "npm run dev --prefix src/desktop"
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE

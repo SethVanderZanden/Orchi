@@ -43,6 +43,39 @@ describe('mergeChatLists', () => {
     expect(merged[0].updatedAt).toBe('2026-01-02T00:00:00.000Z')
   })
 
+  it('preserves cached messages when incoming summaries have empty messages', () => {
+    const cached = [
+      makeChat({
+        id: 'a',
+        title: 'Cached title',
+        updatedAt: '2026-01-03T00:00:00.000Z',
+        messages: [
+          {
+            id: 'm1',
+            role: 'user',
+            content: 'Hello',
+            createdAt: '2026-01-03T00:00:00.000Z',
+            status: 'complete'
+          }
+        ]
+      })
+    ]
+    const incoming = [
+      makeChat({
+        id: 'a',
+        title: 'Fresh title',
+        updatedAt: '2026-01-02T00:00:00.000Z',
+        messages: []
+      })
+    ]
+
+    const merged = mergeChatLists(cached, incoming)
+
+    expect(merged[0].title).toBe('Fresh title')
+    expect(merged[0].messages).toHaveLength(1)
+    expect(merged[0].messages[0]?.content).toBe('Hello')
+  })
+
   it('sorts merged results by updatedAt descending', () => {
     const cached = [
       makeChat({ id: 'old', updatedAt: '2026-01-01T00:00:00.000Z' }),

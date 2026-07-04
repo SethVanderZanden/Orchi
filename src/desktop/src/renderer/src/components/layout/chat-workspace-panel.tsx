@@ -1,10 +1,9 @@
 import { useEffect, useMemo } from 'react'
-import { Trash2 } from 'lucide-react'
 
 import { DeleteChatDialog } from '@/components/chat/delete-chat-dialog'
-import { PageHeader } from '@/components/ui/page-header'
-import { Button } from '@/components/ui/button'
 import { ChatPanel } from '@/components/chat/chat-panel'
+import { ChatWorkspaceHeader } from '@/components/layout/chat-workspace-header'
+import { usePlanReview } from '@/hooks/use-plan-review'
 import { parsePlansFromMessages } from '@/lib/orchestration/parse-plans'
 import { parseReviewPlansFromMessages } from '@/lib/orchestration/parse-review-plans'
 import type { ParsedReviewPlan } from '@/lib/orchestration/parse-review-plans'
@@ -77,38 +76,33 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
     (message) => message.status === 'processing' || message.status === 'streaming'
   )
   const canChangeModel = canChangeMode
+  const showPlanReview = chat.mode === 'orchestration' && plans.length > 0
+
+  const {
+    reviewState,
+    dispatchReview,
+    toggleReviewPanel,
+    activeReviewTabId,
+    hasReviewReady
+  } = usePlanReview({
+    plans,
+    reviewPlansByPlanId,
+    showPlanReview
+  })
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <PageHeader
-        startContent={
-          <div className="min-w-0 space-y-1">
-            <p className="truncate text-sm font-semibold">{chat.title}</p>
-            <p className="truncate text-xs text-muted-foreground">
-              {projectName ? `${projectName} · ` : ''}
-              {chat.workspacePath} · {chat.messages.length} message
-              {chat.messages.length === 1 ? '' : 's'}
-              {childChats.length > 0
-                ? ` · ${childChats.length} child agent${childChats.length === 1 ? '' : 's'}`
-                : ''}
-            </p>
-            {chat.planFilePath ? (
-              <p className="truncate text-xs text-muted-foreground">Plan: {chat.planFilePath}</p>
-            ) : null}
-          </div>
-        }
-        endContent={
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-8"
-            aria-label={`Delete ${chat.title}`}
-            disabled={isChatSending(chat.id) || isDeleting}
-            onClick={() => requestDelete(chat)}
-          >
-            <Trash2 className="size-4" />
-          </Button>
-        }
+      <ChatWorkspaceHeader
+        chat={chat}
+        projectName={projectName}
+        childChatCount={childChats.length}
+        workspacePath={chat.workspacePath}
+        showPlanReview={showPlanReview}
+        reviewPanelOpen={reviewState.panelOpen}
+        hasReviewReady={hasReviewReady}
+        onToggleReviewPanel={toggleReviewPanel}
+        onDelete={() => requestDelete(chat)}
+        deleteDisabled={isChatSending(chat.id) || isDeleting}
       />
 
       <DeleteChatDialog {...dialogProps} />
@@ -141,6 +135,10 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
         }
         childChats={chat.mode === 'orchestration' ? childChats : undefined}
         reviewPlansByPlanId={chat.mode === 'orchestration' ? reviewPlansByPlanId : undefined}
+        showPlanReview={showPlanReview}
+        reviewState={reviewState}
+        dispatchReview={dispatchReview}
+        activeReviewTabId={activeReviewTabId}
       />
     </div>
   )

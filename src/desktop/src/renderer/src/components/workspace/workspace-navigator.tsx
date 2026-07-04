@@ -7,21 +7,21 @@ import {
   Folder,
   FolderPlus,
   MessageSquarePlus,
-  Search,
   Settings,
   Shield,
   Trash2
 } from 'lucide-react'
 
 import { DeleteChatDialog } from '@/components/chat/delete-chat-dialog'
-
+import { ChatStatusDot } from '@/components/chat/chat-status-dot'
+import { SidebarHeader } from '@/components/layout/sidebar/sidebar-header'
+import { SidebarNavItem } from '@/components/layout/sidebar/sidebar-nav-item'
+import { SidebarSearch } from '@/components/layout/sidebar/sidebar-search'
+import { SidebarSectionHeader } from '@/components/layout/sidebar/sidebar-section-header'
 import { OrchiAiIcon } from '@/components/brand/orchi-ai-icon'
 import { RelativeTime } from '@/components/relative-time'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { PageHeader } from '@/components/ui/page-header'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Separator } from '@/components/ui/separator'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useDeleteChat } from '@/hooks/use-delete-chat'
 import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut'
@@ -40,6 +40,15 @@ import { useChat } from '@/providers/chat-provider'
 import { useProjects } from '@/providers/project-provider'
 import { useWorkspaceLayout } from '@/providers/workspace-layout-provider'
 
+function sidebarIconClass(isActive: boolean): string {
+  return cn(
+    'shrink-0 transition-colors duration-150 ease-out',
+    isActive
+      ? 'text-sidebar-accent-foreground'
+      : 'text-sidebar-muted group-hover:text-sidebar-accent-foreground'
+  )
+}
+
 export function WorkspaceNavigator(): React.JSX.Element {
   const navigate = useNavigate()
   const {
@@ -52,7 +61,8 @@ export function WorkspaceNavigator(): React.JSX.Element {
     chatsError,
     refetchChats,
     getChat,
-    isChatSending
+    isChatSending,
+    getChatSidebarStatus
   } = useChat()
   const { requestDelete, isDeleting, dialogProps } = useDeleteChat()
   const { projects, addProject, pickDirectory, isPendingProjects, projectsError, refetchProjects } =
@@ -255,17 +265,39 @@ export function WorkspaceNavigator(): React.JSX.Element {
 
   function renderChatRow(chat: ChatThread, isChild = false): React.JSX.Element {
     const isReview = isChild && isReviewChildChat(chat)
+    const statusVariant = getChatSidebarStatus(chat)
+    const isActive = chat.id === activeChatId
 
     return (
-      <div key={chat.id} className="group flex min-w-0 items-center gap-0.5">
-        <button
+      <div key={chat.id} className="group relative min-w-0">
+        <SidebarNavItem
           type="button"
           title={chat.title}
-          className={cn(
-            'flex min-w-0 flex-1 items-center gap-2 overflow-hidden rounded-md px-2 py-1.5 text-left hover:bg-accent',
-            isChild ? 'text-xs' : 'text-sm',
-            chat.id === activeChatId && 'bg-accent font-medium'
-          )}
+          size={isChild ? 'compact' : 'default'}
+          isActive={isActive}
+          leading={
+            <>
+              <ChatStatusDot variant={statusVariant} />
+              {isChild ? (
+                isReview ? (
+                  <Shield className={cn('size-3', sidebarIconClass(isActive))} aria-hidden />
+                ) : (
+                  <Bot className={cn('size-3', sidebarIconClass(isActive))} aria-hidden />
+                )
+              ) : null}
+            </>
+          }
+          trailing={
+            <RelativeTime
+              value={chat.updatedAt}
+              compact
+              className={cn(
+                'shrink-0 tabular-nums text-sidebar-muted transition-colors duration-150 group-hover:text-sidebar-accent-foreground',
+                isActive && 'text-sidebar-accent-foreground',
+                isChild ? 'text-[10px]' : 'text-[11px]'
+              )}
+            />
+          }
           onClick={() =>
             navigate({
               to: '/chat/$chatId',
@@ -273,28 +305,12 @@ export function WorkspaceNavigator(): React.JSX.Element {
             })
           }
         >
-          {isChild ? (
-            isReview ? (
-              <Shield className="size-3 shrink-0 text-muted-foreground" aria-hidden />
-            ) : (
-              <Bot className="size-3 shrink-0 text-muted-foreground" aria-hidden />
-            )
-          ) : null}
-          <span className="min-w-0 flex-1 overflow-hidden">
-            <span className="block truncate">{chat.title}</span>
-          </span>
-          <RelativeTime
-            value={chat.updatedAt}
-            className={cn('shrink-0 text-muted-foreground', isChild ? 'text-[10px]' : 'text-[11px]')}
-          />
-        </button>
+          {chat.title}
+        </SidebarNavItem>
         <Button
           variant="ghost"
           size="icon"
-          className={cn(
-            'size-7 shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100',
-            chat.id === activeChatId && 'opacity-100'
-          )}
+          className="pointer-events-none absolute top-1/2 right-0.5 z-10 size-6 -translate-y-1/2 bg-sidebar/90 text-sidebar-muted opacity-0 backdrop-blur-sm transition-opacity duration-150 ease-out group-hover:pointer-events-auto group-hover:text-sidebar-accent-foreground group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100"
           aria-label={`Delete ${chat.title}`}
           disabled={isChatSending(chat.id) || isDeleting}
           onClick={(event) => {
@@ -321,21 +337,21 @@ export function WorkspaceNavigator(): React.JSX.Element {
         <div className="flex min-w-0 items-center gap-0.5">
           <button
             type="button"
-            className="flex size-6 shrink-0 items-center justify-center rounded-md hover:bg-accent"
+            className="flex size-6 shrink-0 items-center justify-center rounded-md text-sidebar-muted transition-colors duration-150 ease-out hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             aria-label={isParentExpanded ? 'Collapse child agents' : 'Expand child agents'}
             onClick={() => toggleParentExpanded(node.chat.id)}
           >
             {isParentExpanded ? (
-              <ChevronDown className="size-3 text-muted-foreground" />
+              <ChevronDown className="size-3" />
             ) : (
-              <ChevronRight className="size-3 text-muted-foreground" />
+              <ChevronRight className="size-3" />
             )}
           </button>
           <div className="min-w-0 flex-1">{renderChatRow(node.chat)}</div>
         </div>
 
         {isParentExpanded ? (
-          <div className="ml-5 space-y-0.5 border-l pl-1">
+          <div className="ml-3 space-y-0.5 pl-4">
             {node.children.map((child) => renderChatRow(child, true))}
           </div>
         ) : null}
@@ -343,57 +359,34 @@ export function WorkspaceNavigator(): React.JSX.Element {
     )
   }
 
-  function renderNewChatButton(
-    group: ProjectChatGroup,
-    workspaceSubGroupId?: string
-  ): React.JSX.Element {
-    return (
-      <button
-        type="button"
-        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-muted-foreground hover:bg-accent"
-        disabled={isCreating}
-        onClick={() => void createChatInGroup(group, workspaceSubGroupId)}
-      >
-        <MessageSquarePlus className="size-3.5 shrink-0" />
-        <span>New chat</span>
-      </button>
-    )
-  }
-
-  function renderWorkspaceSubGroup(
-    group: ProjectChatGroup,
-    workspaceGroup: WorkspaceChatSubGroup
-  ): React.JSX.Element {
+  function renderWorkspaceSubGroup(workspaceGroup: WorkspaceChatSubGroup): React.JSX.Element {
     const expanded = expandedWorkspaceIds.has(workspaceGroup.id)
 
     return (
       <div key={workspaceGroup.id} className="min-w-0">
-        <div className="flex items-center gap-0.5">
-          <button
-            type="button"
-            className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-2 py-1.5 text-left hover:bg-accent"
-            onClick={() => toggleWorkspaceExpanded(workspaceGroup.id)}
-          >
-            {expanded ? (
-              <ChevronDown className="size-3 shrink-0 text-muted-foreground" />
-            ) : (
-              <ChevronRight className="size-3 shrink-0 text-muted-foreground" />
-            )}
-            <Folder className="size-3 shrink-0 fill-muted-foreground/20 text-muted-foreground" />
-            <span
-              className="min-w-0 flex-1 truncate text-xs text-muted-foreground"
-              title={workspaceGroup.path}
-            >
-              {workspaceGroup.name}
-            </span>
-          </button>
-        </div>
+        <SidebarNavItem
+          type="button"
+          size="compact"
+          title={workspaceGroup.path}
+          leading={
+            <>
+              {expanded ? (
+                <ChevronDown className={cn('size-3', sidebarIconClass(false))} />
+              ) : (
+                <ChevronRight className={cn('size-3', sidebarIconClass(false))} />
+              )}
+              <Folder className={cn('size-3 fill-sidebar-muted/20', sidebarIconClass(false))} />
+            </>
+          }
+          onClick={() => toggleWorkspaceExpanded(workspaceGroup.id)}
+        >
+          {workspaceGroup.name}
+        </SidebarNavItem>
 
         {expanded ? (
-          <div className="ml-5 space-y-0.5 border-l pl-1">
-            {renderNewChatButton(group, workspaceGroup.id)}
+          <div className="ml-3 space-y-0.5 pl-4">
             {workspaceGroup.chatNodes.length === 0 ? (
-              <p className="px-2 py-1 text-xs text-muted-foreground">No chats yet</p>
+              <p className="px-2.5 py-1.5 text-xs text-sidebar-muted">No chats yet</p>
             ) : (
               workspaceGroup.chatNodes.map((node) => renderChatNode(node))
             )}
@@ -411,31 +404,50 @@ export function WorkspaceNavigator(): React.JSX.Element {
 
     return (
       <div key={group.id} className="min-w-0">
-        <div className="sticky top-0 z-10 flex items-center gap-0.5 bg-background">
-          <button
+        <div className="sticky top-0 z-10 flex items-center gap-0.5 bg-sidebar">
+          <SidebarNavItem
             type="button"
-            className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-2 py-1.5 text-left hover:bg-accent"
+            size="compact"
+            className="font-medium"
+            title={group.name}
+            leading={
+              <>
+                {expanded ? (
+                  <ChevronDown className={cn('size-3.5', sidebarIconClass(false))} />
+                ) : (
+                  <ChevronRight className={cn('size-3.5', sidebarIconClass(false))} />
+                )}
+                <Folder className={cn('size-3.5 fill-sidebar-muted/30', sidebarIconClass(false))} />
+              </>
+            }
             onClick={() => toggleProjectExpanded(group.id)}
           >
-            {expanded ? (
-              <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
-            ) : (
-              <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
-            )}
-            <Folder className="size-3.5 shrink-0 fill-muted-foreground/30 text-muted-foreground" />
-            <span
-              className="min-w-0 flex-1 truncate text-xs font-medium text-muted-foreground"
-              title={group.name}
-            >
-              {group.name}
-            </span>
-          </button>
+            {group.name}
+          </SidebarNavItem>
+
+          {!group.isOrphan ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 shrink-0 text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                  aria-label={`New chat in ${group.name}`}
+                  disabled={isCreating}
+                  onClick={() => void createChatInGroup(group)}
+                >
+                  <MessageSquarePlus className="size-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>New chat</TooltipContent>
+            </Tooltip>
+          ) : null}
 
           {group.isOrphan && group.chatNodes.length > 0 ? (
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 shrink-0 px-2 text-xs"
+              className="h-7 shrink-0 px-2 text-xs text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               onClick={() => {
                 const path = firstChat?.workspacePath
                 if (path) {
@@ -449,20 +461,15 @@ export function WorkspaceNavigator(): React.JSX.Element {
         </div>
 
         {expanded ? (
-          <div className="ml-5 space-y-0.5 border-l pl-1">
+          <div className="ml-3 space-y-0.5 pl-4">
             {group.isFlat ? (
-              <>
-                {!group.isOrphan ? renderNewChatButton(group) : null}
-                {group.chatNodes.length === 0 ? (
-                  <p className="px-2 py-1 text-xs text-muted-foreground">No chats yet</p>
-                ) : (
-                  group.chatNodes.map((node) => renderChatNode(node))
-                )}
-              </>
-            ) : (
-              group.workspaceGroups.map((workspaceGroup) =>
-                renderWorkspaceSubGroup(group, workspaceGroup)
+              group.chatNodes.length === 0 ? (
+                <p className="px-2.5 py-1.5 text-xs text-sidebar-muted">No chats yet</p>
+              ) : (
+                group.chatNodes.map((node) => renderChatNode(node))
               )
+            ) : (
+              group.workspaceGroups.map((workspaceGroup) => renderWorkspaceSubGroup(workspaceGroup))
             )}
           </div>
         ) : null}
@@ -473,146 +480,109 @@ export function WorkspaceNavigator(): React.JSX.Element {
   return (
     <TooltipProvider delayDuration={300}>
       <>
-        <aside className="flex h-full w-60 shrink-0 flex-col border-r bg-background">
-          <PageHeader
-            startContent={
-              <div className="flex items-center gap-2">
-                <OrchiAiIcon className="size-5" />
-                <div>
-                  <p className="text-sm font-semibold">Orchi</p>
-                  <p className="text-xs text-muted-foreground">AI orchestrator</p>
-                </div>
-              </div>
-            }
+        <aside className="flex h-full w-[260px] shrink-0 flex-col bg-sidebar text-sidebar-foreground">
+          <SidebarHeader
+            title="Orchi"
+            subtitle="AI orchestrator"
+            icon={<OrchiAiIcon className="size-5" />}
             endContent={
-              <>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-8"
-                      aria-label="Add project"
-                      onClick={() => void handleAddProject()}
-                      disabled={isAddingProject}
-                    >
-                      <FolderPlus className="size-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Add project</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className={cn('size-8', settingsMatch && 'bg-accent')}
-                      aria-label="Settings"
-                      aria-current={settingsMatch ? 'page' : undefined}
-                      onClick={() => navigate({ to: '/settings' })}
-                    >
-                      <Settings className="size-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Settings</TooltipContent>
-                </Tooltip>
-              </>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    aria-label="Add project"
+                    onClick={() => void handleAddProject()}
+                    disabled={isAddingProject}
+                  >
+                    <FolderPlus className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Add project</TooltipContent>
+              </Tooltip>
             }
           />
 
-          <div className="px-2 py-2">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search chats"
-                aria-label="Search chats"
-                className="h-8 pl-8"
-              />
-            </div>
-          </div>
-
-          {projects.length > 0 ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="mx-2 mb-2 w-[calc(100%-1rem)]"
-                  disabled={!defaultProjectGroup || isCreating}
-                  onClick={createDefaultChat}
-                >
-                  <MessageSquarePlus className="size-4" />
-                  New chat
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Ctrl+N</TooltipContent>
-            </Tooltip>
-          ) : null}
-
-          <Separator />
+          <SidebarSearch value={searchQuery} onChange={setSearchQuery} />
 
           {isInitialProjectLoad || isInitialChatLoad ? (
-            <p className="px-3 py-4 text-sm text-muted-foreground">Loading…</p>
+            <p className="px-3 py-6 text-sm text-sidebar-muted">Loading…</p>
           ) : projectsError ? (
-            <div className="space-y-2 px-3 py-4">
+            <div className="space-y-2 px-3 py-6">
               <p className="text-sm text-destructive">
                 {projectsError.message || 'Failed to load projects.'}
               </p>
-              <Button variant="secondary" size="sm" onClick={() => void refetchProjects()}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                onClick={() => void refetchProjects()}
+              >
                 Retry
               </Button>
             </div>
           ) : chatsError ? (
-            <div className="space-y-2 px-3 py-4">
+            <div className="space-y-2 px-3 py-6">
               <p className="text-sm text-destructive">
                 {chatsError.message || 'Failed to load chats.'}
               </p>
-              <Button variant="secondary" size="sm" onClick={() => void refetchChats()}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                onClick={() => void refetchChats()}
+              >
                 Retry
               </Button>
             </div>
           ) : projects.length === 0 ? (
-            <div className="space-y-3 px-3 py-4">
-              <p className="text-sm text-muted-foreground">
+            <div className="space-y-3 px-3 py-6">
+              <p className="text-sm text-sidebar-muted">
                 Add a project folder to start chatting with agents in that workspace.
               </p>
-              <Button
-                variant="secondary"
-                size="sm"
-                className="w-full"
+              <SidebarNavItem
+                type="button"
+                leading={<FolderPlus className={cn('size-4', sidebarIconClass(false))} />}
                 onClick={() => void handleAddProject()}
                 disabled={isAddingProject}
               >
-                <FolderPlus className="size-4" />
                 Add project
-              </Button>
+              </SidebarNavItem>
             </div>
           ) : (
-            <ScrollArea className="min-h-0 min-w-0 flex-1">
-              <div className="min-w-0 space-y-0.5 p-1">
-                {projectGroups.map((group) => renderProjectGroup(group))}
-              </div>
-            </ScrollArea>
+            <>
+              <SidebarSectionHeader isFirst>Projects</SidebarSectionHeader>
+              <ScrollArea className="min-h-0 min-w-0 flex-1">
+                <div className="min-w-0 space-y-1 px-3 pb-3">
+                  {projectGroups.map((group) => renderProjectGroup(group))}
+                </div>
+              </ScrollArea>
+            </>
           )}
 
           {projects.length > 0 ? (
-            <>
-              <Separator />
-              <div className="p-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => void handleAddProject()}
-                  disabled={isAddingProject}
-                >
-                  <FolderPlus className="size-4" />
-                  Add project
-                </Button>
-              </div>
-            </>
+            <div className="shrink-0 space-y-0.5 px-3 pb-3 pt-2">
+              <SidebarNavItem
+                type="button"
+                isActive={Boolean(settingsMatch)}
+                aria-current={settingsMatch ? 'page' : undefined}
+                leading={
+                  <Settings className={cn('size-4', sidebarIconClass(Boolean(settingsMatch)))} />
+                }
+                onClick={() => navigate({ to: '/settings' })}
+              >
+                Settings
+              </SidebarNavItem>
+              <SidebarNavItem
+                type="button"
+                leading={<FolderPlus className={cn('size-4', sidebarIconClass(false))} />}
+                onClick={() => void handleAddProject()}
+                disabled={isAddingProject}
+              >
+                Add project
+              </SidebarNavItem>
+            </div>
           ) : null}
         </aside>
         <DeleteChatDialog {...dialogProps} />

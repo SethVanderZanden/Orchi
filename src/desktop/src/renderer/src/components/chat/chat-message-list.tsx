@@ -1,10 +1,17 @@
 import { MessageSquare } from 'lucide-react'
 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Bubble, BubbleContent } from '@/components/ui/bubble'
+import { Marker, MarkerContent } from '@/components/ui/marker'
+import {
+  Message,
+  MessageAvatar,
+  MessageContent
+} from '@/components/ui/message'
+import { MessageScrollerItem } from '@/components/ui/message-scroller'
 import { ChatToolCalls } from '@/components/chat/chat-tool-calls'
 import { EmptyState } from '@/components/empty-state'
 import { MarkdownContent } from '@/components/markdown-content'
-import { cn } from '@/lib/utils'
 import type { ChatMarker, ChatMessage as OrchiChatMessage } from '@/lib/chat/types'
 
 type ChatMessageListProps = {
@@ -35,11 +42,15 @@ export function OrchiChatMessageList({
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6">
       {messages.map((message, index) => (
-        <ChatMessageRow
+        <MessageScrollerItem
           key={message.id}
-          message={message}
-          markers={index === lastAssistantIndex ? activeMarkers : []}
-        />
+          scrollAnchor={message.role === 'user'}
+        >
+          <ChatMessageRow
+            message={message}
+            markers={index === lastAssistantIndex ? activeMarkers : []}
+          />
+        </MessageScrollerItem>
       ))}
     </div>
   )
@@ -57,11 +68,13 @@ function ChatMessageRow({ message, markers }: ChatMessageRowProps): React.JSX.El
 
   if (isUser) {
     return (
-      <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-sm text-primary-foreground">
-          {message.content}
-        </div>
-      </div>
+      <Message align="end">
+        <MessageContent>
+          <Bubble>
+            <BubbleContent>{message.content}</BubbleContent>
+          </Bubble>
+        </MessageContent>
+      </Message>
     )
   }
 
@@ -76,34 +89,37 @@ function ChatMessageRow({ message, markers }: ChatMessageRowProps): React.JSX.El
         : ('complete' as const)
     }))
 
+  const bubbleVariant = message.status === 'error' ? 'destructive' : 'muted'
+
   return (
-    <div className="flex gap-3">
-      <Avatar className="size-7">
-        <AvatarFallback className="text-[10px]">Or</AvatarFallback>
-      </Avatar>
-      <div className="min-w-0 flex-1 space-y-2">
-        <div
-          className={cn(
-            'max-w-none text-sm',
-            message.status === 'error' && 'rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2'
-          )}
-        >
-          {showPlaceholder ? (
-            <span className="text-muted-foreground">…</span>
-          ) : message.status === 'processing' || message.status === 'streaming' ? (
-            <p className="whitespace-pre-wrap text-foreground">{message.content}</p>
-          ) : (
-            <MarkdownContent>{message.content}</MarkdownContent>
-          )}
-        </div>
+    <Message>
+      <MessageAvatar>
+        <Avatar className="size-7">
+          <AvatarFallback className="text-[10px]">Or</AvatarFallback>
+        </Avatar>
+      </MessageAvatar>
+      <MessageContent>
+        <Bubble variant={bubbleVariant}>
+          <BubbleContent className={message.status === 'complete' ? 'max-w-none' : undefined}>
+            {showPlaceholder ? (
+              <span className="text-muted-foreground">…</span>
+            ) : message.status === 'processing' || message.status === 'streaming' ? (
+              <p className="whitespace-pre-wrap text-foreground">{message.content}</p>
+            ) : (
+              <MarkdownContent className="prose-base">{message.content}</MarkdownContent>
+            )}
+          </BubbleContent>
+        </Bubble>
         {showActivity ? (
           toolCalls.length > 0 ? (
             <ChatToolCalls calls={toolCalls} />
           ) : (
-            <p className="text-[11px] text-muted-foreground">Working…</p>
+            <Marker role="status">
+              <MarkerContent>Working…</MarkerContent>
+            </Marker>
           )
         ) : null}
-      </div>
-    </div>
+      </MessageContent>
+    </Message>
   )
 }

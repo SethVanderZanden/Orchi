@@ -25,7 +25,7 @@ function AppIndexPage(): React.JSX.Element {
   return (
     <div className="flex h-full min-w-0 items-center justify-center px-6">
       <p className="max-w-md text-center text-sm text-muted-foreground">
-        Expand a project and start a chat, or use the New chat button at the top of the sidebar.
+        Expand a project and use the new chat button on its row, or press Ctrl+N.
       </p>
     </div>
   )

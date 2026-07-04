@@ -23,11 +23,16 @@ All components below are initialized and ready for use across the app.
 | `collapsible` | `@radix-ui/react-collapsible` | tool calls |
 | `tooltip` | `@radix-ui/react-tooltip` | navigator icon buttons |
 | `page-header` | — | navigator, chat, settings headers |
+| `message` | — | chat message row layout |
+| `bubble` | `@radix-ui/react-slot`, CVA | chat message bubbles |
+| `marker` | `@radix-ui/react-slot`, CVA | chat working/status markers |
+| `message-scroller` | `@shadcn/react/message-scroller` | chat transcript scroll + auto-follow |
 
 ## Supporting libraries
 
 | Package | Purpose |
 |---------|---------|
+| `@shadcn/react` | Headless message scroller primitives |
 | `lucide-react` | Icons (replaces heroicons + Astryx Icon) |
 | `react-markdown` + `remark-gfm` | Assistant message rendering |
 | `date-fns` | Relative timestamps |
