@@ -6,8 +6,10 @@ import { closeChat, createChat, getChat, kickOffPlan, kickOffReview, listChats, 
 import type { CreateChatOptions } from '@/components/chat/chat-mode-selector'
 import type { AgentMode, ChatMarker, ChatMessage, ChatThread } from '@/lib/chat/types'
 import type { ParsedPlan } from '@/lib/orchestration/parse-plans'
+import { mergeChatLists } from '@/lib/chat/merge-chat-lists'
 import { chatKeys } from '@/lib/query-keys'
 import {
+  findChildForPlan,
   findReviewChildForPlan,
   isImplementationChildChat,
   planIdFromPlanFilePath
@@ -21,7 +23,10 @@ type AgentActivityDetail = {
 type ChatContextValue = {
   chats: ChatThread[]
   isLoadingChats: boolean
+  isPendingChats: boolean
+  isFetchingChats: boolean
   chatsError: Error | null
+  refetchChats: () => Promise<unknown>
   searchQuery: string
   setSearchQuery: (query: string) => void
   getChat: (chatId: string) => ChatThread | undefined
@@ -35,13 +40,17 @@ type ChatContextValue = {
   kickOffPlan: (chatId: string, plan: ParsedPlan) => Promise<void>
   kickOffAllPlans: (chatId: string, plans: ParsedPlan[]) => Promise<void>
   isChatSending: (chatId: string) => boolean
-  isKickingOff: boolean
-  kickingOffPlanId: string | null
+  isPlanKickingOff: (parentChatId: string, planId: string) => boolean
+  isParentKickingOffAny: (parentChatId: string) => boolean
   getMarkers: (chatId: string) => ChatMarker[]
   subscribeAgentActivity: (listener: (detail: AgentActivityDetail) => void) => () => void
 }
 
 const ChatContext = createContext<ChatContextValue | null>(null)
+
+function kickOffKey(parentChatId: string, planId: string): string {
+  return `${parentChatId}:${planId}`
+}
 
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'AbortError'
@@ -52,8 +61,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
   const queryClient = useQueryClient()
   const [searchQuery, setSearchQuery] = useState('')
   const [sendingChatIds, setSendingChatIds] = useState<Set<string>>(() => new Set())
-  const [isKickingOff, setIsKickingOff] = useState(false)
-  const [kickingOffPlanId, setKickingOffPlanId] = useState<string | null>(null)
+  const [kickingOffKeys, setKickingOffKeys] = useState<Set<string>>(() => new Set())
   const [markersByChat, setMarkersByChat] = useState<Record<string, ChatMarker[]>>({})
   const [modeUpdateErrorByChat, setModeUpdateErrorByChat] = useState<Record<string, string>>({})
   const streamAbortByChatRef = useRef<Map<string, AbortController>>(new Map())
@@ -75,8 +83,22 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
 
   const chatsQuery = useQuery({
     queryKey: chatKeys.lists(),
-    queryFn: listChats
+    queryFn: listChats,
+    refetchOnMount: 'always',
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
+    placeholderData: (previous) => previous
   })
+
+  const refetchChats = useCallback(async () => {
+    const result = await chatsQuery.refetch()
+    if (result.data) {
+      queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) =>
+        mergeChatLists(current, result.data!)
+      )
+    }
+    return result
+  }, [chatsQuery, queryClient])
 
   const chats = chatsQuery.data ?? []
 
@@ -101,10 +123,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
         queryFn: () => getChat(chatId)
       })
 
-      queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) => {
-        const others = current.filter((chat) => chat.id !== chatId)
-        return [detail, ...others]
-      })
+      queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) =>
+        mergeChatLists(current, [detail])
+      )
 
       queryClient.setQueryData(chatKeys.detail(chatId), detail)
 
@@ -161,6 +182,47 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
   const isChatSending = useCallback(
     (chatId: string) => sendingChatIds.has(chatId),
     [sendingChatIds]
+  )
+
+  const markPlanKickingOff = useCallback(
+    (parentChatId: string, planId: string, kickingOff: boolean) => {
+      const key = kickOffKey(parentChatId, planId)
+      setKickingOffKeys((current) => {
+        const hasKey = current.has(key)
+        if (kickingOff === hasKey) {
+          return current
+        }
+
+        const next = new Set(current)
+        if (kickingOff) {
+          next.add(key)
+        } else {
+          next.delete(key)
+        }
+
+        return next
+      })
+    },
+    []
+  )
+
+  const isPlanKickingOff = useCallback(
+    (parentChatId: string, planId: string) => kickingOffKeys.has(kickOffKey(parentChatId, planId)),
+    [kickingOffKeys]
+  )
+
+  const isParentKickingOffAny = useCallback(
+    (parentChatId: string) => {
+      const prefix = `${parentChatId}:`
+      for (const key of kickingOffKeys) {
+        if (key.startsWith(prefix)) {
+          return true
+        }
+      }
+
+      return false
+    },
+    [kickingOffKeys]
   )
 
   const markChatSending = useCallback((chatId: string, sending: boolean) => {
@@ -378,8 +440,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
           return
         }
 
-        await queryClient.invalidateQueries({ queryKey: chatKeys.lists() })
         await loadChat(chatId)
+        void refetchChats()
       } catch (error) {
         if (isAbortError(error) || !isActiveTurn()) {
           return
@@ -400,6 +462,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
       clearMarkers,
       finalizeInterruptedAssistant,
       loadChat,
+      refetchChats,
       markChatSending,
       notifyAgentActivity,
       queryClient,
@@ -471,45 +534,51 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
         navigate({ to: '/chat/$chatId', params: { chatId: childChat.id } })
       }
 
-      await sendMessage(childChat.id, response.initialPrompt)
+      void sendMessage(childChat.id, response.initialPrompt)
     },
     [getChatLocal, navigate, queryClient, sendMessage]
   )
 
   const kickOffPlanAction = useCallback(
     async (chatId: string, plan: ParsedPlan) => {
-      setIsKickingOff(true)
-      setKickingOffPlanId(plan.planId)
+      const siblings = getChildChats(chatId)
+      if (findChildForPlan(plan.planId, siblings)) {
+        return
+      }
+
+      markPlanKickingOff(chatId, plan.planId, true)
 
       try {
         await performKickOff(chatId, plan, true)
       } finally {
-        setIsKickingOff(false)
-        setKickingOffPlanId(null)
+        markPlanKickingOff(chatId, plan.planId, false)
       }
     },
-    [performKickOff]
+    [getChildChats, markPlanKickingOff, performKickOff]
   )
 
   const kickOffAllPlansAction = useCallback(
     async (chatId: string, plans: ParsedPlan[]) => {
-      if (plans.length === 0) {
+      const siblings = getChildChats(chatId)
+      const plansToKick = plans.filter((plan) => !findChildForPlan(plan.planId, siblings))
+
+      if (plansToKick.length === 0) {
         return
       }
 
-      setIsKickingOff(true)
+      await Promise.all(
+        plansToKick.map(async (plan) => {
+          markPlanKickingOff(chatId, plan.planId, true)
 
-      try {
-        for (const plan of plans) {
-          setKickingOffPlanId(plan.planId)
-          await performKickOff(chatId, plan, false)
-        }
-      } finally {
-        setIsKickingOff(false)
-        setKickingOffPlanId(null)
-      }
+          try {
+            await performKickOff(chatId, plan, false)
+          } finally {
+            markPlanKickingOff(chatId, plan.planId, false)
+          }
+        })
+      )
     },
-    [performKickOff]
+    [getChildChats, markPlanKickingOff, performKickOff]
   )
 
   const performKickOffReview = useCallback(
@@ -595,7 +664,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
     () => ({
       chats,
       isLoadingChats: chatsQuery.isLoading,
+      isPendingChats: chatsQuery.isPending,
+      isFetchingChats: chatsQuery.isFetching,
       chatsError: chatsQuery.error as Error | null,
+      refetchChats,
       searchQuery,
       setSearchQuery,
       getChat: getChatLocal,
@@ -609,15 +681,18 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
       kickOffPlan: kickOffPlanAction,
       kickOffAllPlans: kickOffAllPlansAction,
       isChatSending,
-      isKickingOff,
-      kickingOffPlanId,
+      isPlanKickingOff,
+      isParentKickingOffAny,
       getMarkers: (chatId: string) => markersByChat[chatId] ?? [],
       subscribeAgentActivity
     }),
     [
       chats,
       chatsQuery.isLoading,
+      chatsQuery.isPending,
+      chatsQuery.isFetching,
       chatsQuery.error,
+      refetchChats,
       searchQuery,
       getChatLocal,
       getChildChats,
@@ -630,8 +705,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
       kickOffPlanAction,
       kickOffAllPlansAction,
       isChatSending,
-      isKickingOff,
-      kickingOffPlanId,
+      isPlanKickingOff,
+      isParentKickingOffAny,
       markersByChat,
       subscribeAgentActivity
     ]

@@ -310,7 +310,7 @@ They work together: a route page calls `useQuery` to load its data.
 
 ### How does chat use TanStack Query?
 
-`ChatProvider` loads the sidebar with `useQuery({ queryKey: chatKeys.lists(), queryFn: listChats })`. Opening a chat fetches detail with `chatKeys.detail(chatId)`. Create/close use `useMutation` and update the cache directly. Message **streaming** still runs through SSE handlers in context — see [chat-streaming.md](chat-streaming.md).
+`ChatProvider` loads the sidebar with `useQuery({ queryKey: chatKeys.lists(), queryFn: listChats })`. The list query uses `refetchOnMount: 'always'`, retries with backoff, and keeps previous data visible while refetching (`placeholderData`). After streaming, list refetches merge with the existing cache via `mergeChatLists` so optimistic kickoff rows are not dropped. Opening a chat fetches detail with `chatKeys.detail(chatId)`. Create/close use `useMutation` and update the cache directly. Message **streaming** still runs through SSE handlers in context — see [chat-streaming.md](chat-streaming.md).
 
 ### Do I need Query for every piece of state?
 

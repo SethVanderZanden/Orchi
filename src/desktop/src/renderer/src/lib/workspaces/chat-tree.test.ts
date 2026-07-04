@@ -9,8 +9,7 @@ import {
   formatPlanIdAsTitle,
   filterChatTreeNodes,
   isImplementationChildChat,
-  planIdFromPlanFilePath,
-  reviewPlanIdFromPlanFilePath
+  planIdFromPlanFilePath
 } from './chat-tree'
 
 function makeChat(overrides: Partial<ChatThread> & Pick<ChatThread, 'id'>): ChatThread {

@@ -15,7 +15,8 @@ type PlanCardsProps = {
   openTabIds: string[]
   childChats?: ChatThread[]
   reviewPlansByPlanId?: Record<string, ParsedReviewPlan | undefined>
-  isKickingOff: boolean
+  isParentKickingOffAny: (parentChatId: string) => boolean
+  parentChatId: string
   onToggleReview: (plan: ParsedPlan) => void
   onKickOffAll: () => void
 }
@@ -35,11 +36,14 @@ export function PlanCards({
   openTabIds,
   childChats = [],
   reviewPlansByPlanId = {},
-  isKickingOff,
+  isParentKickingOffAny,
+  parentChatId,
   onToggleReview,
   onKickOffAll
 }: PlanCardsProps): React.JSX.Element | null {
   const navigate = useNavigate()
+  const kickingOffAny = isParentKickingOffAny(parentChatId)
+  const kickOffAllCount = plans.filter((plan) => !findChildForPlan(plan.planId, childChats)).length
 
   if (plans.length === 0) {
     return null
@@ -126,8 +130,14 @@ export function PlanCards({
         )
       })}
 
-      <Button className="w-full" disabled={isKickingOff} onClick={onKickOffAll}>
-        {isKickingOff ? 'Kicking off plans…' : `Kick off all (${plans.length})`}
+      <Button
+        className="w-full"
+        disabled={kickingOffAny || kickOffAllCount === 0}
+        onClick={onKickOffAll}
+      >
+        {kickingOffAny
+          ? 'Kicking off plans…'
+          : `Kick off all (${kickOffAllCount})`}
       </Button>
     </div>
   )

@@ -22,8 +22,10 @@ type ChatPanelProps = {
   modeUpdateError?: string | null
   onModeChange: (mode: AgentMode) => void
   plans?: ParsedPlan[]
-  isKickingOff?: boolean
-  kickingOffPlanId?: string | null
+  parentChatId?: string
+  isSending?: boolean
+  isPlanKickingOff?: (parentChatId: string, planId: string) => boolean
+  isParentKickingOffAny?: (parentChatId: string) => boolean
   onKickOffPlan?: (plan: ParsedPlan) => void
   onKickOffAllPlans?: () => void
   childChats?: ChatThread[]
@@ -191,8 +193,10 @@ export function ChatPanel({
   modeUpdateError = null,
   onModeChange,
   plans = [],
-  isKickingOff = false,
-  kickingOffPlanId = null,
+  parentChatId,
+  isSending = false,
+  isPlanKickingOff,
+  isParentKickingOffAny,
   onKickOffPlan,
   onKickOffAllPlans,
   childChats = [],
@@ -269,7 +273,7 @@ export function ChatPanel({
               onModeChange={onModeChange}
             />
           }
-          composer={<OrchiChatComposer disabled={isKickingOff} onSend={onSend} />}
+          composer={<OrchiChatComposer disabled={isSending} onSend={onSend} />}
         >
           <OrchiChatMessageList messages={messages} markers={markers} />
           {showPlanReview ? (
@@ -278,7 +282,8 @@ export function ChatPanel({
               openTabIds={reviewState.openTabIds}
               childChats={childChats}
               reviewPlansByPlanId={reviewPlansByPlanId}
-              isKickingOff={isKickingOff}
+              parentChatId={parentChatId!}
+              isParentKickingOffAny={isParentKickingOffAny!}
               onToggleReview={(plan) => dispatchReview({ type: 'toggle-tab', planId: plan.planId })}
               onKickOffAll={onKickOffAllPlans!}
             />
@@ -291,9 +296,10 @@ export function ChatPanel({
           plans={plans}
           openTabIds={reviewState.openTabIds}
           activeTabId={activeReviewTabId}
+          parentChatId={parentChatId!}
+          childChats={childChats}
           reviewPlansByPlanId={reviewPlansByPlanId}
-          isKickingOff={isKickingOff}
-          kickingOffPlanId={kickingOffPlanId}
+          isPlanKickingOff={isPlanKickingOff!}
           onSelectTab={(planId) => dispatchReview({ type: 'select-tab', planId })}
           onCloseTab={(planId) => dispatchReview({ type: 'close-tab', planId })}
           onClose={() => dispatchReview({ type: 'close-panel' })}

@@ -1,7 +1,13 @@
-appId: com.electron.app
-productName: desktop
+appId: com.orchi.app
+productName: Orchi
 directories:
   buildResources: build
+  output: release
+extraResources:
+  - from: ../../.build-temp/api-publish/
+    to: api
+    filter:
+      - '**/*'
 files:
   - '!**/.vscode/*'
   - '!src/*'
@@ -12,7 +18,7 @@ files:
 asarUnpack:
   - resources/**
 win:
-  executableName: desktop
+  executableName: Orchi
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}

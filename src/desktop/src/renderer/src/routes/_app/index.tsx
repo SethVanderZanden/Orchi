@@ -7,8 +7,16 @@ export const Route = createFileRoute('/_app/')({
 })
 
 function AppIndexPage(): React.JSX.Element {
-  const { chats } = useChat()
+  const { chats, isPendingChats } = useChat()
   const firstChatId = chats[0]?.id
+
+  if (isPendingChats) {
+    return (
+      <div className="flex h-full min-w-0 items-center justify-center px-6">
+        <p className="text-sm text-muted-foreground">Loading chats…</p>
+      </div>
+    )
+  }
 
   if (firstChatId) {
     return <Navigate to="/chat/$chatId" params={{ chatId: firstChatId }} replace />
@@ -17,7 +25,7 @@ function AppIndexPage(): React.JSX.Element {
   return (
     <div className="flex h-full min-w-0 items-center justify-center px-6">
       <p className="max-w-md text-center text-sm text-muted-foreground">
-        Expand a project and start a chat, or create one with the chat button beside a project.
+        Expand a project and start a chat, or use the New chat button at the top of the sidebar.
       </p>
     </div>
   )

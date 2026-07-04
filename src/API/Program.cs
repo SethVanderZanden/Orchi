@@ -1,4 +1,5 @@
 using Orchi.Api.Infrastructure.Agents;
+using Orchi.Api.Infrastructure.Caching;
 using Orchi.Api.Infrastructure.Database;
 using Orchi.Api.Infrastructure.Endpoints;
 using Orchi.Api.Infrastructure.OpenApi;
@@ -8,6 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services
     .AddOrchiDatabase(builder.Configuration)
+    .AddOrchiCaching(builder.Configuration)
     .AddOrchiPipeline(builder.Configuration)
     .AddOrchiAgents(builder.Configuration)
     .AddOrchiOpenApi();

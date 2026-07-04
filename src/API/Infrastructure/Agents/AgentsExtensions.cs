@@ -1,3 +1,4 @@
+using Orchi.Api.Infrastructure.Caching;
 using Orchi.Api.Infrastructure.Agents.Cursor;
 using Orchi.Api.Infrastructure.Agents.Modes;
 using Orchi.Api.Infrastructure.Agents.Modes.Prompt;
@@ -17,7 +18,8 @@ public static class AgentsExtensions
         services.Configure<CursorAgentOptions>(configuration.GetSection(CursorAgentOptions.SectionName));
 
         services.AddSingleton<IChatStore, EfChatStore>();
-        services.AddSingleton<IPlanStore, EfPlanStore>();
+        services.AddSingleton<EfPlanStore>();
+        services.AddSingleton<IPlanStore, CachingPlanStore>();
         services.AddSingleton<AgentSessionManager>();
         services.AddSingleton<IAgentAdapter, CursorAgentAdapter>();
         services.AddSingleton<IAgentAdapterFactory, AgentAdapterFactory>();
@@ -43,7 +45,11 @@ public static class AgentsExtensions
         services.AddSingleton<IOrchiArtifactTaskStrategy, ImplementationPlanTaskStrategy>();
         services.AddSingleton<IOrchiArtifactTaskStrategy, ReviewPlanTaskStrategy>();
         services.AddSingleton<IOrchiArtifactTaskFactory, OrchiArtifactTaskFactory>();
-        services.AddSingleton<IWorkspaceDiffProvider, GitWorkspaceDiffProvider>();
+        services.AddSingleton<GitWorkspaceDiffProvider>();
+        services.AddSingleton<IWorkspaceDiffProvider>(sp =>
+            new CachingWorkspaceDiffProvider(
+                sp.GetRequiredService<GitWorkspaceDiffProvider>(),
+                sp.GetRequiredService<OrchiHybridCacheService>()));
         services.AddHostedService<AgentSessionShutdownService>();
 
         return services;

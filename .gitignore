@@ -20,8 +20,14 @@ obj/
 # SQLite
 src/API/orchi.db
 src/API/orchi.db-*
+src/API/orchi-dev.db
+src/API/orchi-dev.db-*
 src/API/orchi-context.db
 src/API/orchi-context.db-*
+
+# Runtime setup
+scripts/runtime.config.local.json
+scripts/generated/
 
 # OS / IDE
 .DS_Store

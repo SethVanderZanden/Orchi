@@ -2,11 +2,13 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Microsoft.Extensions.Options;
+using Orchi.Api.Infrastructure.Caching;
 
 namespace Orchi.Api.Infrastructure.Agents.Cursor;
 
 internal sealed class CursorAgentAdapter(
     IOptions<CursorAgentOptions> options,
+    OrchiHybridCacheService cache,
     ILogger<CursorAgentAdapter> logger) : IAgentAdapter
 {
     public string AgentId => "cursor";
@@ -20,7 +22,7 @@ internal sealed class CursorAgentAdapter(
         CursorAgentOptions config = options.Value;
 
         CursorAgentExecutableResolver.ResolveResult resolveResult =
-            CursorAgentExecutableResolver.Resolve(config);
+            await ResolveExecutableAsync(config, cancellationToken);
 
         if (!resolveResult.Success || resolveResult.Launch is null)
         {
@@ -82,6 +84,36 @@ internal sealed class CursorAgentAdapter(
         {
             ReleaseRunningProcess(session, process);
         }
+    }
+
+    private async ValueTask<CursorAgentExecutableResolver.ResolveResult> ResolveExecutableAsync(
+        CursorAgentOptions config,
+        CancellationToken cancellationToken)
+    {
+        string cacheKey = OrchiCacheKeys.CursorExecutable(BuildExecutableConfigFingerprint(config));
+
+        CachedCursorExecutableResolution cached = await cache.GetOrCreateAsync(
+            cacheKey,
+            _ => ValueTask.FromResult(
+                CachedCursorExecutableResolution.From(CursorAgentExecutableResolver.Resolve(config))),
+            cache.CreateCursorExecutableEntryOptions(),
+            cancellationToken);
+
+        return cached.ToResolveResult();
+    }
+
+    private static string BuildExecutableConfigFingerprint(CursorAgentOptions config)
+    {
+        var parts = new List<string> { config.Executable };
+
+        if (config.AdditionalSearchPaths is { Length: > 0 })
+        {
+            parts.AddRange(config.AdditionalSearchPaths
+                .Where(path => !string.IsNullOrWhiteSpace(path))
+                .Order(StringComparer.OrdinalIgnoreCase));
+        }
+
+        return string.Join('\u001f', parts);
     }
 
     internal static IReadOnlyList<string> BuildArguments(

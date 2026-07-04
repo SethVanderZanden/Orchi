@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMatch, useNavigate } from '@tanstack/react-router'
 import {
   Bot,
@@ -8,7 +8,8 @@ import {
   FolderPlus,
   MessageSquarePlus,
   Search,
-  Settings
+  Settings,
+  Shield
 } from 'lucide-react'
 
 import { OrchiAiIcon } from '@/components/brand/orchi-ai-icon'
@@ -27,7 +28,7 @@ import {
   groupChatsByWorkspace,
   type WorkspaceChatGroup
 } from '@/lib/workspaces/group-chats'
-import type { ChatTreeNode } from '@/lib/workspaces/chat-tree'
+import { isReviewChildChat, type ChatTreeNode } from '@/lib/workspaces/chat-tree'
 import { useChat } from '@/providers/chat-provider'
 import { useWorkspaces } from '@/providers/workspace-provider'
 import { useWorkspaceLayout } from '@/providers/workspace-layout-provider'
@@ -40,12 +41,23 @@ function groupContainsChat(group: WorkspaceChatGroup, chatId: string): boolean {
 
 export function WorkspaceNavigator(): React.JSX.Element {
   const navigate = useNavigate()
-  const { chats, searchQuery, setSearchQuery, createChat, isLoadingChats, getChat } = useChat()
+  const {
+    chats,
+    searchQuery,
+    setSearchQuery,
+    createChat,
+    isPendingChats,
+    isFetchingChats,
+    chatsError,
+    refetchChats,
+    getChat
+  } = useChat()
   const { workspaces, addWorkspace, pickDirectory } = useWorkspaces()
   const { isProjectExpanded, toggleProjectExpanded, ensureProjectExpanded } = useWorkspaceLayout()
   const [isCreating, setIsCreating] = useState(false)
   const [isAddingProject, setIsAddingProject] = useState(false)
   const [expandedParentChatIds, setExpandedParentChatIds] = useState<Set<string>>(() => new Set())
+  const priorChildCountsRef = useRef<Map<string, number>>(new Map())
 
   const chatMatch = useMatch({
     from: '/_app/chat/$chatId',
@@ -104,6 +116,22 @@ export function WorkspaceNavigator(): React.JSX.Element {
   }, [activeChat, ensureParentExpanded, ensureProjectExpanded, workspaceGroups])
 
   useEffect(() => {
+    for (const group of workspaceGroups) {
+      for (const node of group.chatNodes) {
+        if (node.children.length === 0) {
+          continue
+        }
+
+        const priorCount = priorChildCountsRef.current.get(node.chat.id) ?? 0
+        if (node.children.length > priorCount) {
+          ensureParentExpanded(node.chat.id)
+        }
+        priorChildCountsRef.current.set(node.chat.id, node.children.length)
+      }
+    }
+  }, [ensureParentExpanded, workspaceGroups])
+
+  useEffect(() => {
     if (workspaceGroups.length === 0) {
       return
     }
@@ -153,6 +181,8 @@ export function WorkspaceNavigator(): React.JSX.Element {
 
   useKeyboardShortcut('n', createDefaultChat, { enabled: Boolean(defaultWorkspaceGroup) && !isCreating })
 
+  const isInitialChatLoad = isPendingChats || (isFetchingChats && chats.length === 0)
+
   async function handleAddProject(): Promise<void> {
     setIsAddingProject(true)
     try {
@@ -170,13 +200,15 @@ export function WorkspaceNavigator(): React.JSX.Element {
   }
 
   function renderChatRow(chat: ChatThread, isChild = false): React.JSX.Element {
+    const isReview = isChild && isReviewChildChat(chat)
+
     return (
       <button
         key={chat.id}
         type="button"
         title={chat.title}
         className={cn(
-          'flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent',
+          'flex w-full min-w-0 items-center gap-2 overflow-hidden rounded-md px-2 py-1.5 text-left hover:bg-accent',
           isChild ? 'text-xs' : 'text-sm',
           chat.id === activeChatId && 'bg-accent font-medium'
         )}
@@ -187,13 +219,16 @@ export function WorkspaceNavigator(): React.JSX.Element {
           })
         }
       >
-        {isChild ? <Bot className="size-3 shrink-0 text-muted-foreground" /> : null}
-        <span className="min-w-0 flex-1 truncate">{chat.title}</span>
         {isChild ? (
-          <span className="shrink-0 text-[10px] text-muted-foreground">
-            {chat.mode === 'review' || chat.planFilePath?.includes('/review-') ? 'Review' : 'Agent'}
-          </span>
+          isReview ? (
+            <Shield className="size-3 shrink-0 text-muted-foreground" aria-hidden />
+          ) : (
+            <Bot className="size-3 shrink-0 text-muted-foreground" aria-hidden />
+          )
         ) : null}
+        <span className="min-w-0 flex-1 overflow-hidden">
+          <span className="block truncate">{chat.title}</span>
+        </span>
         <RelativeTime
           value={chat.updatedAt}
           className={cn('shrink-0 text-muted-foreground', isChild ? 'text-[10px]' : 'text-[11px]')}
@@ -212,7 +247,7 @@ export function WorkspaceNavigator(): React.JSX.Element {
 
     return (
       <div key={node.chat.id} className="min-w-0">
-        <div className="flex items-center gap-0.5">
+        <div className="flex min-w-0 items-center gap-0.5">
           <button
             type="button"
             className="flex size-6 shrink-0 items-center justify-center rounded-md hover:bg-accent"
@@ -300,10 +335,37 @@ export function WorkspaceNavigator(): React.JSX.Element {
             </div>
           </div>
 
+          {workspaces.length > 0 ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="mx-2 mb-2 w-[calc(100%-1rem)]"
+                  disabled={!defaultWorkspaceGroup || isCreating}
+                  onClick={createDefaultChat}
+                >
+                  <MessageSquarePlus className="size-4" />
+                  New chat
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Ctrl+N</TooltipContent>
+            </Tooltip>
+          ) : null}
+
           <Separator />
 
-          {isLoadingChats ? (
+          {isInitialChatLoad ? (
             <p className="px-3 py-4 text-sm text-muted-foreground">Loading chats…</p>
+          ) : chatsError ? (
+            <div className="space-y-2 px-3 py-4">
+              <p className="text-sm text-destructive">
+                {chatsError.message || 'Failed to load chats.'}
+              </p>
+              <Button variant="secondary" size="sm" onClick={() => void refetchChats()}>
+                Retry
+              </Button>
+            </div>
           ) : workspaces.length === 0 ? (
             <div className="space-y-3 px-3 py-4">
               <p className="text-sm text-muted-foreground">
@@ -321,15 +383,15 @@ export function WorkspaceNavigator(): React.JSX.Element {
               </Button>
             </div>
           ) : (
-            <ScrollArea className="min-h-0 flex-1">
-              <div className="space-y-0.5 p-1">
+            <ScrollArea className="min-h-0 min-w-0 flex-1">
+              <div className="min-w-0 space-y-0.5 p-1">
                 {workspaceGroups.map((group) => {
                   const expanded = isProjectExpanded(group.id)
                   const firstChat = group.chatNodes[0]?.chat
 
                   return (
                     <div key={group.id} className="min-w-0">
-                      <div className="flex items-center gap-0.5">
+                      <div className="sticky top-0 z-10 flex items-center gap-0.5 bg-background">
                         <button
                           type="button"
                           className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-2 py-1.5 text-left hover:bg-accent"
@@ -349,43 +411,36 @@ export function WorkspaceNavigator(): React.JSX.Element {
                           </span>
                         </button>
 
-                        {group.isOrphan ? (
-                          group.chatNodes.length > 0 ? (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 shrink-0 px-2 text-xs"
-                              onClick={() => {
-                                const path = firstChat?.workspacePath
-                                if (path) {
-                                  handleRegisterOrphanPath(path)
-                                }
-                              }}
-                            >
-                              Add as project
-                            </Button>
-                          ) : null
-                        ) : (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="size-7 shrink-0"
-                                aria-label={`New chat in ${group.name}`}
-                                disabled={isCreating}
-                                onClick={() => void createChatInGroup(group)}
-                              >
-                                <MessageSquarePlus className="size-3.5" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>New chat (Ctrl+N)</TooltipContent>
-                          </Tooltip>
-                        )}
+                        {group.isOrphan && group.chatNodes.length > 0 ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 shrink-0 px-2 text-xs"
+                            onClick={() => {
+                              const path = firstChat?.workspacePath
+                              if (path) {
+                                handleRegisterOrphanPath(path)
+                              }
+                            }}
+                          >
+                            Add as project
+                          </Button>
+                        ) : null}
                       </div>
 
                       {expanded ? (
                         <div className="ml-5 space-y-0.5 border-l pl-1">
+                          {!group.isOrphan ? (
+                            <button
+                              type="button"
+                              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-muted-foreground hover:bg-accent"
+                              disabled={isCreating}
+                              onClick={() => void createChatInGroup(group)}
+                            >
+                              <MessageSquarePlus className="size-3.5 shrink-0" />
+                              <span>New chat</span>
+                            </button>
+                          ) : null}
                           {group.chatNodes.length === 0 ? (
                             <p className="px-2 py-1 text-xs text-muted-foreground">No chats yet</p>
                           ) : (

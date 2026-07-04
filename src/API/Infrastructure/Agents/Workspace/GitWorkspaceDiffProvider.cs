@@ -8,6 +8,22 @@ public sealed class GitWorkspaceDiffProvider : IWorkspaceDiffProvider
 {
     internal const int MaxDiffChars = 512_000;
 
+    internal static string? TryGetHeadRevision(string workspacePath)
+    {
+        if (string.IsNullOrWhiteSpace(workspacePath) || !Directory.Exists(workspacePath))
+        {
+            return null;
+        }
+
+        if (!IsGitRepository(workspacePath))
+        {
+            return null;
+        }
+
+        string revision = RunGit(workspacePath, "rev-parse", "HEAD").Trim();
+        return string.IsNullOrWhiteSpace(revision) ? null : revision;
+    }
+
     public string GetDiff(string workspacePath)
     {
         if (string.IsNullOrWhiteSpace(workspacePath) || !Directory.Exists(workspacePath))

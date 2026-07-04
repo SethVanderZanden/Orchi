@@ -2,9 +2,12 @@
   "name": "orchi",
   "private": true,
   "scripts": {
+    "dev": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1",
     "dev:api": "dotnet run --project src/API",
     "dev:desktop": "npm run dev --prefix src/desktop",
-    "dev": "concurrently -n api,desktop -c blue,green \"npm run dev:api\" \"npm run dev:desktop\"",
+    "dev:isolated": "npm run dev",
+    "setup:runtime": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-runtime.ps1",
+    "start:runtime": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-runtime.ps1",
     "test:api": "dotnet test tests/Orchi.Api.Tests"
   },
   "devDependencies": {

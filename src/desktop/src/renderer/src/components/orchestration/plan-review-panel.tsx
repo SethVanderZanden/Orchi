@@ -7,6 +7,8 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 import type { ParsedPlan } from '@/lib/orchestration/parse-plans'
 import type { ParsedReviewPlan } from '@/lib/orchestration/parse-review-plans'
+import type { ChatThread } from '@/lib/chat/types'
+import { findChildForPlan } from '@/lib/workspaces/chat-tree'
 
 const DEFAULT_WIDTH = 420
 const MIN_WIDTH = 300
@@ -16,9 +18,10 @@ type PlanReviewPanelProps = {
   plans: ParsedPlan[]
   openTabIds: string[]
   activeTabId: string
+  parentChatId: string
+  childChats?: ChatThread[]
   reviewPlansByPlanId?: Record<string, ParsedReviewPlan | undefined>
-  isKickingOff: boolean
-  kickingOffPlanId: string | null
+  isPlanKickingOff: (parentChatId: string, planId: string) => boolean
   onSelectTab: (planId: string) => void
   onCloseTab: (planId: string) => void
   onClose: () => void
@@ -29,9 +32,10 @@ export function PlanReviewPanel({
   plans,
   openTabIds,
   activeTabId,
+  parentChatId,
+  childChats = [],
   reviewPlansByPlanId = {},
-  isKickingOff,
-  kickingOffPlanId,
+  isPlanKickingOff,
   onSelectTab,
   onCloseTab,
   onClose,
@@ -49,6 +53,12 @@ export function PlanReviewPanel({
   const activePlan = openPlans.find((plan) => plan.planId === activeTabId) ?? openPlans[0]
   const activeReviewPlan = activePlan ? reviewPlansByPlanId[activePlan.planId] : undefined
   const showingReview = Boolean(activeReviewPlan)
+  const activePlanHasChild = activePlan
+    ? Boolean(findChildForPlan(activePlan.planId, childChats))
+    : false
+  const activePlanKickingOff = activePlan
+    ? isPlanKickingOff(parentChatId, activePlan.planId)
+    : false
 
   const handleMouseMove = useCallback((event: MouseEvent) => {
     if (!isDragging.current) {
@@ -152,12 +162,14 @@ export function PlanReviewPanel({
               <div className="shrink-0 border-t px-4 py-3">
                 <Button
                   className="w-full"
-                  disabled={isKickingOff}
+                  disabled={activePlanKickingOff || activePlanHasChild}
                   onClick={() => onKickOff(activePlan)}
                 >
-                  {isKickingOff && kickingOffPlanId === activePlan.planId
+                  {activePlanKickingOff
                     ? 'Kicking off…'
-                    : 'Kick off'}
+                    : activePlanHasChild
+                      ? 'Already kicked off'
+                      : 'Kick off'}
                 </Button>
               </div>
             )}

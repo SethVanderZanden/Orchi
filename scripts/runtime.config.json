@@ -1,0 +1,10 @@
+{
+  "runtimeRoot": "%LOCALAPPDATA%/Orchi/app",
+  "runtimePort": 5265,
+  "devPort": 5266,
+  "devDbFile": "src/API/orchi-dev.db",
+  "buildConfiguration": "Release",
+  "desktopBuildTarget": "unpack",
+  "runtimeIdentifier": "win-x64",
+  "preserveRuntimeData": true
+}

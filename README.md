@@ -38,36 +38,42 @@ npm run test:api
 
 ## Development
 
-Install root dependencies (dev orchestration):
+Install dependencies:
 
 ```bash
 npm install
-```
-
-Install desktop dependencies:
-
-```bash
 npm install --prefix src/desktop
 ```
 
-Run the full stack (API + Electron desktop):
+### Which command do I use?
+
+| Goal | Command | Port |
+|------|---------|------|
+| **Hack on the repo** (normal daily dev) | `npm run dev` | 5266 if you ran `setup:runtime`, else 5265 |
+| **Use the stable published app** | `npm run start:runtime` | 5265 |
+| **Build or refresh the published app** | `npm run setup:runtime` | — |
+
+**Typical workflow when you want both:**
 
 ```bash
-npm run dev
+npm run setup:runtime    # once (or when upgrading the stable build)
+npm run start:runtime    # your real Orchi — port 5265, own database
+npm run dev              # repo changes — port 5266, separate database
 ```
 
-Or run each part separately:
+You do **not** need a special command for parallel dev. After `setup:runtime`, `npm run dev` automatically uses port **5266** so it does not clash with the published app on **5265**.
+
+Run API and desktop separately if needed:
 
 ```bash
-npm run dev:api       # API at http://localhost:5265
-npm run dev:desktop   # Electron app with Vite HMR
+npm run dev:api       # API only
+npm run dev:desktop   # Electron only (uses port from .env.development.local after setup)
 ```
 
 ### Verify connectivity
 
-1. API: open [http://localhost:5265/scalar/v1](http://localhost:5265/scalar/v1) — Scalar API docs (default launch target).
-2. API data: [http://localhost:5265/WeatherForecast](http://localhost:5265/WeatherForecast) — sample endpoint returning JSON forecast data.
-3. Desktop: the Electron window opens the Orchi chat shell (sidebar + main panel).
+1. API: [http://localhost:5265/scalar/v1](http://localhost:5265/scalar/v1) (runtime or default dev) or **5266** after `setup:runtime`
+2. Desktop: Electron window opens the Orchi chat shell
 
 ### Desktop stack
 
@@ -99,3 +105,23 @@ From the repo root:
 dotnet ef migrations add <MigrationName> --project src/API
 dotnet ef database update --project src/API
 ```
+
+## Published runtime
+
+Orchi can run as a **single desktop app** (`Orchi.exe`) that starts its own API. Use this for a stable copy while you keep developing in the repo.
+
+```bash
+npm run setup:runtime    # build + deploy to %LOCALAPPDATA%\Orchi\app\ (safe to re-run)
+npm run start:runtime    # launch stable Orchi on port 5265
+npm run dev              # develop in repo on port 5266 (automatic after setup)
+```
+
+Runtime chats live under `%LOCALAPPDATA%\Orchi\data\`. Dev chats use `src/API/orchi-dev.db`.
+
+Customize ports in [`scripts/runtime.config.json`](scripts/runtime.config.json).
+
+| Command | Purpose |
+|---------|---------|
+| `npm run setup:runtime` | Publish API + build desktop + deploy to AppData |
+| `npm run start:runtime` | Launch the published app |
+| `npm run setup:runtime -- -ResetData` | Wipe runtime chat database |

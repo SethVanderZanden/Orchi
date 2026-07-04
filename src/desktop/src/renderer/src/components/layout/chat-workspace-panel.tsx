@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 
 import { PageHeader } from '@/components/ui/page-header'
 import { ChatPanel } from '@/components/chat/chat-panel'
@@ -15,6 +15,7 @@ type ChatWorkspacePanelProps = {
 
 export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX.Element {
   const {
+    chats,
     sendMessage,
     getMarkers,
     getChildChats,
@@ -24,8 +25,9 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
     kickOffAllPlans,
     updateChatMode,
     getModeUpdateError,
-    isKickingOff,
-    kickingOffPlanId
+    isChatSending,
+    isPlanKickingOff,
+    isParentKickingOffAny
   } = useChat()
   const plans = chat.mode === 'orchestration' ? parsePlansFromMessages(chat.messages) : []
   const childChats = getChildChats(chat.id)
@@ -41,17 +43,23 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
     })
   ) as Record<string, ParsedReviewPlan | undefined>
 
+  const childChatIds = useMemo(
+    () => getChildChats(chat.id).map((child) => child.id).join(','),
+    [chat.id, chats, getChildChats]
+  )
+
   useEffect(() => {
     if (chat.mode !== 'orchestration') {
       return
     }
 
-    for (const child of childChats) {
-      if (child.messages.length === 0) {
-        void loadChat(child.id)
+    for (const id of childChatIds.split(',').filter(Boolean)) {
+      const child = getChat(id)
+      if (child && child.messages.length === 0) {
+        void loadChat(id)
       }
     }
-  }, [chat.id, chat.mode, childChats, loadChat])
+  }, [chat.id, chat.mode, childChatIds, getChat, loadChat])
 
   const canChangeMode = !chat.messages.some(
     (message) => message.status === 'processing' || message.status === 'streaming'
@@ -86,8 +94,10 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
         modeUpdateError={getModeUpdateError(chat.id)}
         onModeChange={(mode) => void updateChatMode(chat.id, mode)}
         plans={plans}
-        isKickingOff={isKickingOff}
-        kickingOffPlanId={kickingOffPlanId}
+        parentChatId={chat.id}
+        isSending={isChatSending(chat.id)}
+        isPlanKickingOff={isPlanKickingOff}
+        isParentKickingOffAny={isParentKickingOffAny}
         onKickOffPlan={
           chat.mode === 'orchestration' ? (plan) => kickOffPlan(chat.id, plan) : undefined
         }

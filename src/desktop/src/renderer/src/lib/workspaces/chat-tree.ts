@@ -67,6 +67,14 @@ export function isImplementationChildChat(chat: ChatThread): boolean {
   return chat.mode === 'default' && planIdFromPlanFilePath(chat.planFilePath) !== null
 }
 
+export function isReviewChildChat(chat: ChatThread): boolean {
+  if (!chat.parentChatId) {
+    return false
+  }
+
+  return chat.mode === 'review' || reviewPlanIdFromPlanFilePath(chat.planFilePath) !== null
+}
+
 function sortChatsByUpdatedAtDesc(chats: ChatThread[]): ChatThread[] {
   return [...chats].sort(
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()

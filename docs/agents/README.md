@@ -145,6 +145,31 @@ Plan and review briefs share the same write operation but use different path tem
 
 The Cursor CLI must be installed and authenticated on the **same machine as the API**.
 
+## Caching
+
+Orchi uses **Microsoft HybridCache** (memory-only L1 today) behind `IOrchiCacheService` so repeated read-heavy work can skip redundant I/O. Think of it as a **memo pad on the front desk**: the first guest asking “what changed in git?” triggers a walk to the file room; the next guest with the same question gets the note already on the pad — until the repo moves forward (new commit) or the note expires.
+
+| Analogy | Code |
+|---------|------|
+| Memo pad | `IOrchiCacheService` / `OrchiHybridCacheService` |
+| Note categories | `OrchiCacheKeys` (workspace diff, Cursor executable, plan) |
+| Fresh copy after edits | `CachingPlanStore` invalidates on `UpsertAsync` |
+
+**Cached today:**
+
+| Path | TTL (default) | Key includes |
+|------|---------------|--------------|
+| Git workspace diff (`IWorkspaceDiffProvider`) | 30s | Normalized workspace path + `git rev-parse HEAD` |
+| Cursor executable resolution | 60m | Executable config fingerprint |
+| Plan store reads (`IPlanStore.GetAsync`) | 10m | Source chat id + plan id; invalidated on upsert |
+
+**Not cached (intentionally):**
+
+- `AgentSessionManager._sessions` — live runtime state (process handles, locks); write-through over `IChatStore`
+- `IChatStore` list/get — deferred; merges with in-memory sessions and mutates frequently
+
+Configure under `Cache` in `appsettings.json`. `Cache:Distributed:Enabled` is `false` by default; Redis L2 is a future config-only hook — no Redis package yet.
+
 ## Lifecycle
 
 1. **Create chat** — `POST /chats` with `{ agent, workspacePath, mode? }`; validates path; persists chat row; no CLI yet
