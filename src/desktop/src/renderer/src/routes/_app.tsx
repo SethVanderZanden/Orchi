@@ -2,8 +2,8 @@ import { createFileRoute } from '@tanstack/react-router'
 
 import { AppLayout } from '@/components/layout/app-layout'
 import { ChatProvider } from '@/providers/chat-provider'
+import { ProjectProvider } from '@/providers/project-provider'
 import { WorkspaceLayoutProvider } from '@/providers/workspace-layout-provider'
-import { WorkspaceProvider } from '@/providers/workspace-provider'
 
 export const Route = createFileRoute('/_app')({
   component: AppLayoutRoute
@@ -11,12 +11,12 @@ export const Route = createFileRoute('/_app')({
 
 function AppLayoutRoute(): React.JSX.Element {
   return (
-    <WorkspaceProvider>
+    <ProjectProvider>
       <ChatProvider>
         <WorkspaceLayoutProvider>
           <AppLayout />
         </WorkspaceLayoutProvider>
       </ChatProvider>
-    </WorkspaceProvider>
+    </ProjectProvider>
   )
 }

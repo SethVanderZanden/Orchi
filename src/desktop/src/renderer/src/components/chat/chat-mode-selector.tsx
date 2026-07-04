@@ -107,5 +107,6 @@ export function ChatModeSelector({
 }
 
 export type CreateChatOptions = {
-  workspacePath: string
+  workspaceId: string
+  projectId?: string
 }

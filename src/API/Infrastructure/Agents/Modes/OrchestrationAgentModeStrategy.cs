@@ -52,6 +52,8 @@ public sealed class OrchestrationAgentModeStrategy : IAgentModeStrategy
 
     Every plan must include explicit lists of all files to be added, modified, and deleted. Do not merge these into a single undifferentiated list. If a category has no files, state that explicitly (for example, "None").
 
+    List every file the implementation agent needs to read under Affected files. The implementation agent is instructed not to explore beyond that list.
+
     Every plan must include a final task to delete the plan file after successful implementation and validation.
 
     When exact paths are unknown, list the most likely paths or directory patterns under the correct category and explain what the implementation agent should confirm before editing.

@@ -13,8 +13,32 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<Plan> Plans => Set<Plan>();
 
+    public DbSet<Project> Projects => Set<Project>();
+
+    public DbSet<Workspace> Workspaces => Set<Workspace>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<Project>(entity =>
+        {
+            entity.HasKey(project => project.Id);
+            entity.Property(project => project.Name).HasMaxLength(256);
+            entity.HasIndex(project => project.UpdatedAt);
+        });
+
+        modelBuilder.Entity<Workspace>(entity =>
+        {
+            entity.HasKey(workspace => workspace.Id);
+            entity.Property(workspace => workspace.Path).HasMaxLength(2048);
+            entity.Property(workspace => workspace.NormalizedPath).HasMaxLength(2048);
+            entity.Property(workspace => workspace.Name).HasMaxLength(256);
+            entity.HasIndex(workspace => new { workspace.ProjectId, workspace.NormalizedPath }).IsUnique();
+            entity.HasOne(workspace => workspace.Project)
+                .WithMany(project => project.Workspaces)
+                .HasForeignKey(workspace => workspace.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         modelBuilder.Entity<Chat>(entity =>
         {
             entity.HasKey(chat => chat.Id);
@@ -25,6 +49,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(chat => chat.ExternalSessionId).HasMaxLength(256);
             entity.HasIndex(chat => chat.UpdatedAt);
             entity.HasIndex(chat => chat.ParentChatId);
+            entity.HasIndex(chat => chat.ProjectId);
+            entity.HasIndex(chat => chat.WorkspaceId);
+            entity.HasOne(chat => chat.Project)
+                .WithMany()
+                .HasForeignKey(chat => chat.ProjectId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(chat => chat.Workspace)
+                .WithMany()
+                .HasForeignKey(chat => chat.WorkspaceId)
+                .OnDelete(DeleteBehavior.SetNull);
             entity.HasQueryFilter(chat => !chat.IsDeleted);
         });
 

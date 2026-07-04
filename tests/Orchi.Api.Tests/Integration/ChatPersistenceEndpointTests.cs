@@ -54,10 +54,11 @@ public class ChatPersistenceEndpointTests : IAsyncLifetime
     public async Task Chat_SurvivesApiRestart()
     {
         string workspace = Directory.GetCurrentDirectory();
+        Guid workspaceId = await ProjectTestHelper.CreateProjectWithWorkspaceAsync(_firstClient!, workspace);
 
         HttpResponseMessage createResponse = await _firstClient!.PostAsJsonAsync(
             "/chats",
-            new CreateChatRequest("cursor", workspace));
+            new CreateChatRequest("cursor", workspaceId));
 
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 

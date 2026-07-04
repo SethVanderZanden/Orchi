@@ -16,6 +16,7 @@ public sealed class AgentPromptComposer(
             WorkspacePath = session.WorkspacePath,
             PlanFilePath = session.PlanFilePath,
             ParentChatId = session.ParentChatId,
+            IsFirstUserTurn = session.Messages.Count(message => message.Role == "user") <= 1,
         };
 
         OrchiPromptDocument document = pipeline.Build(context);

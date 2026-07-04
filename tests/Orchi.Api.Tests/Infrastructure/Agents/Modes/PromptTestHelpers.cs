@@ -21,7 +21,8 @@ internal static class PromptTestHelpers
         IAgentModeStrategyFactory factory = new AgentModeStrategyFactory([
             new DefaultAgentModeStrategy(),
             new OrchestrationAgentModeStrategy(),
-            new ReviewAgentModeStrategy()
+            new ReviewAgentModeStrategy(),
+            new ImplementationAgentModeStrategy(),
         ]);
 
         return new AgentPromptComposer(
@@ -35,7 +36,8 @@ internal static class PromptTestHelpers
         factory ??= new AgentModeStrategyFactory([
             new DefaultAgentModeStrategy(),
             new OrchestrationAgentModeStrategy(),
-            new ReviewAgentModeStrategy()
+            new ReviewAgentModeStrategy(),
+            new ImplementationAgentModeStrategy(),
         ]);
 
         return new PromptSectionPipeline([
@@ -67,8 +69,10 @@ internal static class PromptTestHelpers
         string mode = DefaultAgentModeStrategy.Mode,
         string workspacePath = "/workspace",
         string? planFilePath = null,
-        Guid? parentChatId = null) =>
-        new()
+        Guid? parentChatId = null,
+        IReadOnlyList<ChatMessage>? messages = null)
+    {
+        var session = new ChatSession
         {
             Id = Guid.NewGuid(),
             AgentId = "cursor",
@@ -77,4 +81,12 @@ internal static class PromptTestHelpers
             PlanFilePath = planFilePath,
             ParentChatId = parentChatId,
         };
+
+        if (messages is not null)
+        {
+            session.Messages.AddRange(messages);
+        }
+
+        return session;
+    }
 }

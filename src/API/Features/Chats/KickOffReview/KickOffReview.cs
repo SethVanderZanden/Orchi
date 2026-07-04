@@ -106,9 +106,15 @@ public static class KickOffReview
                 return Result.Failure<KickOffReviewResponse>(Error.Validation("PlanId.Invalid", ex.Message));
             }
 
+            if (parent.WorkspaceId is null)
+            {
+                return Result.Failure<KickOffReviewResponse>(
+                    Error.Validation("Workspace.Missing", "Parent chat has no workspace."));
+            }
+
             Result<ChatSession> reviewChildResult = await sessionManager.CreateSessionAsync(
                 parent.AgentId,
-                parent.WorkspacePath,
+                parent.WorkspaceId.Value,
                 ReviewAgentModeStrategy.Mode,
                 parentChatId: parent.Id,
                 planFilePath: reviewFilePath,

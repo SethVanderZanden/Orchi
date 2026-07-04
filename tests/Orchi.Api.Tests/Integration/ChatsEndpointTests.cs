@@ -42,16 +42,19 @@ public class ChatsEndpointTests : IClassFixture<TestWebApplicationFactory>, IAsy
     public async Task CreateChat_ThenList_ReturnsCreatedChat()
     {
         string workspace = Directory.GetCurrentDirectory();
+        Guid workspaceId = await ProjectTestHelper.CreateProjectWithWorkspaceAsync(_client, workspace);
 
         HttpResponseMessage createResponse = await _client.PostAsJsonAsync(
             "/chats",
-            new CreateChatRequest("cursor", workspace));
+            new CreateChatRequest("cursor", workspaceId));
 
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 
         CreateChatResponse? created = await createResponse.Content.ReadFromJsonAsync<CreateChatResponse>();
         Assert.NotNull(created);
         Assert.Equal("cursor", created.AgentId);
+        Assert.Equal(workspaceId, created.WorkspaceId);
+        Assert.NotNull(created.ProjectId);
 
         HttpResponseMessage listResponse = await _client.GetAsync("/chats");
         ChatSummaryResponse[]? chats = await listResponse.Content.ReadFromJsonAsync<ChatSummaryResponse[]>();
@@ -59,16 +62,19 @@ public class ChatsEndpointTests : IClassFixture<TestWebApplicationFactory>, IAsy
         Assert.NotNull(chats);
         Assert.Single(chats);
         Assert.Equal(created.Id, chats[0].Id);
+        Assert.Equal(created.ProjectId, chats[0].ProjectId);
+        Assert.Equal(created.WorkspaceId, chats[0].WorkspaceId);
     }
 
     [Fact]
     public async Task CloseChat_RemovesChatFromList()
     {
         string workspace = Directory.GetCurrentDirectory();
+        Guid workspaceId = await ProjectTestHelper.CreateProjectWithWorkspaceAsync(_client, workspace);
 
         HttpResponseMessage createResponse = await _client.PostAsJsonAsync(
             "/chats",
-            new CreateChatRequest("cursor", workspace));
+            new CreateChatRequest("cursor", workspaceId));
 
         CreateChatResponse? created = await createResponse.Content.ReadFromJsonAsync<CreateChatResponse>();
         Assert.NotNull(created);
@@ -87,10 +93,11 @@ public class ChatsEndpointTests : IClassFixture<TestWebApplicationFactory>, IAsy
     public async Task Shutdown_PreservesPersistedChats()
     {
         string workspace = Directory.GetCurrentDirectory();
+        Guid workspaceId = await ProjectTestHelper.CreateProjectWithWorkspaceAsync(_client, workspace);
 
         HttpResponseMessage createResponse = await _client.PostAsJsonAsync(
             "/chats",
-            new CreateChatRequest("cursor", workspace));
+            new CreateChatRequest("cursor", workspaceId));
 
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 
@@ -113,5 +120,7 @@ public class ChatsEndpointTests : IClassFixture<TestWebApplicationFactory>, IAsy
         ChatDetailResponse? detail = await getResponse.Content.ReadFromJsonAsync<ChatDetailResponse>();
         Assert.NotNull(detail);
         Assert.Equal(created.Id, detail.Id);
+        Assert.Equal(created.ProjectId, detail.ProjectId);
+        Assert.Equal(created.WorkspaceId, detail.WorkspaceId);
     }
 }

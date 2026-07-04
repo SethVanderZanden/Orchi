@@ -15,6 +15,8 @@ public static partial class ChatMapper
             lastMessage?.Content ?? "Start a conversation with Orchi",
             lastMessage?.CreatedAt ?? DateTimeOffset.UtcNow,
             session.AgentId,
+            session.ProjectId,
+            session.WorkspaceId,
             session.WorkspacePath,
             session.Mode,
             session.ParentChatId,
@@ -26,6 +28,8 @@ public static partial class ChatMapper
             session.Id,
             DeriveTitle(session),
             session.AgentId,
+            session.ProjectId,
+            session.WorkspaceId,
             session.WorkspacePath,
             session.Mode,
             session.ParentChatId,
@@ -101,6 +105,8 @@ public sealed record ChatSummaryResponse(
     string Preview,
     DateTimeOffset UpdatedAt,
     string AgentId,
+    Guid? ProjectId,
+    Guid? WorkspaceId,
     string WorkspacePath,
     string Mode,
     Guid? ParentChatId,
@@ -110,6 +116,8 @@ public sealed record ChatDetailResponse(
     Guid Id,
     string Title,
     string AgentId,
+    Guid? ProjectId,
+    Guid? WorkspaceId,
     string WorkspacePath,
     string Mode,
     Guid? ParentChatId,
@@ -125,7 +133,7 @@ public sealed record ChatMessageResponse(
 
 public sealed record CreateChatRequest(
     string Agent,
-    string WorkspacePath,
+    Guid WorkspaceId,
     string? Mode = null);
 
 public sealed record UpdateChatModeRequest(string Mode);
@@ -137,6 +145,8 @@ public sealed record SendMessageRequest(string Content);
 public sealed record CreateChatResponse(
     Guid Id,
     string AgentId,
+    Guid? ProjectId,
+    Guid? WorkspaceId,
     string WorkspacePath,
     string Mode,
     Guid? ParentChatId,
@@ -150,7 +160,8 @@ public sealed record KickOffPlanRequest(
 public sealed record KickOffPlanResponse(
     Guid ChildChatId,
     string PlanFilePath,
-    string InitialPrompt);
+    string InitialPrompt,
+    string KickoffMessage);
 
 public sealed record KickOffReviewResponse(
     Guid ReviewChildChatId,

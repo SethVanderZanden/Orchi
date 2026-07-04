@@ -48,12 +48,30 @@ public class PromptSectionPipelineTests
             UserContent = "go",
             WorkspacePath = "/workspace",
             PlanFilePath = ".orchi/plan-auth.md",
+            IsFirstUserTurn = true,
         };
 
         OrchiPromptDocument document = _pipeline.Build(context);
 
         Assert.Contains("Implement the plan at `.orchi/plan-auth.md`", document.Task);
         Assert.Contains("delete `.orchi/plan-auth.md`", document.Task);
+    }
+
+    [Fact]
+    public void Build_OmitsTaskOnFollowUpTurn()
+    {
+        var context = new PromptBuildContext
+        {
+            ModeId = "default",
+            UserContent = "continue",
+            WorkspacePath = "/workspace",
+            PlanFilePath = ".orchi/plan-auth.md",
+            IsFirstUserTurn = false,
+        };
+
+        OrchiPromptDocument document = _pipeline.Build(context);
+
+        Assert.Null(document.Task);
     }
 
     [Fact]
@@ -65,6 +83,7 @@ public class PromptSectionPipelineTests
             UserContent = "go",
             WorkspacePath = "/workspace",
             PlanFilePath = ".orchi/review-auth.md",
+            IsFirstUserTurn = true,
         };
 
         OrchiPromptDocument document = _pipeline.Build(context);

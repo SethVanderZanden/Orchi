@@ -132,10 +132,11 @@ public class UpdateChatModeEndpointTests : IClassFixture<TestWebApplicationFacto
     private async Task<Guid> CreateChatAsync()
     {
         string workspace = Directory.GetCurrentDirectory();
+        Guid workspaceId = await ProjectTestHelper.CreateProjectWithWorkspaceAsync(_client, workspace);
 
         HttpResponseMessage createResponse = await _client.PostAsJsonAsync(
             "/chats",
-            new CreateChatRequest("cursor", workspace));
+            new CreateChatRequest("cursor", workspaceId));
 
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 

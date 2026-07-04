@@ -60,7 +60,7 @@ Contributors run in registration order (see `AgentsExtensions.cs`):
 |-------------|------------|------|
 | `ModeSectionContributor` | identity, rules, context, tools | Delegates to `IAgentModeStrategy` |
 | `SessionContextContributor` | context | Appends workspace path |
-| `SessionTaskContributor` | task | When `ChatSession.PlanFilePath` is set — instructs implement + delete plan file after validation |
+| `SessionTaskContributor` | task | When `ChatSession.PlanFilePath` is set **and** it is the first user turn — instructs implement + delete plan file after validation |
 | `ParentChatContributor` | context | When `ChatSession.ParentChatId` is set |
 | `GlobalRulesContributor` | rules | Every turn — meta-rule about focusing on `<message>` |
 | `MessageContributor` | message | Every turn — raw user content |
@@ -80,6 +80,7 @@ Each mode implements `IAgentModeStrategy` with `ModeId`, `DisplayLabel`, `Descri
 |------|-------------------|
 | `default` | None (global rules + message only) |
 | `orchestration` | identity, rules, context (plan block template) |
+| `implementation` | identity, rules (scoped plan execution; kickoff-only, hidden from mode list) |
 
 ### Adding a new mode
 

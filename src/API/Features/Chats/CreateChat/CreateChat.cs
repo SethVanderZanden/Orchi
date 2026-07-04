@@ -9,7 +9,7 @@ namespace Orchi.Api.Features.Chats.CreateChat;
 
 public static class CreateChat
 {
-    public sealed record Command(string Agent, string WorkspacePath, string? Mode) : ICommand<CreateChatResponse>;
+    public sealed record Command(string Agent, Guid WorkspaceId, string? Mode) : ICommand<CreateChatResponse>;
 
     internal sealed class Handler(AgentSessionManager sessionManager)
         : ICommandHandler<Command, CreateChatResponse>
@@ -18,7 +18,7 @@ public static class CreateChat
         {
             Result<ChatSession> result = await sessionManager.CreateSessionAsync(
                 command.Agent,
-                command.WorkspacePath,
+                command.WorkspaceId,
                 command.Mode,
                 cancellationToken: cancellationToken);
 
@@ -31,6 +31,8 @@ public static class CreateChat
             return Result.Success(new CreateChatResponse(
                 session.Id,
                 session.AgentId,
+                session.ProjectId,
+                session.WorkspaceId,
                 session.WorkspacePath,
                 session.Mode,
                 session.ParentChatId,
@@ -46,9 +48,9 @@ public static class CreateChat
                 .NotEmpty()
                 .WithMessage("Agent is required.");
 
-            RuleFor(command => command.WorkspacePath)
+            RuleFor(command => command.WorkspaceId)
                 .NotEmpty()
-                .WithMessage("Workspace path is required.");
+                .WithMessage("Workspace id is required.");
         }
     }
 
@@ -68,7 +70,7 @@ public static class CreateChat
             CancellationToken cancellationToken)
         {
             Result<CreateChatResponse> result = await handler.Handle(
-                new Command(request.Agent, request.WorkspacePath, request.Mode),
+                new Command(request.Agent, request.WorkspaceId, request.Mode),
                 cancellationToken);
 
             if (result.IsSuccess)

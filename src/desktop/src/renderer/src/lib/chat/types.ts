@@ -24,6 +24,8 @@ export type ChatThread = {
   preview: string
   updatedAt: string
   agentId: string
+  projectId: string | null
+  workspaceId: string | null
   workspacePath: string
   mode: AgentMode
   parentChatId: string | null
@@ -39,13 +41,15 @@ export type ChatMarker = {
 
 export type CreateChatRequest = {
   agent: string
-  workspacePath: string
+  workspaceId: string
   mode?: AgentMode
 }
 
 export type CreateChatResponse = {
   id: string
   agentId: string
+  projectId: string | null
+  workspaceId: string | null
   workspacePath: string
   mode: AgentMode
   parentChatId: string | null
@@ -67,6 +71,8 @@ export type ChatSummaryResponse = {
   preview: string
   updatedAt: string
   agentId: string
+  projectId: string | null
+  workspaceId: string | null
   workspacePath: string
   mode: AgentMode
   parentChatId: string | null
@@ -77,6 +83,8 @@ export type ChatDetailResponse = {
   id: string
   title: string
   agentId: string
+  projectId: string | null
+  workspaceId: string | null
   workspacePath: string
   mode: AgentMode
   parentChatId: string | null
@@ -94,6 +102,7 @@ export type KickOffPlanResponse = {
   childChatId: string
   planFilePath: string
   initialPrompt: string
+  kickoffMessage: string
 }
 
 export type KickOffReviewResponse = {

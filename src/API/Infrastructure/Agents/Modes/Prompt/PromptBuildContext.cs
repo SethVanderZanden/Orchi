@@ -11,4 +11,6 @@ public sealed class PromptBuildContext
     public string? PlanFilePath { get; init; }
 
     public Guid? ParentChatId { get; init; }
+
+    public bool IsFirstUserTurn { get; init; }
 }

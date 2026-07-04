@@ -8,6 +8,10 @@ public sealed class ChatSession
 
     public required string AgentId { get; init; }
 
+    public Guid? ProjectId { get; set; }
+
+    public Guid? WorkspaceId { get; set; }
+
     public required string WorkspacePath { get; init; }
 
     public string Mode { get; set; } = "default";

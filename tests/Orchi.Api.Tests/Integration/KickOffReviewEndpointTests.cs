@@ -5,6 +5,7 @@ using Orchi.Api.Features.Chats.Shared;
 using Orchi.Api.Infrastructure.Agents;
 using Orchi.Api.Infrastructure.Agents.Modes;
 using Orchi.Api.Infrastructure.Agents.Persistence;
+using Orchi.Api.Infrastructure.Projects;
 using Orchi.Api.Tests.Common;
 
 namespace Orchi.Api.Tests.Integration;
@@ -14,6 +15,7 @@ public class KickOffReviewEndpointTests : IClassFixture<TestWebApplicationFactor
     private readonly TestWebApplicationFactory _factory;
     private readonly HttpClient _client;
     private readonly string _workspacePath;
+    private Guid _workspaceId;
 
     public KickOffReviewEndpointTests(TestWebApplicationFactory factory)
     {
@@ -28,6 +30,7 @@ public class KickOffReviewEndpointTests : IClassFixture<TestWebApplicationFactor
     {
         await _client.PostAsync("/chats/shutdown", content: null);
         await _factory.ClearAllChatsAsync();
+        _workspaceId = await ProjectTestHelper.CreateProjectWithWorkspaceAsync(_client, _workspacePath);
     }
 
     public Task DisposeAsync()
@@ -97,7 +100,7 @@ public class KickOffReviewEndpointTests : IClassFixture<TestWebApplicationFactor
     {
         HttpResponseMessage createResponse = await _client.PostAsJsonAsync(
             "/chats",
-            new CreateChatRequest("cursor", _workspacePath));
+            new CreateChatRequest("cursor", _workspaceId));
 
         CreateChatResponse? chat = await createResponse.Content.ReadFromJsonAsync<CreateChatResponse>();
         Assert.NotNull(chat);
@@ -118,6 +121,9 @@ public class KickOffReviewEndpointTests : IClassFixture<TestWebApplicationFactor
         using (IServiceScope scope = _factory.Services.CreateScope())
         {
             IChatStore chatStore = scope.ServiceProvider.GetRequiredService<IChatStore>();
+            IProjectStore projectStore = scope.ServiceProvider.GetRequiredService<IProjectStore>();
+            Entities.Workspace? workspace = await projectStore.GetWorkspaceAsync(_workspaceId, CancellationToken.None);
+
             ChatSession child = await chatStore.CreateAsync(
                 new ChatCreateModel(
                     Guid.NewGuid(),
@@ -125,7 +131,9 @@ public class KickOffReviewEndpointTests : IClassFixture<TestWebApplicationFactor
                     _workspacePath,
                     DefaultAgentModeStrategy.Mode,
                     parentId,
-                    ".orchi/plan-auth-refactor.md"),
+                    ".orchi/plan-auth-refactor.md",
+                    workspace?.ProjectId,
+                    _workspaceId),
                 CancellationToken.None);
 
             implementationChildId = child.Id;
@@ -144,7 +152,7 @@ public class KickOffReviewEndpointTests : IClassFixture<TestWebApplicationFactor
     {
         HttpResponseMessage createResponse = await _client.PostAsJsonAsync(
             "/chats",
-            new CreateChatRequest("cursor", _workspacePath, OrchestrationAgentModeStrategy.Mode));
+            new CreateChatRequest("cursor", _workspaceId, OrchestrationAgentModeStrategy.Mode));
 
         CreateChatResponse? parent = await createResponse.Content.ReadFromJsonAsync<CreateChatResponse>();
         Assert.NotNull(parent);

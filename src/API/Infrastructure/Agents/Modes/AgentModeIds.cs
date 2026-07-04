@@ -7,4 +7,6 @@ public static class AgentModeIds
     public const string Orchestration = "orchestration";
 
     public const string Review = "review";
+
+    public const string Implementation = "implementation";
 }

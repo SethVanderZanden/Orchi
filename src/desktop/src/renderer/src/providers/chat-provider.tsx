@@ -138,7 +138,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
     mutationFn: (options: CreateChatOptions) =>
       createChat({
         agent: 'cursor',
-        workspacePath: options.workspacePath,
+        workspaceId: options.workspaceId,
         mode: 'default'
       }),
     onSuccess: (chat) => {
@@ -520,8 +520,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
         preview: response.initialPrompt,
         updatedAt: new Date().toISOString(),
         agentId: 'cursor',
+        projectId: getChatLocal(chatId)?.projectId ?? null,
+        workspaceId: getChatLocal(chatId)?.workspaceId ?? null,
         workspacePath: getChatLocal(chatId)?.workspacePath ?? '',
-        mode: 'default',
+        mode: 'implementation',
         parentChatId: chatId,
         planFilePath: response.planFilePath,
         messages: []
@@ -534,7 +536,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
         navigate({ to: '/chat/$chatId', params: { chatId: childChat.id } })
       }
 
-      void sendMessage(childChat.id, response.initialPrompt)
+      void sendMessage(childChat.id, response.kickoffMessage)
     },
     [getChatLocal, navigate, queryClient, sendMessage]
   )
@@ -621,6 +623,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
         preview: response.initialPrompt,
         updatedAt: new Date().toISOString(),
         agentId: 'cursor',
+        projectId: implementationChild.projectId,
+        workspaceId: implementationChild.workspaceId,
         workspacePath: implementationChild.workspacePath,
         mode: 'review',
         parentChatId: parentId,

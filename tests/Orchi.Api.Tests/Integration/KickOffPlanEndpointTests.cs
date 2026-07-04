@@ -15,6 +15,7 @@ public class KickOffPlanEndpointTests : IClassFixture<TestWebApplicationFactory>
     private readonly TestWebApplicationFactory _factory;
     private readonly HttpClient _client;
     private readonly string _workspacePath;
+    private Guid _workspaceId;
 
     public KickOffPlanEndpointTests(TestWebApplicationFactory factory)
     {
@@ -29,6 +30,7 @@ public class KickOffPlanEndpointTests : IClassFixture<TestWebApplicationFactory>
     {
         await _client.PostAsync("/chats/shutdown", content: null);
         await _factory.ClearAllChatsAsync();
+        _workspaceId = await ProjectTestHelper.CreateProjectWithWorkspaceAsync(_client, _workspacePath);
     }
 
     public Task DisposeAsync()
@@ -46,7 +48,7 @@ public class KickOffPlanEndpointTests : IClassFixture<TestWebApplicationFactory>
     {
         HttpResponseMessage createResponse = await _client.PostAsJsonAsync(
             "/chats",
-            new CreateChatRequest("cursor", _workspacePath, OrchestrationAgentModeStrategy.Mode));
+            new CreateChatRequest("cursor", _workspaceId, OrchestrationAgentModeStrategy.Mode));
 
         CreateChatResponse? parent = await createResponse.Content.ReadFromJsonAsync<CreateChatResponse>();
         Assert.NotNull(parent);
@@ -65,6 +67,7 @@ public class KickOffPlanEndpointTests : IClassFixture<TestWebApplicationFactory>
         Assert.Equal(".orchi/plan-auth-refactor.md", kickedOff.PlanFilePath);
         Assert.Contains(".orchi/plan-auth-refactor.md", kickedOff.InitialPrompt);
         Assert.Contains("delete `.orchi/plan-auth-refactor.md`", kickedOff.InitialPrompt);
+        Assert.Equal("Begin implementation.", kickedOff.KickoffMessage);
 
         string planFile = Path.Combine(_workspacePath, ".orchi", "plan-auth-refactor.md");
         Assert.True(File.Exists(planFile));
@@ -74,9 +77,11 @@ public class KickOffPlanEndpointTests : IClassFixture<TestWebApplicationFactory>
 
         ChatDetailResponse? child = await childResponse.Content.ReadFromJsonAsync<ChatDetailResponse>();
         Assert.NotNull(child);
-        Assert.Equal(DefaultAgentModeStrategy.Mode, child.Mode);
+        Assert.Equal(ImplementationAgentModeStrategy.Mode, child.Mode);
         Assert.Equal(parent.Id, child.ParentChatId);
         Assert.Equal(".orchi/plan-auth-refactor.md", child.PlanFilePath);
+        Assert.Equal(parent.WorkspaceId, child.WorkspaceId);
+        Assert.Equal(parent.ProjectId, child.ProjectId);
 
         using (IServiceScope scope = _factory.Services.CreateScope())
         {
@@ -96,7 +101,7 @@ public class KickOffPlanEndpointTests : IClassFixture<TestWebApplicationFactory>
     {
         HttpResponseMessage createResponse = await _client.PostAsJsonAsync(
             "/chats",
-            new CreateChatRequest("cursor", _workspacePath));
+            new CreateChatRequest("cursor", _workspaceId));
 
         CreateChatResponse? parent = await createResponse.Content.ReadFromJsonAsync<CreateChatResponse>();
         Assert.NotNull(parent);

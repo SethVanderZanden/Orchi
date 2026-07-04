@@ -11,6 +11,8 @@ function makeChat(overrides: Partial<ChatThread> & Pick<ChatThread, 'id'>): Chat
     preview: overrides.preview ?? '',
     updatedAt: overrides.updatedAt ?? '2026-01-01T00:00:00.000Z',
     agentId: 'cursor',
+    projectId: overrides.projectId ?? null,
+    workspaceId: overrides.workspaceId ?? null,
     workspacePath: '/workspace',
     mode: 'default',
     parentChatId: overrides.parentChatId ?? null,

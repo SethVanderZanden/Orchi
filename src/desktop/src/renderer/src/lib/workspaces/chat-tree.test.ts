@@ -19,7 +19,9 @@ function makeChat(overrides: Partial<ChatThread> & Pick<ChatThread, 'id'>): Chat
     preview: overrides.preview ?? '',
     updatedAt: overrides.updatedAt ?? '2026-01-01T00:00:00.000Z',
     agentId: 'cursor',
-    workspacePath: '/workspace',
+    projectId: overrides.projectId ?? null,
+    workspaceId: overrides.workspaceId ?? null,
+    workspacePath: overrides.workspacePath ?? '/workspace',
     mode: 'default',
     parentChatId: overrides.parentChatId ?? null,
     planFilePath: overrides.planFilePath ?? null,
@@ -124,6 +126,17 @@ describe('isImplementationChildChat', () => {
       isImplementationChildChat(
         makeChat({
           id: 'child',
+          parentChatId: 'parent',
+          planFilePath: '.orchi/plan-auth-refactor.md'
+        })
+      )
+    ).toBe(true)
+
+    expect(
+      isImplementationChildChat(
+        makeChat({
+          id: 'child',
+          mode: 'implementation',
           parentChatId: 'parent',
           planFilePath: '.orchi/plan-auth-refactor.md'
         })

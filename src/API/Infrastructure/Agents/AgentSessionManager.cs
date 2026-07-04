@@ -2,9 +2,10 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Orchi.Api.Common.Results;
+using Orchi.Api.Entities;
 using Orchi.Api.Infrastructure.Agents.Persistence;
-
 using Orchi.Api.Infrastructure.Agents.Modes;
+using Orchi.Api.Infrastructure.Projects;
 
 namespace Orchi.Api.Infrastructure.Agents;
 
@@ -12,6 +13,7 @@ public sealed class AgentSessionManager
 {
     private readonly ConcurrentDictionary<Guid, ChatSession> _sessions = new();
     private readonly IChatStore _chatStore;
+    private readonly IProjectStore _projectStore;
     private readonly IAgentAdapterFactory _adapterFactory;
     private readonly IAgentModeStrategyFactory _modeStrategyFactory;
     private readonly IAgentPromptComposer _promptComposer;
@@ -19,12 +21,14 @@ public sealed class AgentSessionManager
 
     public AgentSessionManager(
         IChatStore chatStore,
+        IProjectStore projectStore,
         IAgentAdapterFactory adapterFactory,
         IAgentModeStrategyFactory modeStrategyFactory,
         IAgentPromptComposer promptComposer,
         ILogger<AgentSessionManager> logger)
     {
         _chatStore = chatStore;
+        _projectStore = projectStore;
         _adapterFactory = adapterFactory;
         _modeStrategyFactory = modeStrategyFactory;
         _promptComposer = promptComposer;
@@ -55,15 +59,18 @@ public sealed class AgentSessionManager
 
     public async Task<ChatSession?> GetOrLoadSessionAsync(Guid chatId, CancellationToken cancellationToken)
     {
-        if (_sessions.TryGetValue(chatId, out ChatSession? cached))
-        {
-            return cached;
-        }
-
         ChatSession? loaded = await _chatStore.GetAsync(chatId, cancellationToken);
         if (loaded is null)
         {
+            _sessions.TryRemove(chatId, out _);
             return null;
+        }
+
+        if (_sessions.TryGetValue(chatId, out ChatSession? cached))
+        {
+            cached.ProjectId = loaded.ProjectId;
+            cached.WorkspaceId = loaded.WorkspaceId;
+            return cached;
         }
 
         _sessions[chatId] = loaded;
@@ -72,7 +79,7 @@ public sealed class AgentSessionManager
 
     public async Task<Result<ChatSession>> CreateSessionAsync(
         string agentId,
-        string workspacePath,
+        Guid workspaceId,
         string? mode = null,
         Guid? parentChatId = null,
         string? planFilePath = null,
@@ -83,9 +90,9 @@ public sealed class AgentSessionManager
             return Result.Failure<ChatSession>(Error.Validation("Agent.Required", "Agent is required."));
         }
 
-        if (string.IsNullOrWhiteSpace(workspacePath))
+        if (workspaceId == Guid.Empty)
         {
-            return Result.Failure<ChatSession>(Error.Validation("Workspace.Required", "Workspace path is required."));
+            return Result.Failure<ChatSession>(Error.Validation("Workspace.Required", "Workspace id is required."));
         }
 
         string resolvedMode = string.IsNullOrWhiteSpace(mode) ? DefaultAgentModeStrategy.Mode : mode.Trim();
@@ -99,7 +106,13 @@ public sealed class AgentSessionManager
             return Result.Failure<ChatSession>(Error.Validation("Mode.Unsupported", ex.Message));
         }
 
-        string fullPath = Path.GetFullPath(workspacePath);
+        Entities.Workspace? workspace = await _projectStore.GetWorkspaceAsync(workspaceId, cancellationToken);
+        if (workspace is null)
+        {
+            return Result.Failure<ChatSession>(Error.NotFound($"Workspace '{workspaceId}' was not found."));
+        }
+
+        string fullPath = workspace.Path;
 
         if (!Directory.Exists(fullPath))
         {
@@ -117,7 +130,15 @@ public sealed class AgentSessionManager
 
         var sessionId = Guid.NewGuid();
         ChatSession session = await _chatStore.CreateAsync(
-            new ChatCreateModel(sessionId, agentId, fullPath, resolvedMode, parentChatId, planFilePath),
+            new ChatCreateModel(
+                sessionId,
+                agentId,
+                fullPath,
+                resolvedMode,
+                parentChatId,
+                planFilePath,
+                workspace.ProjectId,
+                workspace.Id),
             cancellationToken);
 
         _sessions[session.Id] = session;

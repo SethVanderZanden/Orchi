@@ -1,3 +1,4 @@
+using Orchi.Api.Infrastructure.Agents;
 using Orchi.Api.Infrastructure.Agents.Modes;
 using Orchi.Api.Infrastructure.Agents.Modes.Prompt;
 
@@ -55,6 +56,41 @@ public class AgentPromptComposerTests
         Assert.Contains($"<task>Implement the plan at `{planPath}`.", prompt);
         Assert.Contains($"delete `{planPath}`", prompt);
         Assert.Contains("<message>Start with the login form</message>", prompt);
+    }
+
+    [Fact]
+    public void Compose_WithPlanFilePath_OnFollowUpTurn_OmitsTaskSection()
+    {
+        const string planPath = ".orchi/plan-auth.md";
+        var session = PromptTestHelpers.CreateSession(
+            planFilePath: planPath,
+            messages:
+            [
+                new ChatMessage(Guid.NewGuid(), "user", "Begin implementation.", DateTimeOffset.UtcNow),
+                new ChatMessage(Guid.NewGuid(), "assistant", "Working on it.", DateTimeOffset.UtcNow),
+            ]);
+
+        session.Messages.Add(new ChatMessage(Guid.NewGuid(), "user", "Continue.", DateTimeOffset.UtcNow));
+
+        string prompt = _composer.Compose(session, "Continue.");
+
+        Assert.DoesNotContain("<task>", prompt);
+        Assert.Contains("<message>Continue.</message>", prompt);
+    }
+
+    [Fact]
+    public void Compose_ImplementationMode_IncludesScopedRules()
+    {
+        const string planPath = ".orchi/plan-auth.md";
+        var session = PromptTestHelpers.CreateSession(
+            ImplementationAgentModeStrategy.Mode,
+            planFilePath: planPath);
+
+        string prompt = _composer.Compose(session, "Begin implementation.");
+
+        Assert.Contains("scoped plan file", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("scope boundary", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains($"<task>Implement the plan at `{planPath}`.", prompt);
     }
 
     [Fact]

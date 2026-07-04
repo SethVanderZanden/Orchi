@@ -50,7 +50,13 @@ namespace Orchi.Api.Migrations
                         .HasMaxLength(512)
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("ProjectId")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("WorkspaceId")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("WorkspacePath")
@@ -62,7 +68,11 @@ namespace Orchi.Api.Migrations
 
                     b.HasIndex("ParentChatId");
 
+                    b.HasIndex("ProjectId");
+
                     b.HasIndex("UpdatedAt");
+
+                    b.HasIndex("WorkspaceId");
 
                     b.ToTable("Chats");
                 });
@@ -152,6 +162,88 @@ namespace Orchi.Api.Migrations
                     b.ToTable("Plans");
                 });
 
+            modelBuilder.Entity("Orchi.Api.Entities.Project", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UpdatedAt");
+
+                    b.ToTable("Projects");
+                });
+
+            modelBuilder.Entity("Orchi.Api.Entities.Workspace", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("NormalizedPath")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Path")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId", "NormalizedPath")
+                        .IsUnique();
+
+                    b.ToTable("Workspaces");
+                });
+
+            modelBuilder.Entity("Orchi.Api.Entities.Chat", b =>
+                {
+                    b.HasOne("Orchi.Api.Entities.Project", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Orchi.Api.Entities.Workspace", "Workspace")
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Project");
+
+                    b.Navigation("Workspace");
+                });
+
             modelBuilder.Entity("Orchi.Api.Entities.ChatMessageEntity", b =>
                 {
                     b.HasOne("Orchi.Api.Entities.Chat", "Chat")
@@ -174,9 +266,25 @@ namespace Orchi.Api.Migrations
                     b.Navigation("SourceChat");
                 });
 
+            modelBuilder.Entity("Orchi.Api.Entities.Workspace", b =>
+                {
+                    b.HasOne("Orchi.Api.Entities.Project", "Project")
+                        .WithMany("Workspaces")
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Project");
+                });
+
             modelBuilder.Entity("Orchi.Api.Entities.Chat", b =>
                 {
                     b.Navigation("Messages");
+                });
+
+            modelBuilder.Entity("Orchi.Api.Entities.Project", b =>
+                {
+                    b.Navigation("Workspaces");
                 });
 #pragma warning restore 612, 618
         }

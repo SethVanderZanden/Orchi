@@ -70,10 +70,18 @@ public static class KickOffPlan
                 return Result.Failure<KickOffPlanResponse>(Error.Validation("PlanId.Invalid", ex.Message));
             }
 
+            // Child chat inherits the parent's workspace. Future: provision an isolated worktree
+            // via WorkspaceKind.Worktree when plan requests isolated execution.
+            if (parent.WorkspaceId is null)
+            {
+                return Result.Failure<KickOffPlanResponse>(
+                    Error.Validation("Workspace.Missing", "Parent chat has no workspace."));
+            }
+
             Result<ChatSession> childResult = await sessionManager.CreateSessionAsync(
                 parent.AgentId,
-                parent.WorkspacePath,
-                DefaultAgentModeStrategy.Mode,
+                parent.WorkspaceId.Value,
+                ImplementationAgentModeStrategy.Mode,
                 parentChatId: parent.Id,
                 planFilePath: planFilePath,
                 cancellationToken: cancellationToken);
@@ -85,16 +93,14 @@ public static class KickOffPlan
 
             ChatSession child = childResult.Value;
 
-             string path = planFilePath.Trim();
-            
-            string initialPrompt =$"Implement the plan at `{path}`. Follow the plan precisely. Do not replan unless blocked. " +
-                $"After the plan is fully implemented and validated, delete `{path}`. " +
-                "If blocked, keep the plan file.";
+            string initialPrompt = PlanImplementationTask.Build(planFilePath);
+            const string kickoffMessage = "Begin implementation.";
 
             return Result.Success(new KickOffPlanResponse(
                 child.Id,
                 planFilePath,
-                initialPrompt));
+                initialPrompt,
+                kickoffMessage));
         }
     }
 

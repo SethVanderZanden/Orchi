@@ -8,7 +8,9 @@ public sealed record ChatCreateModel(
     string WorkspacePath,
     string Mode = "default",
     Guid? ParentChatId = null,
-    string? PlanFilePath = null);
+    string? PlanFilePath = null,
+    Guid? ProjectId = null,
+    Guid? WorkspaceId = null);
 
 public interface IChatStore
 {

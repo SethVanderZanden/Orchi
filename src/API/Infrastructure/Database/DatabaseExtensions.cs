@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Orchi.Api.Data;
+using Orchi.Api.Migrations;
 
 namespace Orchi.Api.Infrastructure.Database;
 
@@ -25,5 +26,6 @@ public static class DatabaseExtensions
         IDbContextFactory<AppDbContext> factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
         await using AppDbContext db = await factory.CreateDbContextAsync();
         await db.Database.MigrateAsync();
+        await ProjectWorkspaceMigrationBackfill.ApplyToContextAsync(db);
     }
 }

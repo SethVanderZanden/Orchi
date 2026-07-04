@@ -16,6 +16,8 @@ public sealed class EfChatStore(IDbContextFactory<AppDbContext> dbContextFactory
         {
             Id = model.Id,
             AgentId = model.AgentId,
+            ProjectId = model.ProjectId,
+            WorkspaceId = model.WorkspaceId,
             WorkspacePath = model.WorkspacePath,
             Mode = model.Mode,
             ParentChatId = model.ParentChatId,

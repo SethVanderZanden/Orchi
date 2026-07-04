@@ -8,6 +8,7 @@ import type { ParsedReviewPlan } from '@/lib/orchestration/parse-review-plans'
 import type { ChatThread } from '@/lib/chat/types'
 import { findReviewChildForPlan } from '@/lib/workspaces/chat-tree'
 import { useChat } from '@/providers/chat-provider'
+import { useProjects } from '@/providers/project-provider'
 
 type ChatWorkspacePanelProps = {
   chat: ChatThread
@@ -29,6 +30,10 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
     isPlanKickingOff,
     isParentKickingOffAny
   } = useChat()
+  const { projects } = useProjects()
+  const projectName =
+    projects.find((project) => project.id === chat.projectId)?.name ??
+    (chat.projectId ? 'Unknown project' : null)
   const plans = chat.mode === 'orchestration' ? parsePlansFromMessages(chat.messages) : []
   const childChats = getChildChats(chat.id)
   const reviewPlansByPlanId = Object.fromEntries(
@@ -72,6 +77,7 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
           <div className="min-w-0 space-y-1">
             <p className="truncate text-sm font-semibold">{chat.title}</p>
             <p className="truncate text-xs text-muted-foreground">
+              {projectName ? `${projectName} · ` : ''}
               {chat.workspacePath} · {chat.messages.length} message
               {chat.messages.length === 1 ? '' : 's'}
               {childChats.length > 0

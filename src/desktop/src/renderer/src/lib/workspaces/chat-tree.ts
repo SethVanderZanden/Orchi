@@ -64,7 +64,10 @@ export function isImplementationChildChat(chat: ChatThread): boolean {
     return false
   }
 
-  return chat.mode === 'default' && planIdFromPlanFilePath(chat.planFilePath) !== null
+  return (
+    (chat.mode === 'default' || chat.mode === 'implementation') &&
+    planIdFromPlanFilePath(chat.planFilePath) !== null
+  )
 }
 
 export function isReviewChildChat(chat: ChatThread): boolean {

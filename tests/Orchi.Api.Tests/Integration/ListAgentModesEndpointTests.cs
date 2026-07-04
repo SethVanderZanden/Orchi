@@ -32,5 +32,6 @@ public class ListAgentModesEndpointTests : IClassFixture<TestWebApplicationFacto
         Assert.Contains(
             modes,
             mode => mode.Id == "review" && mode.Label == "Review" && mode.Description is not null);
+        Assert.DoesNotContain(modes, mode => mode.Id == "implementation");
     }
 }

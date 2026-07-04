@@ -8,8 +8,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PageHeader } from '@/components/ui/page-header'
 import { Separator } from '@/components/ui/separator'
-import { useWorkspaces } from '@/providers/workspace-provider'
-import { displayWorkspacePath } from '@/lib/workspaces/store'
+import { displayWorkspacePath } from '@/lib/projects/paths'
+import { getDefaultWorkspace } from '@/lib/projects/group-chats'
+import { useProjects } from '@/providers/project-provider'
 
 export const Route = createFileRoute('/_app/settings')({
   component: SettingsPage
@@ -18,12 +19,15 @@ export const Route = createFileRoute('/_app/settings')({
 function SettingsPage(): React.JSX.Element {
   const navigate = useNavigate()
   const {
-    workspaces,
-    addWorkspace: registerWorkspace,
-    removeWorkspace,
-    renameWorkspace,
-    pickDirectory
-  } = useWorkspaces()
+    projects,
+    addProject,
+    removeProject,
+    renameProject,
+    pickDirectory,
+    isPendingProjects,
+    projectsError,
+    refetchProjects
+  } = useProjects()
   const [manualPath, setManualPath] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
@@ -34,20 +38,20 @@ function SettingsPage(): React.JSX.Element {
     try {
       const path = await pickDirectory()
       if (path) {
-        registerWorkspace(path)
+        await addProject(path)
       }
     } finally {
       setIsPicking(false)
     }
   }
 
-  function handleManualAdd(): void {
+  async function handleManualAdd(): Promise<void> {
     const path = displayWorkspacePath(manualPath)
     if (!path) {
       return
     }
 
-    registerWorkspace(path)
+    await addProject(path)
     setManualPath('')
   }
 
@@ -56,12 +60,12 @@ function SettingsPage(): React.JSX.Element {
     setEditingName(name)
   }
 
-  function saveEditing(): void {
+  async function saveEditing(): Promise<void> {
     if (!editingId) {
       return
     }
 
-    renameWorkspace(editingId, editingName)
+    await renameProject(editingId, editingName)
     setEditingId(null)
     setEditingName('')
   }
@@ -92,35 +96,54 @@ function SettingsPage(): React.JSX.Element {
               </Button>
             </CardHeader>
             <CardContent className="space-y-4">
-              {workspaces.length === 0 ? (
+              {isPendingProjects && projects.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Loading projects…</p>
+              ) : projectsError ? (
+                <div className="space-y-2">
+                  <p className="text-sm text-destructive">
+                    {projectsError.message || 'Failed to load projects.'}
+                  </p>
+                  <Button variant="secondary" size="sm" onClick={() => void refetchProjects()}>
+                    Retry
+                  </Button>
+                </div>
+              ) : projects.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No projects registered yet. Add a folder to organize chats by workspace.
+                  No projects registered yet. Add a folder to organize chats by project.
                 </p>
               ) : (
                 <ul className="divide-y rounded-lg border">
-                  {workspaces.map((workspace) => (
-                    <li
-                      key={workspace.id}
-                      className="flex items-center justify-between gap-3 px-3 py-2.5"
-                    >
-                      <button
-                        type="button"
-                        className="min-w-0 flex-1 text-left"
-                        onClick={() => startEditing(workspace.id, workspace.name)}
+                  {projects.map((project) => {
+                    const defaultWorkspace = getDefaultWorkspace(project)
+                    const workspaceCount = project.workspaces.length
+
+                    return (
+                      <li
+                        key={project.id}
+                        className="flex items-center justify-between gap-3 px-3 py-2.5"
                       >
-                        <p className="truncate text-sm font-medium">{workspace.name}</p>
-                        <p className="truncate text-xs text-muted-foreground">{workspace.path}</p>
-                      </button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`Remove ${workspace.name}`}
-                        onClick={() => removeWorkspace(workspace.id)}
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                    </li>
-                  ))}
+                        <button
+                          type="button"
+                          className="min-w-0 flex-1 text-left"
+                          onClick={() => startEditing(project.id, project.name)}
+                        >
+                          <p className="truncate text-sm font-medium">{project.name}</p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {defaultWorkspace?.path ?? 'No workspace'}
+                            {workspaceCount > 1 ? ` · ${workspaceCount} workspaces` : ''}
+                          </p>
+                        </button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Remove ${project.name}`}
+                          onClick={() => void removeProject(project.id)}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </li>
+                    )
+                  })}
                 </ul>
               )}
 
@@ -131,7 +154,7 @@ function SettingsPage(): React.JSX.Element {
                     id="project-name"
                     value={editingName}
                     onChange={(event) => setEditingName(event.target.value)}
-                    onBlur={saveEditing}
+                    onBlur={() => void saveEditing()}
                     autoFocus
                   />
                 </div>
@@ -148,7 +171,11 @@ function SettingsPage(): React.JSX.Element {
                   placeholder="e.g. E:\Projects\Orchi"
                 />
                 <div className="flex justify-end">
-                  <Button variant="secondary" onClick={handleManualAdd} disabled={!manualPath.trim()}>
+                  <Button
+                    variant="secondary"
+                    onClick={() => void handleManualAdd()}
+                    disabled={!manualPath.trim()}
+                  >
                     Add
                   </Button>
                 </div>

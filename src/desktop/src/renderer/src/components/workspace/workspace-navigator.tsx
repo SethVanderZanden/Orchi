@@ -22,22 +22,19 @@ import { Separator } from '@/components/ui/separator'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut'
 import type { ChatThread } from '@/lib/chat/types'
-import { cn } from '@/lib/utils'
 import {
-  filterWorkspaceGroups,
-  groupChatsByWorkspace,
-  type WorkspaceChatGroup
-} from '@/lib/workspaces/group-chats'
+  filterProjectGroups,
+  findProjectGroupForChat,
+  groupChatsByProject,
+  resolveWorkspaceIdForNewChat,
+  type ProjectChatGroup,
+  type WorkspaceChatSubGroup
+} from '@/lib/projects/group-chats'
 import { isReviewChildChat, type ChatTreeNode } from '@/lib/workspaces/chat-tree'
+import { cn } from '@/lib/utils'
 import { useChat } from '@/providers/chat-provider'
-import { useWorkspaces } from '@/providers/workspace-provider'
+import { useProjects } from '@/providers/project-provider'
 import { useWorkspaceLayout } from '@/providers/workspace-layout-provider'
-
-function groupContainsChat(group: WorkspaceChatGroup, chatId: string): boolean {
-  return group.chatNodes.some(
-    (node) => node.chat.id === chatId || node.children.some((child) => child.id === chatId)
-  )
-}
 
 export function WorkspaceNavigator(): React.JSX.Element {
   const navigate = useNavigate()
@@ -52,10 +49,12 @@ export function WorkspaceNavigator(): React.JSX.Element {
     refetchChats,
     getChat
   } = useChat()
-  const { workspaces, addWorkspace, pickDirectory } = useWorkspaces()
+  const { projects, addProject, pickDirectory, isPendingProjects, projectsError, refetchProjects } =
+    useProjects()
   const { isProjectExpanded, toggleProjectExpanded, ensureProjectExpanded } = useWorkspaceLayout()
   const [isCreating, setIsCreating] = useState(false)
   const [isAddingProject, setIsAddingProject] = useState(false)
+  const [expandedWorkspaceIds, setExpandedWorkspaceIds] = useState<Set<string>>(() => new Set())
   const [expandedParentChatIds, setExpandedParentChatIds] = useState<Set<string>>(() => new Set())
   const priorChildCountsRef = useRef<Map<string, number>>(new Map())
 
@@ -64,17 +63,42 @@ export function WorkspaceNavigator(): React.JSX.Element {
     shouldThrow: false
   })
   const activeChatId = chatMatch?.params.chatId ?? null
-  const activeChat = activeChatId ? getChat(activeChatId) : undefined
+  const activeChat = activeChatId ? getChat(activeChatId) : null
 
   const settingsMatch = useMatch({
     from: '/_app/settings',
     shouldThrow: false
   })
 
-  const workspaceGroups = useMemo(() => {
-    const groups = groupChatsByWorkspace(workspaces, chats)
-    return filterWorkspaceGroups(groups, searchQuery)
-  }, [workspaces, chats, searchQuery])
+  const projectGroups = useMemo(() => {
+    const groups = groupChatsByProject(projects, chats)
+    return filterProjectGroups(groups, searchQuery)
+  }, [projects, chats, searchQuery])
+
+  const ensureWorkspaceExpanded = useCallback((workspaceId: string) => {
+    setExpandedWorkspaceIds((current) => {
+      if (current.has(workspaceId)) {
+        return current
+      }
+
+      const next = new Set(current)
+      next.add(workspaceId)
+      return next
+    })
+  }, [])
+
+  const toggleWorkspaceExpanded = useCallback((workspaceId: string) => {
+    setExpandedWorkspaceIds((current) => {
+      const next = new Set(current)
+      if (next.has(workspaceId)) {
+        next.delete(workspaceId)
+      } else {
+        next.add(workspaceId)
+      }
+
+      return next
+    })
+  }, [])
 
   const ensureParentExpanded = useCallback((parentChatId: string) => {
     setExpandedParentChatIds((current) => {
@@ -96,6 +120,7 @@ export function WorkspaceNavigator(): React.JSX.Element {
       } else {
         next.add(parentChatId)
       }
+
       return next
     })
   }, [])
@@ -105,19 +130,33 @@ export function WorkspaceNavigator(): React.JSX.Element {
       return
     }
 
-    const matchingGroup = workspaceGroups.find((group) => groupContainsChat(group, activeChat.id))
+    const matchingGroup = findProjectGroupForChat(projectGroups, activeChat)
     if (matchingGroup) {
       ensureProjectExpanded(matchingGroup.id)
+    }
+
+    if (activeChat.workspaceId) {
+      ensureWorkspaceExpanded(activeChat.workspaceId)
     }
 
     if (activeChat.parentChatId) {
       ensureParentExpanded(activeChat.parentChatId)
     }
-  }, [activeChat, ensureParentExpanded, ensureProjectExpanded, workspaceGroups])
+  }, [
+    activeChat,
+    ensureParentExpanded,
+    ensureProjectExpanded,
+    ensureWorkspaceExpanded,
+    projectGroups
+  ])
 
   useEffect(() => {
-    for (const group of workspaceGroups) {
-      for (const node of group.chatNodes) {
+    for (const group of projectGroups) {
+      const nodes = group.isFlat
+        ? group.chatNodes
+        : group.workspaceGroups.flatMap((workspaceGroup) => workspaceGroup.chatNodes)
+
+      for (const node of nodes) {
         if (node.children.length === 0) {
           continue
         }
@@ -129,41 +168,44 @@ export function WorkspaceNavigator(): React.JSX.Element {
         priorChildCountsRef.current.set(node.chat.id, node.children.length)
       }
     }
-  }, [ensureParentExpanded, workspaceGroups])
+  }, [ensureParentExpanded, projectGroups])
 
   useEffect(() => {
-    if (workspaceGroups.length === 0) {
+    if (projectGroups.length === 0) {
       return
     }
 
-    const hasExpandedProject = workspaceGroups.some((group) => isProjectExpanded(group.id))
+    const hasExpandedProject = projectGroups.some((group) => isProjectExpanded(group.id))
     if (!hasExpandedProject) {
-      ensureProjectExpanded(workspaceGroups[0].id)
+      ensureProjectExpanded(projectGroups[0]!.id)
     }
-  }, [ensureProjectExpanded, isProjectExpanded, workspaceGroups])
+  }, [ensureProjectExpanded, isProjectExpanded, projectGroups])
 
-  const defaultWorkspaceGroup = useMemo(() => {
-    if (activeChat?.workspacePath) {
-      const activeGroup = workspaceGroups.find(
-        (group) => !group.isOrphan && group.path === activeChat.workspacePath
-      )
-      if (activeGroup) {
+  const defaultProjectGroup = useMemo(() => {
+    if (activeChat) {
+      const activeGroup = findProjectGroupForChat(projectGroups, activeChat)
+      if (activeGroup && !activeGroup.isOrphan) {
         return activeGroup
       }
     }
 
-    return workspaceGroups.find((group) => !group.isOrphan) ?? null
-  }, [activeChat?.workspacePath, workspaceGroups])
+    return projectGroups.find((group) => !group.isOrphan) ?? null
+  }, [activeChat, projectGroups])
 
   const createChatInGroup = useCallback(
-    async (group: WorkspaceChatGroup) => {
+    async (group: ProjectChatGroup, workspaceSubGroupId?: string) => {
       if (group.isOrphan || isCreating) {
+        return
+      }
+
+      const workspaceId = resolveWorkspaceIdForNewChat(group, workspaceSubGroupId)
+      if (!workspaceId) {
         return
       }
 
       setIsCreating(true)
       try {
-        await createChat({ workspacePath: group.path })
+        await createChat({ workspaceId, projectId: group.id })
       } finally {
         setIsCreating(false)
       }
@@ -172,23 +214,29 @@ export function WorkspaceNavigator(): React.JSX.Element {
   )
 
   const createDefaultChat = useCallback(() => {
-    if (!defaultWorkspaceGroup) {
+    if (!defaultProjectGroup) {
       return
     }
 
-    void createChatInGroup(defaultWorkspaceGroup)
-  }, [createChatInGroup, defaultWorkspaceGroup])
+    void createChatInGroup(defaultProjectGroup)
+  }, [createChatInGroup, defaultProjectGroup])
 
-  useKeyboardShortcut('n', createDefaultChat, { enabled: Boolean(defaultWorkspaceGroup) && !isCreating })
+  useKeyboardShortcut('n', createDefaultChat, {
+    enabled: Boolean(defaultProjectGroup) && !isCreating
+  })
 
   const isInitialChatLoad = isPendingChats || (isFetchingChats && chats.length === 0)
+  const isInitialProjectLoad = isPendingProjects && projects.length === 0
 
   async function handleAddProject(): Promise<void> {
     setIsAddingProject(true)
     try {
       const path = await pickDirectory()
       if (path) {
-        addWorkspace(path)
+        const project = await addProject(path)
+        if (project) {
+          ensureProjectExpanded(project.id)
+        }
       }
     } finally {
       setIsAddingProject(false)
@@ -196,7 +244,7 @@ export function WorkspaceNavigator(): React.JSX.Element {
   }
 
   function handleRegisterOrphanPath(path: string): void {
-    addWorkspace(path)
+    void addProject(path)
   }
 
   function renderChatRow(chat: ChatThread, isChild = false): React.JSX.Element {
@@ -272,6 +320,133 @@ export function WorkspaceNavigator(): React.JSX.Element {
     )
   }
 
+  function renderNewChatButton(
+    group: ProjectChatGroup,
+    workspaceSubGroupId?: string
+  ): React.JSX.Element {
+    return (
+      <button
+        type="button"
+        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-muted-foreground hover:bg-accent"
+        disabled={isCreating}
+        onClick={() => void createChatInGroup(group, workspaceSubGroupId)}
+      >
+        <MessageSquarePlus className="size-3.5 shrink-0" />
+        <span>New chat</span>
+      </button>
+    )
+  }
+
+  function renderWorkspaceSubGroup(
+    group: ProjectChatGroup,
+    workspaceGroup: WorkspaceChatSubGroup
+  ): React.JSX.Element {
+    const expanded = expandedWorkspaceIds.has(workspaceGroup.id)
+
+    return (
+      <div key={workspaceGroup.id} className="min-w-0">
+        <div className="flex items-center gap-0.5">
+          <button
+            type="button"
+            className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-2 py-1.5 text-left hover:bg-accent"
+            onClick={() => toggleWorkspaceExpanded(workspaceGroup.id)}
+          >
+            {expanded ? (
+              <ChevronDown className="size-3 shrink-0 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="size-3 shrink-0 text-muted-foreground" />
+            )}
+            <Folder className="size-3 shrink-0 fill-muted-foreground/20 text-muted-foreground" />
+            <span
+              className="min-w-0 flex-1 truncate text-xs text-muted-foreground"
+              title={workspaceGroup.path}
+            >
+              {workspaceGroup.name}
+            </span>
+          </button>
+        </div>
+
+        {expanded ? (
+          <div className="ml-5 space-y-0.5 border-l pl-1">
+            {renderNewChatButton(group, workspaceGroup.id)}
+            {workspaceGroup.chatNodes.length === 0 ? (
+              <p className="px-2 py-1 text-xs text-muted-foreground">No chats yet</p>
+            ) : (
+              workspaceGroup.chatNodes.map((node) => renderChatNode(node))
+            )}
+          </div>
+        ) : null}
+      </div>
+    )
+  }
+
+  function renderProjectGroup(group: ProjectChatGroup): React.JSX.Element {
+    const expanded = isProjectExpanded(group.id)
+    const firstChat = group.isFlat
+      ? group.chatNodes[0]?.chat
+      : group.workspaceGroups.flatMap((workspaceGroup) => workspaceGroup.chatNodes)[0]?.chat
+
+    return (
+      <div key={group.id} className="min-w-0">
+        <div className="sticky top-0 z-10 flex items-center gap-0.5 bg-background">
+          <button
+            type="button"
+            className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-2 py-1.5 text-left hover:bg-accent"
+            onClick={() => toggleProjectExpanded(group.id)}
+          >
+            {expanded ? (
+              <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
+            )}
+            <Folder className="size-3.5 shrink-0 fill-muted-foreground/30 text-muted-foreground" />
+            <span
+              className="min-w-0 flex-1 truncate text-xs font-medium text-muted-foreground"
+              title={group.name}
+            >
+              {group.name}
+            </span>
+          </button>
+
+          {group.isOrphan && group.chatNodes.length > 0 ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 shrink-0 px-2 text-xs"
+              onClick={() => {
+                const path = firstChat?.workspacePath
+                if (path) {
+                  handleRegisterOrphanPath(path)
+                }
+              }}
+            >
+              Add as project
+            </Button>
+          ) : null}
+        </div>
+
+        {expanded ? (
+          <div className="ml-5 space-y-0.5 border-l pl-1">
+            {group.isFlat ? (
+              <>
+                {!group.isOrphan ? renderNewChatButton(group) : null}
+                {group.chatNodes.length === 0 ? (
+                  <p className="px-2 py-1 text-xs text-muted-foreground">No chats yet</p>
+                ) : (
+                  group.chatNodes.map((node) => renderChatNode(node))
+                )}
+              </>
+            ) : (
+              group.workspaceGroups.map((workspaceGroup) =>
+                renderWorkspaceSubGroup(group, workspaceGroup)
+              )
+            )}
+          </div>
+        ) : null}
+      </div>
+    )
+  }
+
   return (
     <TooltipProvider delayDuration={300}>
       <>
@@ -335,14 +510,14 @@ export function WorkspaceNavigator(): React.JSX.Element {
             </div>
           </div>
 
-          {workspaces.length > 0 ? (
+          {projects.length > 0 ? (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="secondary"
                   size="sm"
                   className="mx-2 mb-2 w-[calc(100%-1rem)]"
-                  disabled={!defaultWorkspaceGroup || isCreating}
+                  disabled={!defaultProjectGroup || isCreating}
                   onClick={createDefaultChat}
                 >
                   <MessageSquarePlus className="size-4" />
@@ -355,8 +530,17 @@ export function WorkspaceNavigator(): React.JSX.Element {
 
           <Separator />
 
-          {isInitialChatLoad ? (
-            <p className="px-3 py-4 text-sm text-muted-foreground">Loading chats…</p>
+          {isInitialProjectLoad || isInitialChatLoad ? (
+            <p className="px-3 py-4 text-sm text-muted-foreground">Loading…</p>
+          ) : projectsError ? (
+            <div className="space-y-2 px-3 py-4">
+              <p className="text-sm text-destructive">
+                {projectsError.message || 'Failed to load projects.'}
+              </p>
+              <Button variant="secondary" size="sm" onClick={() => void refetchProjects()}>
+                Retry
+              </Button>
+            </div>
           ) : chatsError ? (
             <div className="space-y-2 px-3 py-4">
               <p className="text-sm text-destructive">
@@ -366,7 +550,7 @@ export function WorkspaceNavigator(): React.JSX.Element {
                 Retry
               </Button>
             </div>
-          ) : workspaces.length === 0 ? (
+          ) : projects.length === 0 ? (
             <div className="space-y-3 px-3 py-4">
               <p className="text-sm text-muted-foreground">
                 Add a project folder to start chatting with agents in that workspace.
@@ -385,77 +569,12 @@ export function WorkspaceNavigator(): React.JSX.Element {
           ) : (
             <ScrollArea className="min-h-0 min-w-0 flex-1">
               <div className="min-w-0 space-y-0.5 p-1">
-                {workspaceGroups.map((group) => {
-                  const expanded = isProjectExpanded(group.id)
-                  const firstChat = group.chatNodes[0]?.chat
-
-                  return (
-                    <div key={group.id} className="min-w-0">
-                      <div className="sticky top-0 z-10 flex items-center gap-0.5 bg-background">
-                        <button
-                          type="button"
-                          className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-2 py-1.5 text-left hover:bg-accent"
-                          onClick={() => toggleProjectExpanded(group.id)}
-                        >
-                          {expanded ? (
-                            <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
-                          ) : (
-                            <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
-                          )}
-                          <Folder className="size-3.5 shrink-0 fill-muted-foreground/30 text-muted-foreground" />
-                          <span
-                            className="min-w-0 flex-1 truncate text-xs font-medium text-muted-foreground"
-                            title={group.name}
-                          >
-                            {group.name}
-                          </span>
-                        </button>
-
-                        {group.isOrphan && group.chatNodes.length > 0 ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 shrink-0 px-2 text-xs"
-                            onClick={() => {
-                              const path = firstChat?.workspacePath
-                              if (path) {
-                                handleRegisterOrphanPath(path)
-                              }
-                            }}
-                          >
-                            Add as project
-                          </Button>
-                        ) : null}
-                      </div>
-
-                      {expanded ? (
-                        <div className="ml-5 space-y-0.5 border-l pl-1">
-                          {!group.isOrphan ? (
-                            <button
-                              type="button"
-                              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-muted-foreground hover:bg-accent"
-                              disabled={isCreating}
-                              onClick={() => void createChatInGroup(group)}
-                            >
-                              <MessageSquarePlus className="size-3.5 shrink-0" />
-                              <span>New chat</span>
-                            </button>
-                          ) : null}
-                          {group.chatNodes.length === 0 ? (
-                            <p className="px-2 py-1 text-xs text-muted-foreground">No chats yet</p>
-                          ) : (
-                            group.chatNodes.map((node) => renderChatNode(node))
-                          )}
-                        </div>
-                      ) : null}
-                    </div>
-                  )
-                })}
+                {projectGroups.map((group) => renderProjectGroup(group))}
               </div>
             </ScrollArea>
           )}
 
-          {workspaces.length > 0 ? (
+          {projects.length > 0 ? (
             <>
               <Separator />
               <div className="p-2">

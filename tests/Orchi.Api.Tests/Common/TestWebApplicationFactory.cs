@@ -176,6 +176,9 @@ internal static class TestDatabaseCleaner
             chat.UpdatedAt = now;
         }
 
+        db.Workspaces.RemoveRange(await db.Workspaces.ToListAsync(cancellationToken));
+        db.Projects.RemoveRange(await db.Projects.ToListAsync(cancellationToken));
+
         await db.SaveChangesAsync(cancellationToken);
     }
 }

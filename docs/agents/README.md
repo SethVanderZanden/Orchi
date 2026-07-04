@@ -69,7 +69,7 @@ Sessions and messages persist to **SQLite** via EF Core (`orchi.db`). User messa
 | Concept | Answers | Example |
 |---------|---------|---------|
 | **Agent adapter** | Which CLI provider? | `cursor` |
-| **Agent mode** | How is the prompt shaped? | `default`, `orchestration`, `review` |
+| **Agent mode** | How is the prompt shaped? | `default`, `orchestration`, `review`, `implementation` (kickoff-only) |
 
 Agent modes use a strategy + [prompt pipeline](../patterns/prompt-pipeline.md#dummy-section-start-here) under `Infrastructure/Agents/Modes/`:
 
@@ -97,13 +97,21 @@ A global meta-rule tells the agent not to respond to instruction sections — on
 `orchestration` is an enhanced plan mode. The orchestrator decomposes work into several small plans wrapped in `<!-- orchi-plan:id -->` markers. Each plan can be **kicked off** via `POST /chats/{parentChatId}/plans/kickoff`, which:
 
 1. Writes `.orchi/plan-{id}.md` in the workspace
-2. Creates a child chat in `default` mode
-3. Returns an implementation prompt; the desktop auto-sends it to the child agent
+2. Creates a child chat in `implementation` mode (kickoff-only; not listed in `GET /agents/modes`)
+3. Returns `initialPrompt` (for sidebar preview) and `kickoffMessage` (`"Begin implementation."`); the desktop auto-sends `kickoffMessage` to the child agent
 4. The child agent deletes the plan file after successful implementation and validation (if blocked, the plan file is kept)
 
 ```
 Orchestration chat  →  plans in assistant output  →  kick off  →  .orchi/plan-*.md + child chat
 ```
+
+#### Implementation mode and Cursor cache reads
+
+Plan kickoff child chats use **`implementation`** mode with scoped rules: read the plan file first, stay within the plan's Affected files list, and avoid broad repo exploration. The `<task>` section (plan path + delete-after-validation instructions) is included on the **first user turn only**; follow-up messages rely on Cursor `--resume` session continuity.
+
+**Cache Read** in Cursor usage dashboards is **Cursor/Anthropic prompt-cache billing**, not Orchi HybridCache (see [Caching](#caching) below). During one kicked-off plan, Orchi typically sends one user message; Cursor then runs many internal LLM rounds (file reads, edits, validation). Each round re-reads the accumulated cached prefix, so Cache Read can dominate the usage breakdown even when Input looks small.
+
+Scoped implementation rules and deduplicated kickoff prompts reduce context growth, but multi-file plans still incur Cache Read proportional to agent rounds × context size. Orchestration plans should list every file the implementation agent needs to read under Affected files.
 
 ### Review mode
 

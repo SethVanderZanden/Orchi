@@ -60,6 +60,8 @@ function mapSummary(summary: ChatSummaryResponse) {
     preview: summary.preview,
     updatedAt: summary.updatedAt,
     agentId: summary.agentId,
+    projectId: summary.projectId,
+    workspaceId: summary.workspaceId,
     workspacePath: summary.workspacePath,
     mode: summary.mode ?? 'default',
     parentChatId: summary.parentChatId,
@@ -75,6 +77,8 @@ function mapDetail(detail: ChatDetailResponse) {
     preview: detail.messages.at(-1)?.content ?? 'Start a conversation with Orchi',
     updatedAt: detail.messages.at(-1)?.createdAt ?? new Date().toISOString(),
     agentId: detail.agentId,
+    projectId: detail.projectId,
+    workspaceId: detail.workspaceId,
     workspacePath: detail.workspacePath,
     mode: detail.mode ?? 'default',
     parentChatId: detail.parentChatId,
@@ -108,7 +112,7 @@ export async function createChat(request: CreateChatRequest) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       agent: request.agent,
-      workspacePath: request.workspacePath,
+      workspaceId: request.workspaceId,
       mode: request.mode ?? 'default'
     })
   })
@@ -124,6 +128,8 @@ export async function createChat(request: CreateChatRequest) {
     preview: 'Start a conversation with Orchi',
     updatedAt: new Date().toISOString(),
     agentId: created.agentId,
+    projectId: created.projectId,
+    workspaceId: created.workspaceId,
     workspacePath: created.workspacePath,
     mode: created.mode ?? 'default',
     parentChatId: created.parentChatId,
