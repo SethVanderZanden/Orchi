@@ -2,7 +2,7 @@ import type { ChatThread } from '@/lib/chat/types'
 import { parsePlansFromMessages } from '@/lib/orchestration/parse-plans'
 import { parseReviewPlansFromMessages } from '@/lib/orchestration/parse-review-plans'
 import type { ParsedReviewPlan } from '@/lib/orchestration/parse-review-plans'
-import { findReviewChildForPlan } from '@/lib/workspaces/chat-tree'
+import { findReviewChildForPlan } from '@/lib/projects/chat-tree'
 
 export function buildReviewPlansByPlanId(
   chat: ChatThread,

@@ -25,6 +25,8 @@ public class OrchestrationAgentModeStrategyTests
         Assert.Contains("Do not implement code yourself", document.Rules);
         Assert.Contains("no plan can be formed", document.Rules);
         Assert.Contains("<!-- orchi-plan:kebab-case-id -->", document.Context);
+        Assert.Contains("<!-- orchi-plan-sequence -->", document.Context);
+        Assert.Contains("orchi-plan-sequence", document.Rules);
         Assert.Null(document.Message);
     }
 

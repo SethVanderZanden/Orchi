@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react'
 
-import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut'
+import { useKeyboardShortcutCombo } from '@/hooks/use-keyboard-shortcut'
 import type { ParsedPlan } from '@/lib/orchestration/parse-plans'
 import type { ParsedReviewPlan } from '@/lib/orchestration/parse-review-plans'
 
@@ -201,7 +201,10 @@ export function usePlanReview({
     })
   }, [plans, showPlanReview])
 
-  useKeyboardShortcut('r', toggleReviewPanel, { enabled: showPlanReview })
+  useKeyboardShortcutCombo({ key: 'r', ctrl: true }, toggleReviewPanel, {
+    enabled: showPlanReview,
+    allowInTextarea: true
+  })
 
   const activeReviewTabId =
     reviewState.activeTabId ??

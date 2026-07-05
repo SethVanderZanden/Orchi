@@ -4,17 +4,19 @@ import { X } from 'lucide-react'
 import { MarkdownContent } from '@/components/markdown-content'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import {
+  REVIEW_PANEL_DEFAULT_WIDTH,
+  clampReviewPanelWidth,
+  getReviewPanelWidthBounds
+} from '@/lib/layout/review-panel-width'
 import { cn } from '@/lib/utils'
 import type { ParsedPlan } from '@/lib/orchestration/parse-plans'
 import type { ParsedReviewPlan } from '@/lib/orchestration/parse-review-plans'
 import type { ChatThread } from '@/lib/chat/types'
-import { findChildForPlan } from '@/lib/workspaces/chat-tree'
-
-const DEFAULT_WIDTH = 420
-const MIN_WIDTH = 300
-const MAX_WIDTH = 720
+import { findChildForPlan } from '@/lib/projects/chat-tree'
 
 type PlanReviewPanelProps = {
+  containerWidth: number
   plans: ParsedPlan[]
   openTabIds: string[]
   activeTabId: string
@@ -29,6 +31,7 @@ type PlanReviewPanelProps = {
 }
 
 export function PlanReviewPanel({
+  containerWidth,
   plans,
   openTabIds,
   activeTabId,
@@ -41,10 +44,15 @@ export function PlanReviewPanel({
   onClose,
   onKickOff
 }: PlanReviewPanelProps): React.JSX.Element {
-  const [width, setWidth] = useState(DEFAULT_WIDTH)
+  const [width, setWidth] = useState(REVIEW_PANEL_DEFAULT_WIDTH)
   const isDragging = useRef(false)
   const dragStartX = useRef(0)
-  const dragStartWidth = useRef(DEFAULT_WIDTH)
+  const dragStartWidth = useRef(REVIEW_PANEL_DEFAULT_WIDTH)
+  const containerWidthRef = useRef(containerWidth)
+
+  containerWidthRef.current = containerWidth
+
+  const { min: minWidth, max: maxWidth } = getReviewPanelWidthBounds(containerWidth)
 
   const openPlans = openTabIds
     .map((planId) => plans.find((plan) => plan.planId === planId))
@@ -60,13 +68,22 @@ export function PlanReviewPanel({
     ? isPlanKickingOff(parentChatId, activePlan.planId)
     : false
 
+  useEffect(() => {
+    setWidth((current) => clampReviewPanelWidth(current, containerWidth))
+  }, [containerWidth])
+
   const handleMouseMove = useCallback((event: MouseEvent) => {
     if (!isDragging.current) {
       return
     }
 
     const delta = dragStartX.current - event.clientX
-    setWidth(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, dragStartWidth.current + delta)))
+    setWidth(
+      clampReviewPanelWidth(
+        dragStartWidth.current + delta,
+        containerWidthRef.current
+      )
+    )
   }, [])
 
   const handleMouseUp = useCallback(() => {
@@ -88,6 +105,9 @@ export function PlanReviewPanel({
         role="separator"
         aria-orientation="vertical"
         aria-label="Resize plan panel"
+        aria-valuemin={minWidth}
+        aria-valuemax={maxWidth}
+        aria-valuenow={width}
         className="group flex w-1.5 shrink-0 cursor-col-resize items-stretch hover:bg-border/80"
         onMouseDown={(event) => {
           isDragging.current = true

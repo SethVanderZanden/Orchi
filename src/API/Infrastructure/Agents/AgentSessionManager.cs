@@ -6,6 +6,7 @@ using Orchi.Api.Entities;
 using Orchi.Api.Infrastructure.Agents.Persistence;
 using Orchi.Api.Infrastructure.Agents.Modes;
 using Orchi.Api.Infrastructure.Agents.Models;
+using Orchi.Api.Infrastructure.Agents.Orchestration;
 using Orchi.Api.Infrastructure.Projects;
 
 namespace Orchi.Api.Infrastructure.Agents;
@@ -20,6 +21,7 @@ public sealed class AgentSessionManager
     private readonly IAgentModelCatalogService _modelCatalogService;
     private readonly IAgentModeModelDefaultService _modeDefaultService;
     private readonly IAgentPromptComposer _promptComposer;
+    private readonly IAgentTurnCompletionNotifier _turnCompletionNotifier;
     private readonly ILogger<AgentSessionManager> _logger;
 
     public AgentSessionManager(
@@ -30,6 +32,7 @@ public sealed class AgentSessionManager
         IAgentModelCatalogService modelCatalogService,
         IAgentModeModelDefaultService modeDefaultService,
         IAgentPromptComposer promptComposer,
+        IAgentTurnCompletionNotifier turnCompletionNotifier,
         ILogger<AgentSessionManager> logger)
     {
         _chatStore = chatStore;
@@ -39,6 +42,7 @@ public sealed class AgentSessionManager
         _modelCatalogService = modelCatalogService;
         _modeDefaultService = modeDefaultService;
         _promptComposer = promptComposer;
+        _turnCompletionNotifier = turnCompletionNotifier;
         _logger = logger;
     }
 
@@ -316,6 +320,14 @@ public sealed class AgentSessionManager
         return message;
     }
 
+    public async Task SaveAssistantStatusMessageAsync(
+        Guid chatId,
+        ChatMessage message,
+        CancellationToken cancellationToken)
+    {
+        await _chatStore.SaveStatusMessageAsync(chatId, message, cancellationToken);
+    }
+
     public async IAsyncEnumerable<AgentEvent> SendMessageAsync(
         Guid chatId,
         string content,
@@ -416,6 +428,7 @@ public sealed class AgentSessionManager
                         cancellationToken);
 
                     turnCompleted = true;
+                    _turnCompletionNotifier.NotifyTurnCompleted(chatId, succeeded: true);
                     yield return completed;
                     break;
 
@@ -432,6 +445,7 @@ public sealed class AgentSessionManager
 
                     await _chatStore.SaveAssistantMessageAsync(chatId, assistantMessage, null, cancellationToken);
                     turnCompleted = true;
+                    _turnCompletionNotifier.NotifyTurnCompleted(chatId, succeeded: false);
                     yield return error;
                     break;
 

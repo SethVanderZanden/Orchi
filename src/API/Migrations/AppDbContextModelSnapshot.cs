@@ -181,6 +181,35 @@ namespace Orchi.Api.Migrations
                     b.ToTable("ChatMessages");
                 });
 
+            modelBuilder.Entity("Orchi.Api.Entities.OrchestrationWorkflow", b =>
+                {
+                    b.Property<Guid>("ParentChatId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("NextSequenceIndex")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("SequencePlanIdsJson")
+                        .IsRequired()
+                        .HasMaxLength(4096)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("ParentChatId");
+
+                    b.ToTable("OrchestrationWorkflows");
+                });
+
             modelBuilder.Entity("Orchi.Api.Entities.PipelineRun", b =>
                 {
                     b.Property<int>("Id")
@@ -321,6 +350,17 @@ namespace Orchi.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("Chat");
+                });
+
+            modelBuilder.Entity("Orchi.Api.Entities.OrchestrationWorkflow", b =>
+                {
+                    b.HasOne("Orchi.Api.Entities.Chat", "ParentChat")
+                        .WithMany()
+                        .HasForeignKey("ParentChatId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ParentChat");
                 });
 
             modelBuilder.Entity("Orchi.Api.Entities.Plan", b =>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { parsePlans, parsePlansFromMessages } from './parse-plans'
+import { parseOrchestrationPlansFromMessages, parsePlans, parsePlansFromMessages } from './parse-plans'
 
 describe('parsePlans', () => {
   it('extracts plan blocks with ids and titles', () => {
@@ -55,5 +55,32 @@ Polish the UI.
 
     expect(plans).toHaveLength(1)
     expect(plans[0]?.title).toBe('Auth Refactor v2')
+  })
+})
+
+describe('parseOrchestrationPlansFromMessages', () => {
+  it('returns plans and sequence metadata from assistant messages', () => {
+    const messages = [
+      {
+        role: 'assistant',
+        content: `<!-- orchi-plan:auth-refactor -->
+# Auth Refactor
+<!-- /orchi-plan -->
+
+<!-- orchi-plan:ui-polish -->
+# UI Polish
+<!-- /orchi-plan -->
+
+<!-- orchi-plan-sequence -->
+auth-refactor
+ui-polish
+<!-- /orchi-plan-sequence -->`
+      }
+    ]
+
+    const result = parseOrchestrationPlansFromMessages(messages)
+
+    expect(result.plans).toHaveLength(2)
+    expect(result.sequencePlanIds).toEqual(['auth-refactor', 'ui-polish'])
   })
 })

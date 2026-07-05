@@ -23,8 +23,8 @@ It separates **"get data from the server"** from **"when should I ask again?"**
 |------|------------|
 | Shared cache instance | `queryClient` in `lib/query-client.ts` |
 | Provide cache to React tree | `QueryClientProvider` in `routes/__root.tsx` |
-| "Remember this request" key | `queryKeys` in `lib/query-keys.ts` (`weatherKeys`, `chatKeys`) |
-| Fetch function | `fetchWeatherForecast()` in `lib/api.ts`, chat fns in `lib/chat/api.ts` |
+| "Remember this request" key | `queryKeys` in `lib/query-keys.ts` (`chatKeys`, `projectKeys`, `agentKeys`) |
+| Fetch function | `listAgentModes()` in `lib/chat/api.ts`, chat fns in same module |
 | Use in a component | `useQuery({ queryKey, queryFn })` |
 
 Chat uses **TanStack Query** for list/detail (`chatKeys`) plus **React context** (`ChatProvider`) for streaming state, markers, and send-message orchestration. See [chat-streaming.md](chat-streaming.md).
@@ -39,7 +39,7 @@ TanStack Query (formerly React Query) manages **server state** in React: fetchin
 
 ## What is it?
 
-**Server state** = data that lives on a server (or API) and can change without you knowing. Examples: weather forecast, chat history from API, agent status.
+**Server state** = data that lives on a server (or API) and can change without you knowing. Examples: chat list, agent modes, project list.
 
 TanStack Query provides:
 
@@ -74,8 +74,9 @@ With Query:
 
 ```tsx
 const { data, isLoading, isError, error } = useQuery({
-  queryKey: weatherKeys.forecast(),
-  queryFn: fetchWeatherForecast
+  queryKey: agentKeys.modes(),
+  queryFn: listAgentModes,
+  staleTime: Infinity
 })
 ```
 
@@ -115,59 +116,103 @@ Every route and component under `__root` can call `useQuery` / `useMutation`.
 Keys uniquely identify cached data:
 
 ```tsx
-// lib/query-keys.ts
-export const weatherKeys = {
-  all: ['weather'] as const,
-  forecast: () => [...weatherKeys.all, 'forecast'] as const
-}
-
+// lib/query-keys.ts — see docs/frontend/api-conventions.md
 export const chatKeys = {
   all: ['chats'] as const,
   lists: () => [...chatKeys.all, 'list'] as const,
   detail: (chatId: string) => [...chatKeys.all, 'detail', chatId] as const
+}
+
+export const agentKeys = {
+  all: ['agents'] as const,
+  modes: () => [...agentKeys.all, 'modes'] as const,
+  modelsForAgent: (agentId: string) => [...agentKeys.all, 'models', agentId] as const,
+  models: (agentId: string, includeDisabled = false) =>
+    [...agentKeys.all, 'models', agentId, { includeDisabled }] as const,
+  modeModelDefaults: (agentId: string) =>
+    [...agentKeys.all, 'mode-model-defaults', agentId] as const
 }
 ```
 
 Think of keys like a **file path for cache entries**:
 
 ```
-cache['weather']['forecast']  →  WeatherForecast[]
-cache['chats']['list']        →  ChatThread[] (sidebar)
-cache['chats']['detail'][id]  →  ChatThread (messages)
+cache['chats']['list']           →  ChatThread[] (sidebar)
+cache['chats']['detail'][id]     →  ChatThread (messages)
+cache['agents']['modes']         →  AgentModeOption[]
+cache['agents']['models'][id]    →  AgentModelListResponse
 ```
 
-Use factories (`weatherKeys.forecast()`) so invalidation stays consistent:
+Use factories (`chatKeys.detail(id)`) so invalidation stays consistent:
 
 ```tsx
-queryClient.invalidateQueries({ queryKey: weatherKeys.all })  // bust all weather caches
+queryClient.invalidateQueries({ queryKey: chatKeys.all })  // bust all chat caches
 ```
+
+### Rule: keys only in `query-keys.ts`
+
+Never define `queryKey: ['agent-modes']` or similar inline in components. Import `chatKeys`, `projectKeys`, or `agentKeys` from `@/lib/query-keys`.
+
+### `agentKeys` — usage and invalidation
+
+**Read** agent config with the matching factory:
+
+```tsx
+// Mode dropdown — static list
+useQuery({ queryKey: agentKeys.modes(), queryFn: listAgentModes, staleTime: Infinity })
+
+// Settings models card — include disabled models
+useQuery({
+  queryKey: agentKeys.models(agentId, true),
+  queryFn: () => listAgentModels(agentId, true),
+  staleTime: 60 * 60 * 1000
+})
+
+// Mode default models card
+useQuery({
+  queryKey: agentKeys.modeModelDefaults(agentId),
+  queryFn: () => listAgentModeModelDefaults(agentId)
+})
+```
+
+**Invalidate** after settings mutations using the **prefix** key so every variant refreshes (enabled-only and include-disabled):
+
+```tsx
+// agent-models-card.tsx — after sync, add, remove, or toggle
+void queryClient.invalidateQueries({ queryKey: agentKeys.modelsForAgent(agentId) })
+```
+
+Use `agentKeys.all` only when every agent-related cache must reset. Prefer `modelsForAgent(agentId)` or `modeModelDefaults(agentId)` for targeted updates.
+
+See [API conventions](api-conventions.md#query-keys-libquery-keysts) for the full key table.
 
 ### 4. Fetch function
 
 Pure async function — no React, no hooks:
 
 ```tsx
-// lib/api.ts
-export async function fetchWeatherForecast(): Promise<WeatherForecast[]> {
-  const res = await fetch('/WeatherForecast')
-  if (!res.ok) throw new Error(`API error: ${res.status}`)
-  return res.json()
+// lib/chat/api.ts
+export async function listAgentModes(): Promise<AgentModeOption[]> {
+  const response = await fetch(`${getApiBaseUrl()}/agents/modes`)
+  if (!response.ok) throw new Error(await readErrorMessage(response))
+  return (await response.json()) as AgentModeOption[]
 }
 ```
 
-In dev, `/WeatherForecast` is proxied to the .NET API via `electron.vite.config.ts`.
+See [API conventions](api-conventions.md) for base URL, error handling, and mapper patterns.
 
 ### 5. Consume in a component
 
 ```tsx
 const { data, isLoading, isError, error } = useQuery({
-  queryKey: weatherKeys.forecast(),
-  queryFn: fetchWeatherForecast
+  queryKey: agentKeys.modes(),
+  queryFn: listAgentModes,
+  staleTime: Infinity
 })
 
 if (isLoading) return <p>Loading...</p>
 if (isError) return <p>{error.message}</p>
-return <Table data={data} />
+return <ModeDropdown options={data} />
 ```
 
 ## Core concepts
@@ -215,7 +260,7 @@ Orchi uses three layers — they solve different problems:
 | Layer | Tool | Holds… | Example |
 |-------|------|--------|---------|
 | **URL / pages** | TanStack Router | Which screen, route params | `/chat/abc-123` |
-| **Server data** | TanStack Query | API responses, sync | Chat list, chat detail, weather forecast |
+| **Server data** | TanStack Query | API responses, sync | Chat list, chat detail, agent modes |
 | **Client UI state** | `useState` / Context | Local, not in URL or API | Sidebar search text, SSE markers, send state |
 
 **Rule of thumb:**
@@ -232,7 +277,7 @@ Chat list and thread content live in Query (`chatKeys`); streaming markers and i
 | Task | Blazor (typical) | TanStack Query |
 |------|------------------|----------------|
 | Fetch on load | `OnInitializedAsync` + `HttpClient` | `useQuery` |
-| Store result | private field `_forecasts` | Query cache (automatic) |
+| Store result | private field `_chats` | Query cache (automatic) |
 | Loading flag | manual `bool _loading` | `isLoading` |
 | Refresh button | call fetch again manually | `refetch()` or invalidate |
 | Share data across components | inject service / cascading value | same `queryKey` → same cache |
@@ -304,13 +349,13 @@ In development, React Query Devtools mount in `__root.tsx` (bottom-left). Inspec
 |---|--------|-------|
 | **Question** | "Which page?" | "What data?" |
 | **Driven by** | URL path | API + `queryKey` |
-| **Orchi example** | `/chat/$chatId` | `GET /WeatherForecast` |
+| **Orchi example** | `/chat/$chatId` | `GET /chats`, `GET /agents/modes` |
 
 They work together: a route page calls `useQuery` to load its data.
 
 ### How does chat use TanStack Query?
 
-`ChatProvider` loads the sidebar with `useQuery({ queryKey: chatKeys.lists(), queryFn: listChats })`. The list query uses `refetchOnMount: 'always'`, retries with backoff, and keeps previous data visible while refetching (`placeholderData`). After streaming, list refetches merge with the existing cache via `mergeChatLists` so optimistic kickoff rows are not dropped. Opening a chat fetches detail with `chatKeys.detail(chatId)`. Create/close use `useMutation` and update the cache directly. Message **streaming** still runs through SSE handlers in context — see [chat-streaming.md](chat-streaming.md).
+`ChatProvider` composes `useChatList` (sidebar `chatKeys.lists()`), `useChatCache` (detail), and `useChatMutations`. The list query uses `refetchOnMount: 'always'`, retries with backoff, and keeps previous data visible while refetching (`placeholderData`). After streaming, list refetches merge with the existing cache via `mergeChatLists` so optimistic kickoff rows are not dropped. Message **streaming** runs through `useChatStream` (SSE + markers in context) — see [chat-streaming.md](chat-streaming.md).
 
 ### Do I need Query for every piece of state?
 

@@ -1,15 +1,16 @@
 import { useEffect, useMemo } from 'react'
 
-import { DeleteChatDialog } from '@/components/chat/delete-chat-dialog'
 import { ChatPanel } from '@/components/chat/chat-panel'
 import { ChatWorkspaceHeader } from '@/components/layout/chat-workspace-header'
 import { usePlanReview } from '@/hooks/use-plan-review'
-import { parsePlansFromMessages } from '@/lib/orchestration/parse-plans'
+import { parseOrchestrationPlansFromMessages } from '@/lib/orchestration/parse-plans'
 import { parseReviewPlansFromMessages } from '@/lib/orchestration/parse-review-plans'
 import type { ParsedReviewPlan } from '@/lib/orchestration/parse-review-plans'
 import type { ChatThread } from '@/lib/chat/types'
-import { findReviewChildForPlan } from '@/lib/workspaces/chat-tree'
+import { findReviewChildForPlan } from '@/lib/projects/chat-tree'
 import { useDeleteChat } from '@/hooks/use-delete-chat'
+import { useOrchestration } from '@/hooks/use-orchestration'
+import { useOrchestrationParentEvents } from '@/hooks/use-orchestration-parent-events'
 import { useChat } from '@/providers/chat-provider'
 import { useProjects } from '@/providers/project-provider'
 
@@ -27,6 +28,8 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
     loadChat,
     kickOffPlan,
     kickOffAllPlans,
+    getOrchestrationKickoffProgress,
+    setOrchestrationKickoffProgress,
     updateChatMode,
     getModeUpdateError,
     updateChatModel,
@@ -35,13 +38,52 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
     isPlanKickingOff,
     isParentKickingOffAny
   } = useChat()
-  const { requestDelete, isDeleting, dialogProps } = useDeleteChat()
+  const { requestDelete, isDeletingChat } = useDeleteChat()
   const { projects } = useProjects()
   const projectName =
     projects.find((project) => project.id === chat.projectId)?.name ??
     (chat.projectId ? 'Unknown project' : null)
-  const plans = chat.mode === 'orchestration' ? parsePlansFromMessages(chat.messages) : []
-  const childChats = getChildChats(chat.id)
+  const orchestrationParse =
+    chat.mode === 'orchestration'
+      ? parseOrchestrationPlansFromMessages(chat.messages)
+      : { plans: [], sequencePlanIds: [] as string[] }
+  const plans = orchestrationParse.plans
+  const parentChat =
+    chat.parentChatId && chat.mode !== 'orchestration' ? getChat(chat.parentChatId) : undefined
+
+  useEffect(() => {
+    if (!chat.parentChatId || chat.mode === 'orchestration') {
+      return
+    }
+
+    const parent = getChat(chat.parentChatId)
+    if (!parent || parent.mode !== 'orchestration') {
+      void loadChat(chat.parentChatId)
+    }
+  }, [chat.mode, chat.parentChatId, getChat, loadChat])
+
+  const { workflowProgress, sequencePlanIds: backendSequencePlanIds } = useOrchestration({
+    parentChat: chat.mode === 'orchestration' ? chat : undefined,
+    onWorkflowProgress: (progress) => setOrchestrationKickoffProgress(chat.id, progress),
+    onChildrenHydrated: (childIds) => {
+      for (const childId of childIds) {
+        const child = getChat(childId)
+        if (child && child.messages.length === 0) {
+          void loadChat(childId)
+        }
+      }
+    }
+  })
+
+  useOrchestrationParentEvents({
+    childChat: chat.parentChatId ? chat : undefined,
+    parentChat: parentChat?.mode === 'orchestration' ? parentChat : undefined
+  })
+  const sequencePlanIds =
+    backendSequencePlanIds.length > 0 ? backendSequencePlanIds : orchestrationParse.sequencePlanIds
+  const orchestrationKickoffProgress =
+    workflowProgress ?? getOrchestrationKickoffProgress(chat.id)
+  const childChats = getChildChats(chat.id).map((child) => getChat(child.id) ?? child)
   const reviewPlansByPlanId = Object.fromEntries(
     plans.map((plan) => {
       const reviewChildSummary = findReviewChildForPlan(plan.planId, childChats)
@@ -72,10 +114,12 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
     }
   }, [chat.id, chat.mode, childChatIds, getChat, loadChat])
 
-  const canChangeMode = !chat.messages.some(
+  const isAgentRunning = chat.messages.some(
     (message) => message.status === 'processing' || message.status === 'streaming'
   )
-  const canChangeModel = canChangeMode
+  const showModeSelector = chat.messages.length === 0 && chat.parentChatId === null
+  const canChangeMode = showModeSelector && !isAgentRunning
+  const canChangeModel = !isAgentRunning
   const showPlanReview = chat.mode === 'orchestration' && plans.length > 0
 
   const {
@@ -102,16 +146,15 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
         hasReviewReady={hasReviewReady}
         onToggleReviewPanel={toggleReviewPanel}
         onDelete={() => requestDelete(chat)}
-        deleteDisabled={isChatSending(chat.id) || isDeleting}
+        deleteDisabled={isChatSending(chat.id) || isDeletingChat(chat.id)}
       />
-
-      <DeleteChatDialog {...dialogProps} />
 
       <ChatPanel
         messages={chat.messages}
         markers={getMarkers(chat.id)}
         onSend={(content) => sendMessage(chat.id, content)}
         mode={chat.mode}
+        showModeSelector={showModeSelector}
         canChangeMode={canChangeMode}
         modeUpdateError={getModeUpdateError(chat.id)}
         onModeChange={(mode) => void updateChatMode(chat.id, mode)}
@@ -120,6 +163,9 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
         canChangeModel={canChangeModel}
         modelUpdateError={getModelUpdateError(chat.id)}
         onModelChange={(modelId) => void updateChatModel(chat.id, modelId)}
+        projectId={chat.projectId}
+        projectName={projectName}
+        projects={projects}
         plans={plans}
         parentChatId={chat.id}
         isSending={isChatSending(chat.id)}
@@ -129,9 +175,11 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
           chat.mode === 'orchestration' ? (plan) => kickOffPlan(chat.id, plan) : undefined
         }
         onKickOffAllPlans={
-          chat.mode === 'orchestration'
-            ? () => kickOffAllPlans(chat.id, plans)
-            : undefined
+          chat.mode === 'orchestration' ? () => kickOffAllPlans(chat.id) : undefined
+        }
+        sequencePlanIds={chat.mode === 'orchestration' ? sequencePlanIds : undefined}
+        sequentialKickoffProgress={
+          chat.mode === 'orchestration' ? orchestrationKickoffProgress : undefined
         }
         childChats={chat.mode === 'orchestration' ? childChats : undefined}
         reviewPlansByPlanId={chat.mode === 'orchestration' ? reviewPlansByPlanId : undefined}

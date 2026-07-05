@@ -75,6 +75,11 @@ export type ChatMarker = {
   variant: 'status' | 'tool'
 }
 
+export type CreateChatOptions = {
+  workspaceId: string
+  projectId?: string
+}
+
 export type CreateChatRequest = {
   agent: string
   workspaceId: string
@@ -165,4 +170,9 @@ export type SseHandlers = {
   onTool?: (label: string) => void
   onDone?: (messageId: string) => void
   onError?: (code: string, message: string) => void
+}
+
+export type AgentActivityDetail = {
+  phase: 'tool' | 'done'
+  label?: string
 }

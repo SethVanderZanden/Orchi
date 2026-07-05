@@ -14,86 +14,15 @@ import type {
   UpdateChatModelResponse
 } from '@/lib/chat/types'
 import { getApiBaseUrl } from '@/lib/api'
+import {
+  formatChatModeUpdateError,
+  formatChatModelUpdateError,
+  readErrorMessage
+} from '@/lib/http/read-error-message'
+import { readSseStream } from '@/lib/http/sse'
 
-async function readErrorMessage(response: Response): Promise<string> {
-  try {
-    const body = (await response.json()) as {
-      message?: string
-      Message?: string
-      title?: string
-      detail?: string
-      errors?: Record<string, string[]>
-    }
-
-    if (body.errors) {
-      const messages = Object.values(body.errors).flat()
-
-      if (messages.length > 0) {
-        return formatModeUpdateError(messages[0]!, body.title)
-      }
-    }
-
-    if (body.detail) {
-      return formatModeUpdateError(body.detail, body.title)
-    }
-
-    return body.message ?? body.Message ?? `API error: ${response.status}`
-  } catch {
-    return `API error: ${response.status}`
-  }
-}
-
-function formatModeUpdateError(message: string, code?: string): string {
-  if (
-    code === 'Mode.Busy' ||
-    message.includes('agent is running') ||
-    message.startsWith('Mode.Busy')
-  ) {
-    return 'Wait for the agent to finish before changing mode.'
-  }
-
-  return message
-}
-
-function formatModelUpdateError(message: string, code?: string): string {
-  if (
-    code === 'Model.Busy' ||
-    message.includes('agent is running') ||
-    message.startsWith('Model.Busy')
-  ) {
-    return 'Wait for the agent to finish before changing model.'
-  }
-
-  return message
-}
-
-async function readModelUpdateErrorMessage(response: Response): Promise<string> {
-  try {
-    const body = (await response.json()) as {
-      message?: string
-      Message?: string
-      title?: string
-      detail?: string
-      errors?: Record<string, string[]>
-    }
-
-    if (body.errors) {
-      const messages = Object.values(body.errors).flat()
-
-      if (messages.length > 0) {
-        return formatModelUpdateError(messages[0]!, body.title)
-      }
-    }
-
-    if (body.detail) {
-      return formatModelUpdateError(body.detail, body.title)
-    }
-
-    return body.message ?? body.Message ?? `API error: ${response.status}`
-  } catch {
-    return `API error: ${response.status}`
-  }
-}
+const chatErrorOptions = { formatMessage: formatChatModeUpdateError }
+const chatModelErrorOptions = { formatMessage: formatChatModelUpdateError }
 
 function mapSummary(summary: ChatSummaryResponse) {
   return {
@@ -134,7 +63,7 @@ function mapDetail(detail: ChatDetailResponse) {
 export async function listChats() {
   const response = await fetch(`${getApiBaseUrl()}/chats`)
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response))
+    throw new Error(await readErrorMessage(response, chatErrorOptions))
   }
 
   const summaries = (await response.json()) as ChatSummaryResponse[]
@@ -144,7 +73,7 @@ export async function listChats() {
 export async function listAgentModes() {
   const response = await fetch(`${getApiBaseUrl()}/agents/modes`)
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response))
+    throw new Error(await readErrorMessage(response, chatErrorOptions))
   }
 
   return (await response.json()) as AgentModeOption[]
@@ -162,7 +91,7 @@ export async function createChat(request: CreateChatRequest) {
   })
 
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response))
+    throw new Error(await readErrorMessage(response, chatErrorOptions))
   }
 
   const created = (await response.json()) as CreateChatResponse
@@ -186,7 +115,7 @@ export async function createChat(request: CreateChatRequest) {
 export async function getChat(chatId: string) {
   const response = await fetch(`${getApiBaseUrl()}/chats/${chatId}`)
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response))
+    throw new Error(await readErrorMessage(response, chatErrorOptions))
   }
 
   const detail = (await response.json()) as ChatDetailResponse
@@ -201,7 +130,7 @@ export async function updateChatMode(chatId: string, request: UpdateChatModeRequ
   })
 
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response))
+    throw new Error(await readErrorMessage(response, chatErrorOptions))
   }
 
   return (await response.json()) as UpdateChatModeResponse
@@ -215,7 +144,7 @@ export async function updateChatModel(chatId: string, request: UpdateChatModelRe
   })
 
   if (!response.ok) {
-    throw new Error(await readModelUpdateErrorMessage(response))
+    throw new Error(await readErrorMessage(response, chatModelErrorOptions))
   }
 
   return (await response.json()) as UpdateChatModelResponse
@@ -226,8 +155,12 @@ export async function closeChat(chatId: string) {
     method: 'DELETE'
   })
 
+  if (response.status === 404) {
+    return
+  }
+
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response))
+    throw new Error(await readErrorMessage(response, chatErrorOptions))
   }
 }
 
@@ -245,7 +178,7 @@ export async function kickOffPlan(parentChatId: string, request: KickOffPlanRequ
   })
 
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response))
+    throw new Error(await readErrorMessage(response, chatErrorOptions))
   }
 
   return (await response.json()) as KickOffPlanResponse
@@ -260,7 +193,7 @@ export async function kickOffReview(implementationChildChatId: string) {
   )
 
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response))
+    throw new Error(await readErrorMessage(response, chatErrorOptions))
   }
 
   return (await response.json()) as KickOffReviewResponse
@@ -283,57 +216,19 @@ export async function sendMessageStream(
   })
 
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response))
+    throw new Error(await readErrorMessage(response, chatErrorOptions))
   }
 
-  if (!response.body) {
-    throw new Error('Streaming response body was empty.')
-  }
-
-  const reader = response.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
-
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) {
-      break
-    }
-
-    buffer += decoder.decode(value, { stream: true })
-
-    while (true) {
-      const boundary = buffer.indexOf('\n\n')
-      if (boundary === -1) {
-        break
-      }
-
-      const rawEvent = buffer.slice(0, boundary)
-      buffer = buffer.slice(boundary + 2)
-      parseSseEvent(rawEvent, handlers)
-    }
-  }
+  await readSseStream(response, (parsed) => dispatchChatSseEvent(parsed, handlers), signal)
 }
 
-function parseSseEvent(rawEvent: string, handlers: SseHandlers) {
-  let eventName = 'message'
-  const dataLines: string[] = []
+function dispatchChatSseEvent(
+  parsed: { event: string; data: string },
+  handlers: SseHandlers
+): void {
+  const payload = JSON.parse(parsed.data) as Record<string, unknown>
 
-  for (const line of rawEvent.split('\n')) {
-    if (line.startsWith('event:')) {
-      eventName = line.slice('event:'.length).trim()
-    } else if (line.startsWith('data:')) {
-      dataLines.push(line.slice('data:'.length).trim())
-    }
-  }
-
-  if (dataLines.length === 0) {
-    return
-  }
-
-  const payload = JSON.parse(dataLines.join('\n')) as Record<string, unknown>
-
-  switch (eventName) {
+  switch (parsed.event) {
     case 'status':
       handlers.onStatus?.(String(payload.phase ?? 'processing'))
       break

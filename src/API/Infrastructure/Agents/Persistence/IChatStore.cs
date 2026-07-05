@@ -33,6 +33,8 @@ public interface IChatStore
         string? externalSessionId,
         CancellationToken cancellationToken);
 
+    Task SaveStatusMessageAsync(Guid chatId, ChatMessage message, CancellationToken cancellationToken);
+
     Task UpdateExternalSessionIdAsync(
         Guid chatId,
         string externalSessionId,

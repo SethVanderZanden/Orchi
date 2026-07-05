@@ -1,10 +1,3 @@
-export type WeatherForecast = {
-  date: string
-  temperatureC: number
-  temperatureF: number
-  summary: string | null
-}
-
 export function getApiBaseUrl(): string {
   const configured = import.meta.env.VITE_API_BASE_URL
   if (configured) {
@@ -17,16 +10,4 @@ export function getApiBaseUrl(): string {
   }
 
   return 'http://localhost:5265'
-}
-
-export async function fetchWeatherForecast(): Promise<WeatherForecast[]> {
-  const baseUrl = getApiBaseUrl()
-  const url = baseUrl ? `${baseUrl}/WeatherForecast` : '/WeatherForecast'
-  const res = await fetch(url)
-
-  if (!res.ok) {
-    throw new Error(`API error: ${res.status}`)
-  }
-
-  return res.json()
 }

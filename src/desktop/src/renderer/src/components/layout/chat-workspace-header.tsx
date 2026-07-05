@@ -61,7 +61,7 @@ export function ChatWorkspaceHeader({
               <FileText className="size-3.5" />
               Review
               <kbd className="pointer-events-none rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px] text-muted-foreground">
-                R
+                Ctrl+R
               </kbd>
               {hasReviewReady && !reviewPanelOpen ? (
                 <span

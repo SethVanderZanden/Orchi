@@ -61,7 +61,7 @@ type KeyboardShortcutComboOptions = KeyboardShortcutOptions & {
 
 export function useKeyboardShortcutCombo(
   combo: KeyboardCombo,
-  handler: () => void,
+  handler: () => void | boolean,
   {
     enabled = true,
     preventDefault = true,
@@ -108,11 +108,10 @@ export function useKeyboardShortcutCombo(
         return
       }
 
-      if (preventDefault) {
+      const handled = handler()
+      if (preventDefault && handled !== false) {
         event.preventDefault()
       }
-
-      handler()
     }
 
     window.addEventListener('keydown', handleKeyDown)

@@ -118,6 +118,7 @@ public static class KickOffReview
                 ReviewAgentModeStrategy.Mode,
                 parentChatId: parent.Id,
                 planFilePath: reviewFilePath,
+                modelId: parent.ModelId,
                 cancellationToken: cancellationToken);
 
             if (reviewChildResult.IsFailure)

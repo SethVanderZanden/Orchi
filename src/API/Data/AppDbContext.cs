@@ -21,6 +21,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<AgentModeModelDefault> AgentModeModelDefaults => Set<AgentModeModelDefault>();
 
+    public DbSet<OrchestrationWorkflow> OrchestrationWorkflows => Set<OrchestrationWorkflow>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Project>(entity =>
@@ -107,6 +109,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(row => row.AgentId).HasMaxLength(64);
             entity.Property(row => row.Mode).HasMaxLength(32);
             entity.Property(row => row.ModelId).HasMaxLength(256);
+        });
+
+        modelBuilder.Entity<OrchestrationWorkflow>(entity =>
+        {
+            entity.HasKey(workflow => workflow.ParentChatId);
+            entity.Property(workflow => workflow.Status).HasMaxLength(32);
+            entity.Property(workflow => workflow.SequencePlanIdsJson).HasMaxLength(4096);
+            entity.HasOne(workflow => workflow.ParentChat)
+                .WithMany()
+                .HasForeignKey(workflow => workflow.ParentChatId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

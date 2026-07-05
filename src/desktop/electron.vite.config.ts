@@ -10,8 +10,7 @@ export default defineConfig({
   renderer: {
     resolve: {
       alias: {
-        '@': resolve('src/renderer/src'),
-        '@renderer': resolve('src/renderer/src')
+        '@': resolve('src/renderer/src')
       }
     },
     worker: {
@@ -19,11 +18,19 @@ export default defineConfig({
     },
     server: {
       proxy: {
-        '/WeatherForecast': {
+        '/chats': {
           target: 'http://localhost:5265',
           changeOrigin: true
         },
-        '/chats': {
+        '/projects': {
+          target: 'http://localhost:5265',
+          changeOrigin: true
+        },
+        '/agents': {
+          target: 'http://localhost:5265',
+          changeOrigin: true
+        },
+        '/workspaces': {
           target: 'http://localhost:5265',
           changeOrigin: true
         }

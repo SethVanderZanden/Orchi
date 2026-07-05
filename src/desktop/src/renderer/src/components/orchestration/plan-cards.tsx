@@ -7,8 +7,15 @@ import { Card, CardContent } from '@/components/ui/card'
 import type { ChatThread } from '@/lib/chat/types'
 import type { ParsedPlan } from '@/lib/orchestration/parse-plans'
 import type { ParsedReviewPlan } from '@/lib/orchestration/parse-review-plans'
-import { findChildForPlan, findReviewChildForPlan } from '@/lib/workspaces/chat-tree'
+import { findChildForPlan, findReviewChildForPlan } from '@/lib/projects/chat-tree'
+import { getSequenceStepNumber, hasSequentialKickoff } from '@/lib/orchestration/plan-sequence'
 import { cn } from '@/lib/utils'
+
+type SequentialKickoffProgress = {
+  active: boolean
+  currentStep: number
+  totalSteps: number
+}
 
 type PlanCardsProps = {
   plans: ParsedPlan[]
@@ -17,6 +24,8 @@ type PlanCardsProps = {
   reviewPlansByPlanId?: Record<string, ParsedReviewPlan | undefined>
   isParentKickingOffAny: (parentChatId: string) => boolean
   parentChatId: string
+  sequencePlanIds?: string[]
+  sequentialKickoffProgress?: SequentialKickoffProgress | null
   onToggleReview: (plan: ParsedPlan) => void
   onKickOffAll: () => void
 }
@@ -31,6 +40,16 @@ function isChildRunning(childChat: ChatThread | undefined): boolean {
   )
 }
 
+export function getPlanReviewVisibility(
+  reviewChild: ChatThread | undefined,
+  reviewReady: boolean
+): { reviewing: boolean; reviewStarted: boolean } {
+  const reviewing = isChildRunning(reviewChild)
+  const reviewStarted = Boolean(reviewChild) && !reviewReady && !reviewing
+
+  return { reviewing, reviewStarted }
+}
+
 export function PlanCards({
   plans,
   openTabIds,
@@ -38,12 +57,16 @@ export function PlanCards({
   reviewPlansByPlanId = {},
   isParentKickingOffAny,
   parentChatId,
+  sequencePlanIds = [],
+  sequentialKickoffProgress = null,
   onToggleReview,
   onKickOffAll
 }: PlanCardsProps): React.JSX.Element | null {
   const navigate = useNavigate()
   const kickingOffAny = isParentKickingOffAny(parentChatId)
   const kickOffAllCount = plans.filter((plan) => !findChildForPlan(plan.planId, childChats)).length
+  const isSequentialKickoff = hasSequentialKickoff(sequencePlanIds, plans)
+  const sequentialRunActive = sequentialKickoffProgress?.active ?? false
 
   if (plans.length === 0) {
     return null
@@ -59,22 +82,40 @@ export function PlanCards({
         const reviewPlan = reviewPlansByPlanId[plan.planId]
         const reviewReady = Boolean(reviewPlan)
         const implementing = isChildRunning(childChat)
+        const { reviewing, reviewStarted } = getPlanReviewVisibility(reviewChild, reviewReady)
+        const sequenceStep = getSequenceStepNumber(plan.planId, sequencePlanIds)
 
         return (
           <Card
             key={plan.planId}
             className={cn(
               isTabOpen && 'border-primary/50 bg-primary/5',
-              reviewReady && 'border-primary bg-primary/10'
+              reviewReady && 'border-primary bg-primary/10',
+              reviewStarted && 'border-primary/40 bg-primary/5'
             )}
           >
             <CardContent className="flex items-center justify-between gap-3 p-4">
               <div className="min-w-0 space-y-1">
                 <div className="flex items-center gap-2">
+                  {sequenceStep ? (
+                    <Badge variant="outline" className="shrink-0 px-1.5 text-[10px] tabular-nums">
+                      {sequenceStep}
+                    </Badge>
+                  ) : null}
                   <p className="truncate text-sm font-semibold">{plan.title}</p>
                   {implementing ? (
                     <Badge variant="secondary" className="shrink-0 text-[10px]">
                       Implementing…
+                    </Badge>
+                  ) : null}
+                  {reviewing ? (
+                    <Badge variant="secondary" className="shrink-0 text-[10px]">
+                      Reviewing…
+                    </Badge>
+                  ) : null}
+                  {reviewStarted ? (
+                    <Badge variant="outline" className="shrink-0 text-[10px]">
+                      Review started
                     </Badge>
                   ) : null}
                   {reviewReady ? (
@@ -132,12 +173,16 @@ export function PlanCards({
 
       <Button
         className="w-full"
-        disabled={kickingOffAny || kickOffAllCount === 0}
+        disabled={kickingOffAny || kickOffAllCount === 0 || sequentialRunActive}
         onClick={onKickOffAll}
       >
-        {kickingOffAny
-          ? 'Kicking off plans…'
-          : `Kick off all (${kickOffAllCount})`}
+        {sequentialRunActive && sequentialKickoffProgress
+          ? `Running plan ${sequentialKickoffProgress.currentStep} of ${sequentialKickoffProgress.totalSteps}…`
+          : kickingOffAny
+            ? 'Kicking off plans…'
+            : isSequentialKickoff
+              ? `Kick off in order (${kickOffAllCount})`
+              : `Kick off all (${kickOffAllCount})`}
       </Button>
     </div>
   )

@@ -1,5 +1,5 @@
 import type { ChatThread } from '@/lib/chat/types'
-import { buildChatTree, filterChatTreeNodes, type ChatTreeNode } from '@/lib/workspaces/chat-tree'
+import { buildChatTree, filterChatTreeNodes, type ChatTreeNode } from '@/lib/projects/chat-tree'
 import { normalizeWorkspacePath } from './paths'
 import type { Project, Workspace } from './types'
 

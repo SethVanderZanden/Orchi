@@ -148,6 +148,34 @@ public sealed class EfChatStore(IDbContextFactory<AppDbContext> dbContextFactory
         await db.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task SaveStatusMessageAsync(
+        Guid chatId,
+        DomainChatMessage message,
+        CancellationToken cancellationToken)
+    {
+        await using AppDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        Chat? chat = await db.Chats.FirstOrDefaultAsync(existing => existing.Id == chatId, cancellationToken);
+        if (chat is null)
+        {
+            return;
+        }
+
+        int ordinal = await db.ChatMessages.CountAsync(existing => existing.ChatId == chatId, cancellationToken);
+        db.ChatMessages.Add(new ChatMessageEntity
+        {
+            Id = message.Id,
+            ChatId = chatId,
+            Role = message.Role,
+            Content = message.Content,
+            Status = message.Status,
+            CreatedAt = message.CreatedAt,
+            Ordinal = ordinal
+        });
+
+        chat.UpdatedAt = message.CreatedAt;
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task UpdateExternalSessionIdAsync(
         Guid chatId,
         string externalSessionId,

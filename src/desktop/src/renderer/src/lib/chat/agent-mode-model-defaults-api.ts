@@ -4,29 +4,7 @@ import type {
   UpdateAgentModeModelDefaultResponse
 } from '@/lib/chat/types'
 import { getApiBaseUrl } from '@/lib/api'
-
-async function readErrorMessage(response: Response): Promise<string> {
-  try {
-    const body = (await response.json()) as {
-      message?: string
-      Message?: string
-      title?: string
-      detail?: string
-      errors?: Record<string, string[]>
-    }
-
-    if (body.errors) {
-      const messages = Object.values(body.errors).flat()
-      if (messages.length > 0) {
-        return messages[0]!
-      }
-    }
-
-    return body.detail ?? body.message ?? body.Message ?? `API error: ${response.status}`
-  } catch {
-    return `API error: ${response.status}`
-  }
-}
+import { readErrorMessage } from '@/lib/http/read-error-message'
 
 export async function listAgentModeModelDefaults(
   agentId: string

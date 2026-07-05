@@ -84,6 +84,7 @@ public static class KickOffPlan
                 ImplementationAgentModeStrategy.Mode,
                 parentChatId: parent.Id,
                 planFilePath: planFilePath,
+                modelId: parent.ModelId,
                 cancellationToken: cancellationToken);
 
             if (childResult.IsFailure)

@@ -120,6 +120,52 @@ A global meta-rule tells the agent not to respond to instruction sections — on
 Orchestration chat  →  plans in assistant output  →  kick off  →  .orchi/plan-*.md + child chat
 ```
 
+#### Sequential plan kickoff
+
+#### Dummy section (start here)
+
+Imagine a relay race: runner 1 must finish their lap before runner 2 starts, but a separate sprinter on another track can go whenever they want.
+
+In Orchi orchestration, some plans are **independent** (parallel sprinters) and some are **sequenced** (relay runners). The orchestrator can emit a machine-readable order list so **Kick off all** knows who runs when.
+
+| Analogy | Orchi |
+|---------|-------|
+| Relay order list | `<!-- orchi-plan-sequence -->` block |
+| One runner at a time | Sequenced plans kick off one implementation at a time |
+| Sprinter on another track | Plans not in the sequence block still start in parallel |
+| Next runner starts when previous finishes | Next sequenced plan starts when the prior **implementation** child completes (review does not gate the queue) |
+
+**Aha:** The API runs the relay — the desktop watches the scoreboard via SSE.
+
+---
+
+When the orchestrator must run plans in order, it emits a sequence block after the plan blocks in the same assistant message:
+
+```markdown
+<!-- orchi-plan-sequence -->
+first-plan-id
+second-plan-id
+third-plan-id
+<!-- /orchi-plan-sequence -->
+```
+
+Rules:
+- One kebab-case plan ID per line; each ID must match an `orchi-plan:id` marker in the same output.
+- Order in the block is execution order.
+- Plans **not** listed remain independent and kick off in parallel with each other (and with the first sequenced plan).
+- When **all** plans must run in order, list every plan ID in the block.
+- Keep the human **Dependencies and sequencing** section in each plan; the sequence block is the machine-readable source of truth for kickoff.
+
+**Kick off all** behavior:
+- **Endpoint:** `POST /chats/{parentChatId}/orchestration/kickoff-all` starts/resumes the workflow (replaces client-side queue logic).
+- **State:** `GET /chats/{parentChatId}/orchestration` returns parsed plans, sequence, workflow status, and child mappings. Workflow state persists in SQLite.
+- **Events:** `GET /chats/{parentChatId}/orchestration/events` SSE broadcasts workflow progress, parent status messages, and multiplexed child agent events.
+- **No sequence block:** all pending plans kick off in parallel.
+- **Sequence block present:** button reads **Kick off in order (N)**; only the first pending sequenced plan starts. When that implementation child completes, the API auto-starts the next sequenced plan. Review for a completed plan may run concurrently with the next implementation.
+- If an implementation child ends with an error, the workflow pauses (`paused` status); remaining plans can still be kicked off manually.
+
+Post-implementation steps (review kickoff, sequential advance) run via an extensible `IOrchestrationStepHandler` pipeline in `Infrastructure/Agents/Orchestration/`.
+
 #### Implementation mode and Cursor cache reads
 
 Plan kickoff child chats use **`implementation`** mode with scoped rules: read the plan file first, stay within the plan's Affected files list, and avoid broad repo exploration. The `<task>` section (plan path + delete-after-validation instructions) is included on the **first user turn only**; follow-up messages rely on Cursor `--resume` session continuity.
@@ -130,7 +176,7 @@ Scoped implementation rules and deduplicated kickoff prompts reduce context grow
 
 ### Review mode
 
-After an implementation child agent completes, Orchi automatically kicks off a **review child** in `review` mode via `POST /chats/{implementationChildChatId}/review/kickoff`. The review agent compares the implementation outcome against the original plan and outputs `<!-- orchi-review-plan:id -->` blocks for the user to inspect.
+After an implementation child agent completes, the API automatically kicks off a **review child** in `review` mode via the orchestration step pipeline (same outcome as `POST /chats/{implementationChildChatId}/review/kickoff`). The review agent compares the implementation outcome against the original plan and outputs `<!-- orchi-review-plan:id -->` blocks for the user to inspect.
 
 At prompt composition time, Orchi runs **`git diff HEAD`** in the workspace (falling back to **`git show HEAD`** when there are no uncommitted changes) and appends the result to the review agent's `<context>` section. The review agent does not need to run git itself. The `IWorkspaceDiffProvider` abstraction allows swapping in snapshot-based diffs later.
 
@@ -199,9 +245,10 @@ Configure under `Cache` in `appsettings.json`. `Cache:Distributed:Enabled` is `f
 1. **Create chat** — `POST /chats` with `{ agent, workspacePath, mode? }`; validates path; persists chat row; no CLI yet
 2. **Send message** — `POST /chats/{id}/messages` → SSE stream; spawns/resumes Cursor CLI per turn; persists messages on completion
 3. **Kick off plan** — `POST /chats/{parentChatId}/plans/kickoff` (orchestration chats only); writes plan file, creates child chat, and instructs the agent to delete the plan file after validation
-4. **Kick off review** — `POST /chats/{implementationChildChatId}/review/kickoff` (auto-triggered by desktop when implementation completes); writes review brief, creates review child chat
-5. **Close chat** — `DELETE /chats/{id}` → kills process, soft-deletes chat in database
-6. **App shutdown** — `POST /chats/shutdown` (called from Electron `before-quit`) → kills active sessions (persisted chats remain in database)
+4. **Kick off all / workflow** — `POST /chats/{parentChatId}/orchestration/kickoff-all`; backend runs sequenced and parallel kickoffs, emits orchestration SSE events
+5. **Kick off review** — `POST /chats/{implementationChildChatId}/review/kickoff` (also auto-triggered by orchestration workflow after implementation completes); writes review brief, creates review child chat
+6. **Close chat** — `DELETE /chats/{id}` → kills process, soft-deletes chat in database
+7. **App shutdown** — `POST /chats/shutdown` (called from Electron `before-quit`) → kills active sessions (persisted chats remain in database)
 
 ## Further reading
 

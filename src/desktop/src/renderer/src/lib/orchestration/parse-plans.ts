@@ -1,3 +1,5 @@
+import { parsePlanSequenceFromMessages } from './plan-sequence'
+
 export type ParsedPlan = {
   planId: string
   title: string
@@ -48,4 +50,13 @@ export function parsePlansFromMessages(
   }
 
   return [...plans.values()]
+}
+
+export function parseOrchestrationPlansFromMessages(
+  messages: Array<{ role: string; content: string }>
+): { plans: ParsedPlan[]; sequencePlanIds: string[] } {
+  return {
+    plans: parsePlansFromMessages(messages),
+    sequencePlanIds: parsePlanSequenceFromMessages(messages)
+  }
 }

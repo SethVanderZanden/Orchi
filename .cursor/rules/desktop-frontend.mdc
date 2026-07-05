@@ -1,0 +1,12 @@
+---
+description: Orchi desktop frontend conventions
+globs: src/desktop/src/renderer/**/*
+alwaysApply: false
+---
+
+- Stack: React 19, TanStack Router/Query, shadcn/ui
+- Import via `@/` alias only — no relative `../` across folders
+- Query keys in `lib/query-keys.ts` — never inline arrays in components
+- Providers in `providers/`, hooks in `hooks/` — do not mix
+- API fetch in `lib/{domain}/api.ts` with `getApiBaseUrl()` and `readErrorMessage()`
+- See `docs/frontend/coding-standards.md` and `docs/frontend/api-conventions.md`

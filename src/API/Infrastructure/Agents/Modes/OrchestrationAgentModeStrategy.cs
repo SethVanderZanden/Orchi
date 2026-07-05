@@ -48,6 +48,8 @@ public sealed class OrchestrationAgentModeStrategy : IAgentModeStrategy
 
     If multiple plans are produced, each plan must avoid overlapping file ownership wherever possible.
 
+    When plans must run in a specific order, emit an `orchi-plan-sequence` block after the plan blocks (see context section). Otherwise omit it.
+
     If the same file must be touched by more than one plan, explicitly call that out in the affected files and coordination notes. Prefer assigning that file to only one plan.
 
     Every plan must include explicit lists of all files to be added, modified, and deleted. Do not merge these into a single undifferentiated list. If a category has no files, state that explicitly (for example, "None").
@@ -123,6 +125,24 @@ public sealed class OrchestrationAgentModeStrategy : IAgentModeStrategy
     Remind the implementation agent to delete `.orchi/plan-{id}.md` when done; keep the plan file if blocked.
 
     <!-- /orchi-plan -->
+    ```
+
+    When one or more plans must run in a specific order, emit this machine-readable sequence block immediately after all plan blocks in the same assistant message:
+
+    ```
+    <!-- orchi-plan-sequence -->
+    first-plan-id
+    second-plan-id
+    third-plan-id
+    <!-- /orchi-plan-sequence -->
+    ```
+
+    Sequence block rules:
+    - One plan ID per line, kebab-case, each ID must match an `orchi-plan:id` marker in the same orchestration output.
+    - Order in the block is execution order for **Kick off all** in the desktop app.
+    - Plans not listed in the block are independent and may run in parallel with each other.
+    - When all plans must run in order, list every plan ID in the block.
+    - Keep the human **Dependencies and sequencing** section in each plan; the sequence block is the machine-readable source of truth for kickoff ordering.
     """;
 
 

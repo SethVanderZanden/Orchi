@@ -19,15 +19,12 @@ import {
   updateAgentModeModelDefault
 } from '@/lib/chat/agent-mode-model-defaults-api'
 import type { AgentModeModelDefault } from '@/lib/chat/types'
+import { agentKeys } from '@/lib/query-keys'
 
 const ONE_HOUR_MS = 60 * 60 * 1000
 
 type AgentModeModelDefaultsCardProps = {
   agentId: string
-}
-
-function modeDefaultsQueryKey(agentId: string): readonly unknown[] {
-  return ['agent-mode-model-defaults', agentId]
 }
 
 function toRadioValue(modelId: string | null): string {
@@ -53,13 +50,13 @@ export function AgentModeModelDefaultsCard({
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({})
 
   const defaultsQuery = useQuery({
-    queryKey: modeDefaultsQueryKey(agentId),
+    queryKey: agentKeys.modeModelDefaults(agentId),
     queryFn: () => listAgentModeModelDefaults(agentId),
     staleTime: ONE_HOUR_MS
   })
 
   const modelsQuery = useQuery({
-    queryKey: ['agent-models', agentId],
+    queryKey: agentKeys.models(agentId),
     queryFn: () => listAgentModels(agentId, false),
     staleTime: ONE_HOUR_MS
   })
@@ -75,7 +72,7 @@ export function AgentModeModelDefaultsCard({
       })
 
       queryClient.setQueryData(
-        modeDefaultsQueryKey(agentId),
+        agentKeys.modeModelDefaults(agentId),
         (current: { defaults: AgentModeModelDefault[] } | undefined) => {
           if (!current) {
             return current

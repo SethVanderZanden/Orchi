@@ -8,9 +8,11 @@
     "dev:isolated": "npm run dev",
     "setup:runtime": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-runtime.ps1",
     "start:runtime": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-runtime.ps1",
-    "test:api": "dotnet test tests/Orchi.Api.Tests"
+    "test:api": "dotnet test tests/Orchi.Api.Tests",
+    "prepare": "husky"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "husky": "^9.1.7"
   }
 }

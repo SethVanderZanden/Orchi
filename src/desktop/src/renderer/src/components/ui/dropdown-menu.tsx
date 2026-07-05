@@ -4,7 +4,12 @@ import { Check, ChevronRight, Circle } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
-const DropdownMenu = DropdownMenuPrimitive.Root
+function DropdownMenu({
+  modal = false,
+  ...props
+}: React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Root>): React.JSX.Element {
+  return <DropdownMenuPrimitive.Root modal={modal} {...props} />
+}
 const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger
 const DropdownMenuGroup = DropdownMenuPrimitive.Group
 const DropdownMenuPortal = DropdownMenuPrimitive.Portal
@@ -48,11 +53,15 @@ DropdownMenuSubContent.displayName = DropdownMenuPrimitive.SubContent.displayNam
 const DropdownMenuContent = React.forwardRef<
   React.ComponentRef<typeof DropdownMenuPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content>
->(({ className, sideOffset = 4, ...props }, ref) => (
+>(({ className, sideOffset = 4, onCloseAutoFocus, ...props }, ref) => (
   <DropdownMenuPrimitive.Portal>
     <DropdownMenuPrimitive.Content
       ref={ref}
       sideOffset={sideOffset}
+      onCloseAutoFocus={(event) => {
+        event.preventDefault()
+        onCloseAutoFocus?.(event)
+      }}
       className={cn(
         'z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
         className

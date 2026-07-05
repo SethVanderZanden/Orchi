@@ -18,8 +18,8 @@ The desktop **does not** poll. It opens one HTTP response and reads events as th
 | Pizza tracker | Orchi |
 |---------------|-------|
 | Order app | `sendMessageStream()` in `lib/chat/api.ts` |
-| Live updates | SSE from `POST /chats/{id}/messages` |
-| Order history | TanStack Query `chatKeys` + `ChatProvider` |
+| Live updates | SSE from `POST /chats/{id}/messages` (parser in `lib/http/sse.ts`) |
+| Order history | TanStack Query `chatKeys` + `ChatProvider` (composes `useChatStream`) |
 | "Still working" banner | Collapsed activity on assistant bubble |
 | Tool steps | Collapsible list under active assistant turn |
 
@@ -29,13 +29,15 @@ The desktop **does not** poll. It opens one HTTP response and reads events as th
 
 ```
 User submits message
-  → ChatProvider.sendMessage()
+  → ChatProvider.sendMessage()  (via useChatStream hook)
   → POST /chats/{chatId}/messages (Accept: text/event-stream)
   → AgentSessionManager → CursorAgentAdapter → agent CLI
   → NDJSON parsed → AgentEvent → ChatSseWriter
-  → Desktop SSE parser → update message bubble + markers
+  → readSseStream (lib/http/sse.ts) → message-stream-handlers → Query cache + markers
   → done → loadChat() reconciles with server state
 ```
+
+Streaming orchestration is split: **`useChatStream`** (`hooks/chat/use-chat-stream.ts`) owns SSE handlers, markers, and abort; **`ChatProvider`** composes it with list/cache/mutation hooks.
 
 ## SSE event schema
 
@@ -51,24 +53,52 @@ Stable contract between API and desktop:
 
 Implemented in `src/API/Features/Chats/Shared/ChatSseWriter.cs`.
 
+### Orchestration SSE (parent chat)
+
+When viewing an orchestration chat, the desktop subscribes to `GET /chats/{parentChatId}/orchestration/events`. The API multiplexes workflow updates and child agent activity onto one stream:
+
+| Event | Data shape | UI effect |
+|-------|------------|-----------|
+| `workflow` | `{ status, currentStep?, totalSteps?, planId? }` | Plan cards progress ("Running plan 2 of 3…") |
+| `chat_created` | `{ chatId, mode, parentChatId, planId?, planFilePath? }` | Insert child chat in sidebar/cache |
+| `parent_message` | `{ messageId, role, content }` | Append status row on orchestration parent |
+| `agent_status` | `{ childChatId, phase }` | Child processing indicator |
+| `agent_token` | `{ childChatId, text }` | Append to child chat cache |
+| `agent_tool` | `{ childChatId, label }` | Tool activity on child chat |
+| `agent_done` | `{ childChatId, messageId, succeeded }` | Mark child turn complete |
+| `agent_error` | `{ childChatId, code, message }` | Child error state |
+
+Client: `lib/orchestration/orchestration-events.ts` + `hooks/use-orchestration.ts`.
+
 ## Desktop client
+
+Shared SSE parsing: `lib/http/sse.ts` — `parseSseBlock()` and `readSseStream()` for any streaming `fetch` response.
 
 `lib/chat/api.ts` — `sendMessageStream(chatId, content, handlers, signal)`:
 
 - `fetch` POST with JSON body `{ content }`
-- Reads `response.body` with a line buffer
-- Parses `event:` / `data:` pairs
+- Delegates body reading to `readSseStream` from `lib/http/sse.ts`
 - Invokes typed handlers; supports `AbortSignal` for cancel
+
+Orchestration uses the same parser in `lib/orchestration/orchestration-events.ts` (`subscribeOrchestrationEvents`).
 
 Proxy: `/chats` → API in `electron.vite.config.ts` (dev).
 
 ## ChatProvider integration
 
-`providers/chat-provider.tsx`:
+`providers/chat-provider.tsx` composes focused hooks; streaming lives in **`hooks/chat/use-chat-stream.ts`**:
 
-- **`useQuery`** — `chatKeys.lists()` for sidebar
-- **`useMutation`** — create / close chat
-- **`sendMessage`** — optimistic user message + assistant placeholder; SSE handlers update cache via `queryClient.setQueryData`
+| Hook / module | Role |
+|---------------|------|
+| `useChatList` | Sidebar list query (`chatKeys.lists()`) |
+| `useChatCache` | Detail load, `getChat`, optimistic cache updates |
+| `useChatStream` | `sendMessage`, SSE handlers, `markersByChat`, abort |
+| `useChatMutations` | create / close / mode / model mutations |
+
+**`useChatStream`** specifics:
+
+- Optimistic user message + assistant placeholder on send
+- SSE handlers update cache via `queryClient.setQueryData` and `createMessageStreamHandlers`
 - **`markersByChat`** — ephemeral UI rows (processing spinner, tool lines)
 
 Query keys (`lib/query-keys.ts`):
@@ -123,5 +153,6 @@ Projects are a **desktop-only** registry (`localStorage` + folder picker IPC). T
 ## Further reading
 
 - [TanStack Query](tanstack-query.md) — cache keys and mutations
+- [HTTP & SSE infrastructure](plans/02-http-sse-infrastructure.md) — shared SSE parser
 - [Agent adapters](../agents/README.md) — backend streaming source
 - [Cursor CLI](../agents/cursor-cli.md) — NDJSON → AgentEvent mapping

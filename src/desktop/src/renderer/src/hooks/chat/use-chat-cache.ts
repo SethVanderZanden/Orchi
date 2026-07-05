@@ -1,0 +1,69 @@
+import { useCallback } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+
+import { getChat } from '@/lib/chat/api'
+import type { ChatThread } from '@/lib/chat/types'
+import { mergeChatLists } from '@/lib/chat/merge-chat-lists'
+import { chatKeys } from '@/lib/query-keys'
+
+type UseChatCacheOptions = {
+  chats: ChatThread[]
+}
+
+export function useChatCache({ chats }: UseChatCacheOptions) {
+  const queryClient = useQueryClient()
+
+  const getChatLocal = useCallback(
+    (chatId: string) => {
+      const detail = queryClient.getQueryData<ChatThread>(chatKeys.detail(chatId))
+      const summary = chats.find((chat) => chat.id === chatId)
+
+      if (detail && summary) {
+        return { ...summary, ...detail, messages: detail.messages }
+      }
+
+      return detail ?? summary
+    },
+    [chats, queryClient]
+  )
+
+  const getChildChats = useCallback(
+    (parentChatId: string) => chats.filter((chat) => chat.parentChatId === parentChatId),
+    [chats]
+  )
+
+  const loadChat = useCallback(
+    async (chatId: string) => {
+      const detail = await queryClient.fetchQuery({
+        queryKey: chatKeys.detail(chatId),
+        queryFn: () => getChat(chatId)
+      })
+
+      queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) =>
+        mergeChatLists(current, [detail])
+      )
+
+      queryClient.setQueryData(chatKeys.detail(chatId), detail)
+
+      return detail
+    },
+    [queryClient]
+  )
+
+  const purgeFromQueryClient = useCallback(
+    (chatId: string) => {
+      queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) =>
+        current.filter((chat) => chat.id !== chatId)
+      )
+      queryClient.removeQueries({ queryKey: chatKeys.detail(chatId) })
+    },
+    [queryClient]
+  )
+
+  return {
+    getChat: getChatLocal,
+    getChildChats,
+    loadChat,
+    purgeFromQueryClient
+  }
+}

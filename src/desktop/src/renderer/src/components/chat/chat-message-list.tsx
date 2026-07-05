@@ -1,6 +1,6 @@
 import { MessageSquare } from 'lucide-react'
 
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { AgentModeAvatar } from '@/components/chat/agent-mode-avatar'
 import { Bubble, BubbleContent } from '@/components/ui/bubble'
 import { Marker, MarkerContent } from '@/components/ui/marker'
 import {
@@ -12,18 +12,26 @@ import { MessageScrollerItem } from '@/components/ui/message-scroller'
 import { ChatToolCalls } from '@/components/chat/chat-tool-calls'
 import { EmptyState } from '@/components/empty-state'
 import { MarkdownContent } from '@/components/markdown-content'
-import type { ChatMarker, ChatMessage as OrchiChatMessage } from '@/lib/chat/types'
+import type { AgentMode, ChatMarker, ChatMessage as OrchiChatMessage } from '@/lib/chat/types'
 
 type ChatMessageListProps = {
   messages: OrchiChatMessage[]
   markers: ChatMarker[]
+  mode: AgentMode
+  hideEmptyState?: boolean
 }
 
 export function OrchiChatMessageList({
   messages,
-  markers
+  markers,
+  mode,
+  hideEmptyState = false
 }: ChatMessageListProps): React.JSX.Element {
   if (messages.length === 0 && markers.length === 0) {
+    if (hideEmptyState) {
+      return <div className="min-h-0" />
+    }
+
     return (
       <EmptyState
         title="Start a conversation"
@@ -49,6 +57,7 @@ export function OrchiChatMessageList({
           <ChatMessageRow
             message={message}
             markers={index === lastAssistantIndex ? activeMarkers : []}
+            mode={mode}
           />
         </MessageScrollerItem>
       ))}
@@ -59,9 +68,10 @@ export function OrchiChatMessageList({
 type ChatMessageRowProps = {
   message: OrchiChatMessage
   markers: ChatMarker[]
+  mode: AgentMode
 }
 
-function ChatMessageRow({ message, markers }: ChatMessageRowProps): React.JSX.Element {
+function ChatMessageRow({ message, markers, mode }: ChatMessageRowProps): React.JSX.Element {
   const isUser = message.role === 'user'
   const showPlaceholder = !isUser && message.status === 'processing' && message.content.length === 0
   const showActivity = !isUser && markers.length > 0
@@ -94,9 +104,7 @@ function ChatMessageRow({ message, markers }: ChatMessageRowProps): React.JSX.El
   return (
     <Message>
       <MessageAvatar>
-        <Avatar className="size-7">
-          <AvatarFallback className="text-[10px]">Or</AvatarFallback>
-        </Avatar>
+        <AgentModeAvatar mode={mode} />
       </MessageAvatar>
       <MessageContent>
         <Bubble variant={bubbleVariant}>

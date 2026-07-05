@@ -3,6 +3,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
 import { QueryClientProvider } from '@tanstack/react-query'
 
+import { ErrorBoundary } from '@/components/error-boundary'
 import { queryClient } from '@/lib/query-client'
 import { ThemeProvider } from '@/providers/theme-provider'
 
@@ -14,13 +15,15 @@ function RootComponent(): React.JSX.Element {
   return (
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
-        <Outlet />
-      {import.meta.env.DEV && (
-        <>
-          <ReactQueryDevtools buttonPosition="bottom-left" />
-          <TanStackRouterDevtools position="bottom-right" />
-        </>
-      )}
+        <ErrorBoundary>
+          <Outlet />
+        </ErrorBoundary>
+        {import.meta.env.DEV && (
+          <>
+            <ReactQueryDevtools buttonPosition="bottom-left" />
+            <TanStackRouterDevtools position="bottom-right" />
+          </>
+        )}
       </QueryClientProvider>
     </ThemeProvider>
   )

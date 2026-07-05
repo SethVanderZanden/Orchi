@@ -1,30 +1,59 @@
 # AGENTS
 
-Project-specific guidance for AI coding agents.
+Project-specific guidance for AI coding agents working on the Orchi desktop app.
 
-<!-- ASTRYX:START -->
-Astryx v0.1.2 · 148 components
-CLI: run every command as `npx astryx <cmd>` (shown below as `astryx ...`).
+## Stack
 
-SETUP (once, in your app entry e.g. main.tsx) — without these, components render unstyled:
-  import "@astryxdesign/core/reset.css";
-  import "@astryxdesign/core/astryx.css";
+| Layer | Technology |
+|-------|------------|
+| Shell | Electron + electron-vite |
+| UI | React 19, TypeScript |
+| Routing | TanStack Router (file routes in `src/renderer/src/routes/`) |
+| Server state | TanStack Query |
+| Components | shadcn/ui (Radix + Tailwind) — `components/ui/` |
+| Icons | lucide-react |
+| Styling | Tailwind CSS 4, CSS variables in `assets/main.css` |
 
-WORKFLOW — discover, don't guess. Before writing UI:
-1. `astryx build "<idea>"` — START HERE: returns a kit (closest [page] + [block]s + [component]s). No args = full playbook.
-2. `astryx template <name> [--skeleton]` — scaffold the [page]/[block]s it named, or study their layout. Templates are reference code.
-3. `astryx component <Name>` — props + examples for every component you use.
+## Before writing UI
 
-RULES:
-- No <div> — components do all layout/spacing. Full page → AppShell; sidebar nav → SideNav.
-- Custom styling: component props first; else Tailwind utilities backed by tokens (bg-surface, text-primary, rounded-lg) via tailwind-theme.css. No raw hex/px.
-- Tokens for every value (`astryx docs tokens`). Brand/accent via `astryx theme` — never override --color-* in :root.
+1. Check existing components in `components/ui/` and feature folders
+2. Use shadcn CLI from `src/desktop/`: `npx shadcn@latest add <component>`
+3. Follow patterns in `docs/frontend/coding-standards.md`
+4. Do NOT use `@astryxdesign/*` — migrated to shadcn (see `plans/ui-migration/`)
 
-MORE CLI:
-  search "<query>"   find any component / hook / doc / template / block
-  component --list   148 components by category
-  template --list    page + block recipes
-  docs <topic>       color, elevation, icons, illustrations, migration, motion, principles, shape, spacing, styling, theme, tokens, typography
-  swizzle <Name>     eject component source (--gap reports why)
-  upgrade --apply    run after any @astryxdesign/core bump
-<!-- ASTRYX:END -->
+## Directory conventions
+
+| Path | Purpose |
+|------|---------|
+| `src/renderer/src/routes/` | TanStack file routes — keep thin |
+| `src/renderer/src/providers/` | React context providers only |
+| `src/renderer/src/hooks/` | Custom hooks (`useX`) — no providers |
+| `src/renderer/src/components/ui/` | shadcn primitives |
+| `src/renderer/src/components/{feature}/` | Feature UI |
+| `src/renderer/src/lib/{domain}/` | API clients, types, pure logic |
+
+## Query keys
+
+All React Query keys live in `lib/query-keys.ts` — never inline arrays in components.
+
+## API calls
+
+- Use `getApiBaseUrl()` from `lib/api.ts`
+- Use `readErrorMessage()` from `lib/http/read-error-message.ts`
+- See `docs/frontend/api-conventions.md`
+
+## Commands
+
+```bash
+cd src/desktop
+npm run dev          # electron-vite dev
+npm run typecheck    # TypeScript
+npm run lint         # ESLint
+npm run test         # Vitest
+npm run format       # Prettier
+```
+
+## Related docs
+
+- `docs/frontend/README.md`
+- `docs/frontend/plans/README.md` — improvement plans

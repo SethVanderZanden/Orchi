@@ -56,7 +56,7 @@ public class CreateChatModeModelDefaultTests : IClassFixture<TestWebApplicationF
     }
 
     [Fact]
-    public async Task KickOffPlan_ChildUsesImplementationModeDefault_NotParentModel()
+    public async Task KickOffPlan_ChildInheritsParentModel()
     {
         await _client.PostAsJsonAsync(
             "/agents/cursor/models",
@@ -106,7 +106,7 @@ public class CreateChatModeModelDefaultTests : IClassFixture<TestWebApplicationF
             ChatDetailResponse? child = await childResponse.Content.ReadFromJsonAsync<ChatDetailResponse>();
 
             Assert.NotNull(child);
-            Assert.Equal("gpt-5.3-codex", child.ModelId);
+            Assert.Equal("claude-4.6-sonnet-medium-thinking", child.ModelId);
         }
         finally
         {
@@ -118,7 +118,7 @@ public class CreateChatModeModelDefaultTests : IClassFixture<TestWebApplicationF
     }
 
     [Fact]
-    public async Task KickOffReview_ChildUsesReviewModeDefault_NotParentModel()
+    public async Task KickOffReview_ChildInheritsParentModel()
     {
         await _client.PostAsJsonAsync(
             "/agents/cursor/models",
@@ -178,7 +178,7 @@ public class CreateChatModeModelDefaultTests : IClassFixture<TestWebApplicationF
                 await reviewChildResponse.Content.ReadFromJsonAsync<ChatDetailResponse>();
 
             Assert.NotNull(reviewChild);
-            Assert.Equal("composer-2.5-fast", reviewChild.ModelId);
+            Assert.Equal("gpt-5.3-codex", reviewChild.ModelId);
         }
         finally
         {

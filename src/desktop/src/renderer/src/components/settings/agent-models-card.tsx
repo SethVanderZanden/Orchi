@@ -14,6 +14,7 @@ import {
   syncAgentModels,
   updateAgentModelEnabled
 } from '@/lib/chat/agent-models-api'
+import { agentKeys } from '@/lib/query-keys'
 
 const ONE_HOUR_MS = 60 * 60 * 1000
 
@@ -21,15 +22,11 @@ type AgentModelsCardProps = {
   agentId: string
 }
 
-function agentModelsQueryKey(agentId: string, includeDisabled: boolean): readonly unknown[] {
-  return includeDisabled ? ['agent-models', agentId, 'all'] : ['agent-models', agentId]
-}
-
 function invalidateAgentModelQueries(
   queryClient: ReturnType<typeof useQueryClient>,
   agentId: string
 ): void {
-  void queryClient.invalidateQueries({ queryKey: ['agent-models', agentId] })
+  void queryClient.invalidateQueries({ queryKey: agentKeys.modelsForAgent(agentId) })
 }
 
 export function AgentModelsCard({ agentId }: AgentModelsCardProps): React.JSX.Element {
@@ -38,7 +35,7 @@ export function AgentModelsCard({ agentId }: AgentModelsCardProps): React.JSX.El
   const [actionError, setActionError] = useState<string | null>(null)
 
   const modelsQuery = useQuery({
-    queryKey: agentModelsQueryKey(agentId, true),
+    queryKey: agentKeys.models(agentId, true),
     queryFn: () => listAgentModels(agentId, true),
     staleTime: ONE_HOUR_MS
   })

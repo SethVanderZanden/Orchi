@@ -1,4 +1,5 @@
 import { getApiBaseUrl } from '@/lib/api'
+import { readErrorMessage } from '@/lib/http/read-error-message'
 
 import type {
   CreateProjectRequest,
@@ -10,25 +11,6 @@ import type {
   UpdateWorkspaceRequest,
   WorkspaceResponse
 } from './types'
-
-async function readErrorMessage(response: Response): Promise<string> {
-  try {
-    const body = (await response.json()) as {
-      message?: string
-      Message?: string
-      title?: string
-      detail?: string
-    }
-
-    if (body.detail) {
-      return body.detail
-    }
-
-    return body.message ?? body.Message ?? `API error: ${response.status}`
-  } catch {
-    return `API error: ${response.status}`
-  }
-}
 
 function mapWorkspace(workspace: WorkspaceResponse) {
   return {
