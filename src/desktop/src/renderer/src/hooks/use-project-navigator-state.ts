@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useMatch } from '@tanstack/react-router'
 
 import { useDeleteChat } from '@/hooks/use-delete-chat'
@@ -12,7 +12,7 @@ import {
   resolveWorkspaceIdForNewChat,
   type ProjectChatGroup
 } from '@/lib/projects/group-chats'
-import { useChat } from '@/providers/chat-provider'
+import { useChat } from '@/providers/chat-context'
 import { useProjects } from '@/providers/project-provider'
 import { useProjectLayout } from '@/providers/project-layout-provider'
 
@@ -43,7 +43,9 @@ type UseProjectNavigatorStateResult = {
   settingsMatch: ReturnType<typeof useMatch>
 }
 
-export function useProjectNavigatorState(navigateToChat: (chatId: string) => void): UseProjectNavigatorStateResult {
+export function useProjectNavigatorState(
+  navigateToChat: (chatId: string) => void
+): UseProjectNavigatorStateResult {
   const {
     chats,
     searchQuery,
@@ -66,7 +68,15 @@ export function useProjectNavigatorState(navigateToChat: (chatId: string) => voi
   const [isAddingProject, setIsAddingProject] = useState(false)
   const [expandedWorkspaceIds, setExpandedWorkspaceIds] = useState<Set<string>>(() => new Set())
   const [expandedParentChatIds, setExpandedParentChatIds] = useState<Set<string>>(() => new Set())
-  const priorChildCountsRef = useRef<Map<string, number>>(new Map())
+  const [childExpansionSnapshot, setChildExpansionSnapshot] = useState<{
+    projectGroups: ProjectChatGroup[]
+    priorChildCounts: Map<string, number>
+    stickyExpandedParentIds: Set<string>
+  }>(() => ({
+    projectGroups: [],
+    priorChildCounts: new Map<string, number>(),
+    stickyExpandedParentIds: new Set<string>()
+  }))
 
   const chatMatch = useMatch({ from: '/_app/chat/$chatId', shouldThrow: false })
   const activeChatId = chatMatch?.params.chatId ?? null
@@ -87,6 +97,27 @@ export function useProjectNavigatorState(navigateToChat: (chatId: string) => voi
     [projectGroups]
   )
 
+  if (childExpansionSnapshot.projectGroups !== projectGroups) {
+    const priorChildCounts = new Map(childExpansionSnapshot.priorChildCounts)
+    const stickyExpandedParentIds = new Set(childExpansionSnapshot.stickyExpandedParentIds)
+
+    for (const group of projectGroups) {
+      const nodes = group.isFlat
+        ? group.chatNodes
+        : group.workspaceGroups.flatMap((workspaceGroup) => workspaceGroup.chatNodes)
+
+      for (const node of nodes) {
+        const priorCount = priorChildCounts.get(node.chat.id) ?? 0
+        priorChildCounts.set(node.chat.id, node.children.length)
+        if (node.children.length > priorCount) {
+          stickyExpandedParentIds.add(node.chat.id)
+        }
+      }
+    }
+
+    setChildExpansionSnapshot({ projectGroups, priorChildCounts, stickyExpandedParentIds })
+  }
+
   const toggleWorkspaceExpanded = useCallback((workspaceId: string) => {
     setExpandedWorkspaceIds((current) => {
       const next = new Set(current)
@@ -95,17 +126,6 @@ export function useProjectNavigatorState(navigateToChat: (chatId: string) => voi
       } else {
         next.add(workspaceId)
       }
-      return next
-    })
-  }, [])
-
-  const ensureWorkspaceExpanded = useCallback((workspaceId: string) => {
-    setExpandedWorkspaceIds((current) => {
-      if (current.has(workspaceId)) {
-        return current
-      }
-      const next = new Set(current)
-      next.add(workspaceId)
       return next
     })
   }, [])
@@ -122,70 +142,50 @@ export function useProjectNavigatorState(navigateToChat: (chatId: string) => voi
     })
   }, [])
 
-  const ensureParentExpanded = useCallback((parentChatId: string) => {
-    setExpandedParentChatIds((current) => {
-      if (current.has(parentChatId)) {
-        return current
-      }
-      const next = new Set(current)
-      next.add(parentChatId)
-      return next
-    })
-  }, [])
-
-  useEffect(() => {
+  const activeProjectId = useMemo(() => {
     if (!activeChat) {
-      return
+      return null
     }
+    return findProjectGroupForChat(projectGroups, activeChat)?.id ?? null
+  }, [activeChat, projectGroups])
 
-    const matchingGroup = findProjectGroupForChat(projectGroups, activeChat)
-    if (matchingGroup) {
-      ensureProjectExpanded(matchingGroup.id)
+  const visibleExpandedWorkspaceIds = useMemo(() => {
+    const merged = new Set(expandedWorkspaceIds)
+    if (activeChat?.workspaceId) {
+      merged.add(activeChat.workspaceId)
     }
-    if (activeChat.workspaceId) {
-      ensureWorkspaceExpanded(activeChat.workspaceId)
+    return merged
+  }, [activeChat, expandedWorkspaceIds])
+
+  const visibleExpandedParentChatIds = useMemo(() => {
+    const merged = new Set(expandedParentChatIds)
+    if (activeChat?.parentChatId) {
+      merged.add(activeChat.parentChatId)
     }
-    if (activeChat.parentChatId) {
-      ensureParentExpanded(activeChat.parentChatId)
+    for (const parentChatId of childExpansionSnapshot.stickyExpandedParentIds) {
+      merged.add(parentChatId)
     }
-  }, [
-    activeChat,
-    ensureParentExpanded,
-    ensureProjectExpanded,
-    ensureWorkspaceExpanded,
-    projectGroups
-  ])
+    return merged
+  }, [activeChat, childExpansionSnapshot.stickyExpandedParentIds, expandedParentChatIds])
 
-  useEffect(() => {
-    for (const group of projectGroups) {
-      const nodes = group.isFlat
-        ? group.chatNodes
-        : group.workspaceGroups.flatMap((workspaceGroup) => workspaceGroup.chatNodes)
-
-      for (const node of nodes) {
-        if (node.children.length === 0) {
-          continue
-        }
-
-        const priorCount = priorChildCountsRef.current.get(node.chat.id) ?? 0
-        if (node.children.length > priorCount) {
-          ensureParentExpanded(node.chat.id)
-        }
-        priorChildCountsRef.current.set(node.chat.id, node.children.length)
+  const resolveIsProjectExpanded = useCallback(
+    (projectId: string) => {
+      if (isProjectExpanded(projectId)) {
+        return true
       }
-    }
-  }, [ensureParentExpanded, projectGroups])
-
-  useEffect(() => {
-    if (projectGroups.length === 0) {
-      return
-    }
-
-    const hasExpandedProject = projectGroups.some((group) => isProjectExpanded(group.id))
-    if (!hasExpandedProject) {
-      ensureProjectExpanded(projectGroups[0]!.id)
-    }
-  }, [ensureProjectExpanded, isProjectExpanded, projectGroups])
+      if (activeProjectId === projectId) {
+        return true
+      }
+      const hasAnyExpanded = projectGroups.some(
+        (group) => isProjectExpanded(group.id) || group.id === activeProjectId
+      )
+      if (!hasAnyExpanded && projectGroups.length > 0) {
+        return projectGroups[0]!.id === projectId
+      }
+      return false
+    },
+    [activeProjectId, isProjectExpanded, projectGroups]
+  )
 
   const defaultProjectGroup = useMemo(() => {
     if (activeChat) {
@@ -208,9 +208,14 @@ export function useProjectNavigatorState(navigateToChat: (chatId: string) => voi
         return
       }
 
+      const workspacePath = group.isFlat
+        ? group.defaultWorkspacePath
+        : (group.workspaceGroups.find((workspace) => workspace.id === workspaceId)?.path ??
+          group.defaultWorkspacePath)
+
       setIsCreating(true)
       try {
-        await createChat({ workspaceId, projectId: group.id })
+        await createChat({ workspaceId, workspacePath, projectId: group.id })
       } finally {
         setIsCreating(false)
       }
@@ -285,9 +290,9 @@ export function useProjectNavigatorState(navigateToChat: (chatId: string) => voi
     chatActions,
     isCreating,
     isAddingProject,
-    expandedWorkspaceIds,
-    expandedParentChatIds,
-    isProjectExpanded,
+    expandedWorkspaceIds: visibleExpandedWorkspaceIds,
+    expandedParentChatIds: visibleExpandedParentChatIds,
+    isProjectExpanded: resolveIsProjectExpanded,
     toggleProjectExpanded,
     toggleWorkspaceExpanded,
     toggleParentExpanded,

@@ -1,15 +1,13 @@
 import { useCallback, useEffect } from 'react'
 
+import { isLocalChat } from '@/lib/chat/chat-persistence'
 import { markChatRead as markChatReadInStorage } from '@/lib/chat/chat-read-state'
-import {
-  getChatSidebarStatus,
-  type ChatSidebarStatusVariant
-} from '@/lib/chat/chat-sidebar-status'
+import { getChatSidebarStatus, type ChatSidebarStatusVariant } from '@/lib/chat/chat-sidebar-status'
+import { needsOrchestrationHydration } from '@/lib/orchestration/needs-orchestration-hydration'
 import type { ChatThread } from '@/lib/chat/types'
 
 type UseChatReadStateOptions = {
   activeChatId?: string
-  chats: ChatThread[]
   getChat: (chatId: string) => ChatThread | undefined
   getChildChats: (parentChatId: string) => ChatThread[]
   loadChat: (chatId: string) => Promise<ChatThread | undefined>
@@ -17,47 +15,60 @@ type UseChatReadStateOptions = {
   isParentKickingOffAny: (parentChatId: string) => boolean
 }
 
+type UseChatReadStateResult = {
+  markChatRead: (chatId: string) => void
+  getChatSidebarStatus: (chat: ChatThread) => ChatSidebarStatusVariant
+}
+
 export function useChatReadState({
   activeChatId,
-  chats,
   getChat,
   getChildChats,
   loadChat,
   isChatSending,
   isParentKickingOffAny
-}: UseChatReadStateOptions) {
+}: UseChatReadStateOptions): UseChatReadStateResult {
   const activeChat = activeChatId ? getChat(activeChatId) : undefined
 
   useEffect(() => {
-    if (!activeChatId || !activeChat) {
+    if (!activeChatId || !activeChat || isLocalChat(activeChatId)) {
       return
     }
 
     markChatReadInStorage(activeChatId, activeChat.updatedAt)
-  }, [activeChatId, activeChat?.updatedAt, activeChat?.messages.length])
+  }, [activeChatId, activeChat?.updatedAt, activeChat?.messages.length, activeChat])
 
   useEffect(() => {
-    for (const chat of chats) {
-      if (chat.mode !== 'orchestration') {
-        continue
-      }
+    if (!activeChatId) {
+      return
+    }
 
-      const resolved = getChat(chat.id)
-      if (!resolved?.messages.length) {
-        void loadChat(chat.id)
-      }
+    const chat = getChat(activeChatId)
+    const childCount = getChildChats(activeChatId).length
 
-      for (const child of getChildChats(chat.id)) {
-        const resolvedChild = getChat(child.id)
-        if (!resolvedChild?.messages.length) {
-          void loadChat(child.id)
-        }
+    if (!needsOrchestrationHydration(chat, childCount, isParentKickingOffAny(activeChatId))) {
+      return
+    }
+
+    const resolved = getChat(activeChatId)
+    if (!resolved?.messages.length) {
+      void loadChat(activeChatId)
+    }
+
+    for (const child of getChildChats(activeChatId)) {
+      const resolvedChild = getChat(child.id)
+      if (resolvedChild && resolvedChild.messages.length === 0) {
+        void loadChat(child.id)
       }
     }
-  }, [chats, getChat, getChildChats, loadChat])
+  }, [activeChatId, getChat, getChildChats, isParentKickingOffAny, loadChat])
 
   const markChatRead = useCallback(
     (chatId: string) => {
+      if (isLocalChat(chatId)) {
+        return
+      }
+
       const chat = getChat(chatId)
       if (!chat) {
         return

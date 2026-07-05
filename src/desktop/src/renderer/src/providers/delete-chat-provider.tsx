@@ -1,32 +1,13 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
 import { DeleteChatDialog } from '@/components/chat/delete-chat-dialog'
 import type { ChatThread } from '@/lib/chat/types'
 import { isLocalChat } from '@/lib/chat/chat-persistence'
-import { useChat } from '@/providers/chat-provider'
+import { useChat } from '@/providers/chat-context'
 
-export type DeleteChatContextValue = {
-  requestDelete: (chat: ChatThread) => void
-  isDeletingChat: (chatId: string) => boolean
-}
+import { DeleteChatContext } from '@/providers/delete-chat-context'
 
-export const DeleteChatContext = createContext<DeleteChatContextValue | null>(null)
-
-export function useDeleteChatContext(): DeleteChatContextValue {
-  const context = useContext(DeleteChatContext)
-
-  if (!context) {
-    throw new Error('useDeleteChat must be used within DeleteChatProvider')
-  }
-
-  return context
-}
-
-export function DeleteChatProvider({
-  children
-}: {
-  children: React.ReactNode
-}): React.JSX.Element {
+export function DeleteChatProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
   const { deleteChat } = useChat()
   const [pendingChat, setPendingChat] = useState<ChatThread | null>(null)
   const [deletingChatId, setDeletingChatId] = useState<string | null>(null)

@@ -23,12 +23,25 @@ type UseChatOrchestrationOptions = {
   navigate: (options: NavigateOptions) => void
 }
 
+type UseChatOrchestrationResult = {
+  kickOffPlan: (chatId: string, plan: ParsedPlan) => Promise<void>
+  kickOffAllPlans: (chatId: string) => Promise<void>
+  getOrchestrationKickoffProgress: (parentChatId: string) => OrchestrationWorkflowProgress | null
+  setOrchestrationKickoffProgress: (
+    parentChatId: string,
+    progress: OrchestrationWorkflowProgress | null
+  ) => void
+  isPlanKickingOff: (parentChatId: string, planId: string) => boolean
+  isParentKickingOffAny: (parentChatId: string) => boolean
+  purgeKickoffState: (chatId: string) => void
+}
+
 export function useChatOrchestration({
   getChat,
   getChildChats,
   sendMessage,
   navigate
-}: UseChatOrchestrationOptions) {
+}: UseChatOrchestrationOptions): UseChatOrchestrationResult {
   const queryClient = useQueryClient()
   const [kickingOffKeys, setKickingOffKeys] = useState<Set<string>>(() => new Set())
   const [orchestrationKickoffProgress, setOrchestrationKickoffProgressState] = useState<
@@ -111,7 +124,10 @@ export function useChatOrchestration({
         messages: []
       }
 
-      queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) => [childChat, ...current])
+      queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) => [
+        childChat,
+        ...current
+      ])
       queryClient.setQueryData(chatKeys.detail(childChat.id), childChat)
 
       if (navigateToChild) {

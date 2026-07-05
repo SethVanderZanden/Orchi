@@ -64,7 +64,8 @@ public static class KickOffReview
                     Error.Validation("Mode.Invalid", "Review kick-off is only available for orchestration parent chats."));
             }
 
-            IReadOnlyList<ChatSession> siblings = await sessionManager.ListSessionsAsync(cancellationToken);
+            IReadOnlyList<ChatSession> siblings =
+                await sessionManager.ListChildSessionsAsync(parent.Id, cancellationToken);
             IOrchiArtifactWriterStrategy reviewWriter =
                 artifactWriterFactory.GetStrategy(OrchiArtifactKind.Review);
             string expectedReviewPath = reviewWriter.BuildRelativePath(planId);

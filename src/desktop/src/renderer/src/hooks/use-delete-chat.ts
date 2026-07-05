@@ -1,5 +1,5 @@
-import { useDeleteChatContext } from '@/providers/delete-chat-provider'
+import { useDeleteChatContext, type DeleteChatContextValue } from '@/providers/delete-chat-context'
 
-export function useDeleteChat() {
+export function useDeleteChat(): DeleteChatContextValue {
   return useDeleteChatContext()
 }

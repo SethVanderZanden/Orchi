@@ -63,6 +63,22 @@ public sealed class EfChatStore(IDbContextFactory<AppDbContext> dbContextFactory
             .ToArray();
     }
 
+    public async Task<IReadOnlyList<ChatSession>> ListChildrenAsync(
+        Guid parentChatId,
+        CancellationToken cancellationToken)
+    {
+        await using AppDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        List<Chat> entities = await db.Chats
+            .AsNoTracking()
+            .Where(chat => chat.ParentChatId == parentChatId && !chat.IsDeleted)
+            .ToListAsync(cancellationToken);
+
+        return entities
+            .OrderByDescending(chat => chat.UpdatedAt)
+            .Select(ChatStoreMapper.ToSession)
+            .ToArray();
+    }
+
     public async Task<bool> DeleteAsync(Guid chatId, CancellationToken cancellationToken)
     {
         await using AppDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);

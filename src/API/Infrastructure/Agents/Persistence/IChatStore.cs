@@ -23,6 +23,8 @@ public interface IChatStore
 
     Task<IReadOnlyList<ChatSession>> ListAsync(CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<ChatSession>> ListChildrenAsync(Guid parentChatId, CancellationToken cancellationToken);
+
     Task<bool> DeleteAsync(Guid chatId, CancellationToken cancellationToken);
 
     Task SaveUserMessageAsync(Guid chatId, ChatMessage message, CancellationToken cancellationToken);

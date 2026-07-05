@@ -1,10 +1,8 @@
-import { useCallback, useRef } from 'react'
+import { useCallback } from 'react'
 
 import type { Dispatch } from 'react'
 
 import { useQuery } from '@tanstack/react-query'
-
-
 
 import { ChatLayout } from '@/components/chat/chat-layout'
 
@@ -21,17 +19,11 @@ import { PlanCards } from '@/components/orchestration/plan-cards'
 import { PlanReviewPanel } from '@/components/orchestration/plan-review-panel'
 
 import {
-
   MessageScroller,
-
   MessageScrollerButton,
-
   MessageScrollerContent,
-
   MessageScrollerProvider,
-
   MessageScrollerViewport
-
 } from '@/components/ui/message-scroller'
 
 import { useElementWidth } from '@/hooks/use-element-width'
@@ -51,10 +43,7 @@ import type { ParsedReviewPlan } from '@/lib/orchestration/parse-review-plans'
 
 import type { Project } from '@/lib/projects/types'
 
-
-
 type ChatPanelProps = {
-
   messages: ChatMessage[]
 
   markers: ChatMarker[]
@@ -87,6 +76,10 @@ type ChatPanelProps = {
 
   projects: Project[]
 
+  canChangeProject?: boolean
+
+  onProjectChange?: (projectId: string) => void
+
   plans?: ParsedPlan[]
 
   parentChatId?: string
@@ -116,13 +109,9 @@ type ChatPanelProps = {
   dispatchReview: Dispatch<ReviewAction>
 
   activeReviewTabId: string | null
-
 }
 
-
-
 export function ChatPanel({
-
   messages,
 
   markers,
@@ -155,6 +144,10 @@ export function ChatPanel({
 
   projects,
 
+  canChangeProject = false,
+
+  onProjectChange,
+
   plans = [],
 
   parentChatId,
@@ -184,235 +177,126 @@ export function ChatPanel({
   dispatchReview,
 
   activeReviewTabId
-
 }: ChatPanelProps): React.JSX.Element {
-
   const modesQuery = useQuery({
-
     queryKey: agentKeys.modes(),
 
     queryFn: listAgentModes,
 
     staleTime: Infinity
-
   })
 
-
-
-  const modeRef = useRef(mode)
-
-  modeRef.current = mode
-
-
-
   const cycleMode = useCallback((): boolean => {
-
     const modeOptions = resolveAgentModeOptions(modesQuery.data)
 
-    const nextMode = getNextAgentMode(modeRef.current, modeOptions)
+    const nextMode = getNextAgentMode(mode, modeOptions)
 
-    if (nextMode.toLowerCase() === modeRef.current.toLowerCase()) {
-
+    if (nextMode.toLowerCase() === mode.toLowerCase()) {
       return false
-
     }
 
     onModeChange(nextMode)
 
     return true
-
-  }, [modesQuery.data, onModeChange])
-
-
+  }, [mode, modesQuery.data, onModeChange])
 
   // Shift+Tab intentionally overrides default backward focus navigation while mode changes are allowed.
 
   useKeyboardShortcutCombo({ key: 'Tab', shift: true }, cycleMode, {
-
     enabled: showModeSelector && canChangeMode,
 
     allowInTextarea: true
-
   })
-
-
 
   const { width: splitContainerWidth, ref: splitContainerRef } = useElementWidth<HTMLDivElement>()
 
-
-
-  const isNewRootChat =
-
-    messages.length === 0 && markers.length === 0 && showModeSelector
-
-
+  const isNewRootChat = messages.length === 0 && markers.length === 0 && showModeSelector
 
   const composer = (
-
     <OrchiChatComposer
-
       disabled={isSending}
-
       onSend={onSend}
-
       expanded={isNewRootChat}
-
       mode={mode}
-
       showModeControls={showModeSelector}
-
       canChangeMode={canChangeMode}
-
       modeUpdateError={modeUpdateError}
-
       onModeChange={onModeChange}
-
       agentId={agentId}
-
       modelId={modelId}
-
       canChangeModel={canChangeModel}
-
       modelUpdateError={modelUpdateError}
-
       onModelChange={onModelChange}
-
     />
-
   )
 
-
-
   const projectContext = isNewRootChat ? (
-
     <ChatProjectContext
-
       projectId={projectId}
-
       projectName={projectName}
-
       projects={projects}
-
+      canChangeProject={canChangeProject}
+      onProjectChange={onProjectChange}
     />
-
   ) : null
 
-
-
   return (
-
     <div ref={splitContainerRef} className="flex min-h-0 flex-1 overflow-hidden">
-
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-
         <MessageScrollerProvider autoScroll>
-
           <ChatLayout
-
             variant={isNewRootChat ? 'centered' : 'default'}
-
             projectContext={projectContext}
-
             composer={composer}
-
           >
-
             {!isNewRootChat ? (
-
               <MessageScroller className="min-h-0 flex-1">
-
                 <MessageScrollerViewport>
-
                   <MessageScrollerContent aria-busy={isSending}>
-
                     <OrchiChatMessageList messages={messages} markers={markers} mode={mode} />
 
                     {showPlanReview ? (
-
                       <PlanCards
-
                         plans={plans}
-
                         openTabIds={reviewState.openTabIds}
-
                         childChats={childChats}
-
                         reviewPlansByPlanId={reviewPlansByPlanId}
-
                         parentChatId={parentChatId!}
-
                         isParentKickingOffAny={isParentKickingOffAny!}
-
                         sequencePlanIds={sequencePlanIds}
-
                         sequentialKickoffProgress={sequentialKickoffProgress}
-
                         onToggleReview={(plan) =>
-
                           dispatchReview({ type: 'toggle-tab', planId: plan.planId })
-
                         }
-
                         onKickOffAll={onKickOffAllPlans!}
-
                       />
-
                     ) : null}
-
                   </MessageScrollerContent>
-
                 </MessageScrollerViewport>
 
                 <MessageScrollerButton />
-
               </MessageScroller>
-
             ) : null}
-
           </ChatLayout>
-
         </MessageScrollerProvider>
-
       </div>
 
-
-
       {showPlanReview && reviewState.panelOpen && activeReviewTabId ? (
-
         <PlanReviewPanel
-
           containerWidth={splitContainerWidth}
-
           plans={plans}
-
           openTabIds={reviewState.openTabIds}
-
           activeTabId={activeReviewTabId}
-
           parentChatId={parentChatId!}
-
           childChats={childChats}
-
           reviewPlansByPlanId={reviewPlansByPlanId}
-
           isPlanKickingOff={isPlanKickingOff!}
-
           onSelectTab={(planId) => dispatchReview({ type: 'select-tab', planId })}
-
           onCloseTab={(planId) => dispatchReview({ type: 'close-tab', planId })}
-
           onClose={() => dispatchReview({ type: 'close-panel' })}
-
           onKickOff={onKickOffPlan!}
-
         />
-
       ) : null}
-
     </div>
-
   )
-
 }
-
-

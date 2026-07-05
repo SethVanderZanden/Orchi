@@ -3,21 +3,30 @@ import { useQueryClient } from '@tanstack/react-query'
 
 import type { ChatThread } from '@/lib/chat/types'
 import { createOrchestrationEventHandlers } from '@/lib/orchestration/orchestration-cache'
+import { needsOrchestrationHydration } from '@/lib/orchestration/needs-orchestration-hydration'
 import { subscribeOrchestrationEvents } from '@/lib/orchestration/orchestration-events'
 
 type UseOrchestrationParentEventsOptions = {
   childChat: ChatThread | undefined
   parentChat: ChatThread | undefined
+  parentChildCount: number
+  isParentKickoffActive: boolean
 }
 
 export function useOrchestrationParentEvents({
   childChat,
-  parentChat
+  parentChat,
+  parentChildCount,
+  isParentKickoffActive
 }: UseOrchestrationParentEventsOptions): void {
   const queryClient = useQueryClient()
 
   useEffect(() => {
-    if (!childChat?.parentChatId || !parentChat || parentChat.mode !== 'orchestration') {
+    if (
+      !childChat?.parentChatId ||
+      !parentChat ||
+      !needsOrchestrationHydration(parentChat, parentChildCount, isParentKickoffActive)
+    ) {
       return
     }
 
@@ -34,5 +43,12 @@ export function useOrchestrationParentEvents({
     return () => {
       controller.abort()
     }
-  }, [childChat?.id, childChat?.parentChatId, parentChat, queryClient])
+  }, [
+    childChat?.id,
+    childChat?.parentChatId,
+    isParentKickoffActive,
+    parentChat,
+    parentChildCount,
+    queryClient
+  ])
 }

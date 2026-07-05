@@ -529,13 +529,10 @@ public sealed class OrchestrationWorkflowService(
             cancellationToken);
     }
 
-    private async Task<IReadOnlyList<ChatSession>> GetChildChatsAsync(
+    private Task<IReadOnlyList<ChatSession>> GetChildChatsAsync(
         Guid parentChatId,
-        CancellationToken cancellationToken)
-    {
-        IReadOnlyList<ChatSession> sessions = await sessionManager.ListSessionsAsync(cancellationToken);
-        return sessions.Where(chat => chat.ParentChatId == parentChatId).ToArray();
-    }
+        CancellationToken cancellationToken) =>
+        sessionManager.ListChildSessionsAsync(parentChatId, cancellationToken);
 
     private static int ResolveNextSequenceIndex(
         OrchestrationWorkflowRecord? existing,

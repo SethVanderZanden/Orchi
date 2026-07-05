@@ -77,6 +77,7 @@ export type ChatMarker = {
 
 export type CreateChatOptions = {
   workspaceId: string
+  workspacePath: string
   projectId?: string
 }
 
@@ -84,6 +85,7 @@ export type CreateChatRequest = {
   agent: string
   workspaceId: string
   mode?: AgentMode
+  modelId?: string | null
 }
 
 export type CreateChatResponse = {

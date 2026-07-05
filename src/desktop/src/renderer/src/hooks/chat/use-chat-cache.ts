@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 
 import { getChat } from '@/lib/chat/api'
+import { isLocalChat } from '@/lib/chat/chat-persistence'
 import type { ChatThread } from '@/lib/chat/types'
 import { mergeChatLists } from '@/lib/chat/merge-chat-lists'
 import { chatKeys } from '@/lib/query-keys'
@@ -10,7 +11,14 @@ type UseChatCacheOptions = {
   chats: ChatThread[]
 }
 
-export function useChatCache({ chats }: UseChatCacheOptions) {
+type UseChatCacheResult = {
+  getChat: (chatId: string) => ChatThread | undefined
+  getChildChats: (parentChatId: string) => ChatThread[]
+  loadChat: (chatId: string) => Promise<ChatThread | undefined>
+  purgeFromQueryClient: (chatId: string) => void
+}
+
+export function useChatCache({ chats }: UseChatCacheOptions): UseChatCacheResult {
   const queryClient = useQueryClient()
 
   const getChatLocal = useCallback(
@@ -34,6 +42,10 @@ export function useChatCache({ chats }: UseChatCacheOptions) {
 
   const loadChat = useCallback(
     async (chatId: string) => {
+      if (isLocalChat(chatId)) {
+        return getChatLocal(chatId)
+      }
+
       const detail = await queryClient.fetchQuery({
         queryKey: chatKeys.detail(chatId),
         queryFn: () => getChat(chatId)
@@ -47,7 +59,7 @@ export function useChatCache({ chats }: UseChatCacheOptions) {
 
       return detail
     },
-    [queryClient]
+    [getChatLocal, queryClient]
   )
 
   const purgeFromQueryClient = useCallback(

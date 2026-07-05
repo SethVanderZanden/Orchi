@@ -138,7 +138,8 @@ public sealed record ChatMessageResponse(
 public sealed record CreateChatRequest(
     string Agent,
     Guid WorkspaceId,
-    string? Mode = null);
+    string? Mode = null,
+    string? ModelId = null);
 
 public sealed record UpdateChatModeRequest(string Mode);
 

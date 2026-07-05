@@ -6,12 +6,14 @@ import { usePlanReview } from '@/hooks/use-plan-review'
 import { parseOrchestrationPlansFromMessages } from '@/lib/orchestration/parse-plans'
 import { parseReviewPlansFromMessages } from '@/lib/orchestration/parse-review-plans'
 import type { ParsedReviewPlan } from '@/lib/orchestration/parse-review-plans'
+import { needsOrchestrationHydration } from '@/lib/orchestration/needs-orchestration-hydration'
+import { isLocalChat } from '@/lib/chat/chat-persistence'
 import type { ChatThread } from '@/lib/chat/types'
 import { findReviewChildForPlan } from '@/lib/projects/chat-tree'
 import { useDeleteChat } from '@/hooks/use-delete-chat'
 import { useOrchestration } from '@/hooks/use-orchestration'
 import { useOrchestrationParentEvents } from '@/hooks/use-orchestration-parent-events'
-import { useChat } from '@/providers/chat-provider'
+import { useChat } from '@/providers/chat-context'
 import { useProjects } from '@/providers/project-provider'
 
 type ChatWorkspacePanelProps = {
@@ -20,7 +22,6 @@ type ChatWorkspacePanelProps = {
 
 export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX.Element {
   const {
-    chats,
     sendMessage,
     getMarkers,
     getChildChats,
@@ -34,6 +35,7 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
     getModeUpdateError,
     updateChatModel,
     getModelUpdateError,
+    updateChatProject,
     isChatSending,
     isPlanKickingOff,
     isParentKickingOffAny
@@ -50,6 +52,13 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
   const plans = orchestrationParse.plans
   const parentChat =
     chat.parentChatId && chat.mode !== 'orchestration' ? getChat(chat.parentChatId) : undefined
+  const childCount = getChildChats(chat.id).length
+  const needsHydration = needsOrchestrationHydration(
+    chat,
+    childCount,
+    isParentKickingOffAny(chat.id)
+  )
+  const parentChildCount = parentChat ? getChildChats(parentChat.id).length : 0
 
   useEffect(() => {
     if (!chat.parentChatId || chat.mode === 'orchestration') {
@@ -63,7 +72,9 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
   }, [chat.mode, chat.parentChatId, getChat, loadChat])
 
   const { workflowProgress, sequencePlanIds: backendSequencePlanIds } = useOrchestration({
-    parentChat: chat.mode === 'orchestration' ? chat : undefined,
+    parentChatId: needsHydration ? chat.id : undefined,
+    parentChat: needsHydration ? chat : undefined,
+    enabled: needsHydration,
     onWorkflowProgress: (progress) => setOrchestrationKickoffProgress(chat.id, progress),
     onChildrenHydrated: (childIds) => {
       for (const childId of childIds) {
@@ -77,32 +88,34 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
 
   useOrchestrationParentEvents({
     childChat: chat.parentChatId ? chat : undefined,
-    parentChat: parentChat?.mode === 'orchestration' ? parentChat : undefined
+    parentChat: parentChat?.mode === 'orchestration' ? parentChat : undefined,
+    parentChildCount,
+    isParentKickoffActive: parentChat ? isParentKickingOffAny(parentChat.id) : false
   })
   const sequencePlanIds =
     backendSequencePlanIds.length > 0 ? backendSequencePlanIds : orchestrationParse.sequencePlanIds
-  const orchestrationKickoffProgress =
-    workflowProgress ?? getOrchestrationKickoffProgress(chat.id)
+  const orchestrationKickoffProgress = workflowProgress ?? getOrchestrationKickoffProgress(chat.id)
   const childChats = getChildChats(chat.id).map((child) => getChat(child.id) ?? child)
   const reviewPlansByPlanId = Object.fromEntries(
     plans.map((plan) => {
       const reviewChildSummary = findReviewChildForPlan(plan.planId, childChats)
       const reviewChild = reviewChildSummary ? getChat(reviewChildSummary.id) : undefined
-      const reviewPlans = reviewChild
-        ? parseReviewPlansFromMessages(reviewChild.messages)
-        : []
+      const reviewPlans = reviewChild ? parseReviewPlansFromMessages(reviewChild.messages) : []
       const reviewPlan = reviewPlans.find((item) => item.planId === plan.planId) ?? reviewPlans[0]
       return [plan.planId, reviewPlan] as const
     })
   ) as Record<string, ParsedReviewPlan | undefined>
 
   const childChatIds = useMemo(
-    () => getChildChats(chat.id).map((child) => child.id).join(','),
-    [chat.id, chats, getChildChats]
+    () =>
+      getChildChats(chat.id)
+        .map((child) => child.id)
+        .join(','),
+    [chat.id, getChildChats]
   )
 
   useEffect(() => {
-    if (chat.mode !== 'orchestration') {
+    if (!needsHydration) {
       return
     }
 
@@ -112,27 +125,23 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
         void loadChat(id)
       }
     }
-  }, [chat.id, chat.mode, childChatIds, getChat, loadChat])
+  }, [childChatIds, getChat, loadChat, needsHydration])
 
   const isAgentRunning = chat.messages.some(
     (message) => message.status === 'processing' || message.status === 'streaming'
   )
   const showModeSelector = chat.messages.length === 0 && chat.parentChatId === null
   const canChangeMode = showModeSelector && !isAgentRunning
+  const canChangeProject = isLocalChat(chat.id) && showModeSelector
   const canChangeModel = !isAgentRunning
   const showPlanReview = chat.mode === 'orchestration' && plans.length > 0
 
-  const {
-    reviewState,
-    dispatchReview,
-    toggleReviewPanel,
-    activeReviewTabId,
-    hasReviewReady
-  } = usePlanReview({
-    plans,
-    reviewPlansByPlanId,
-    showPlanReview
-  })
+  const { reviewState, dispatchReview, toggleReviewPanel, activeReviewTabId, hasReviewReady } =
+    usePlanReview({
+      plans,
+      reviewPlansByPlanId,
+      showPlanReview
+    })
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
@@ -166,6 +175,8 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
         projectId={chat.projectId}
         projectName={projectName}
         projects={projects}
+        canChangeProject={canChangeProject}
+        onProjectChange={(projectId) => updateChatProject(chat.id, projectId)}
         plans={plans}
         parentChatId={chat.id}
         isSending={isChatSending(chat.id)}

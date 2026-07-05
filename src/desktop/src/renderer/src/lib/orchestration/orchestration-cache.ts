@@ -38,8 +38,9 @@ export function mergeOrchestrationChildren(
       return [childChat, ...current]
     })
 
-    queryClient.setQueryData<ChatThread>(chatKeys.detail(childChat.id), (current) =>
-      current ?? childChat
+    queryClient.setQueryData<ChatThread>(
+      chatKeys.detail(childChat.id),
+      (current) => current ?? childChat
     )
   }
 
@@ -51,6 +52,7 @@ export function createOrchestrationEventHandlers(
   queryClient: QueryClient,
   options?: {
     onWorkflow?: OrchestrationEventHandlers['onWorkflow']
+    onChatCreated?: OrchestrationEventHandlers['onChatCreated']
   }
 ): OrchestrationEventHandlers {
   return {
@@ -65,6 +67,7 @@ export function createOrchestrationEventHandlers(
         return [childChat, ...current]
       })
       queryClient.setQueryData(chatKeys.detail(childChat.id), childChat)
+      options?.onChatCreated?.(payload)
     },
     onParentMessage: (payload) => {
       queryClient.setQueryData<ChatThread>(chatKeys.detail(parentChat.id), (current) =>
@@ -111,7 +114,11 @@ export function createOrchestrationEventHandlers(
 
         const messages = current.messages.map((message) =>
           message.id === messageId || message.role === 'assistant'
-            ? { ...message, id: messageId || message.id, status: succeeded ? 'complete' : message.status }
+            ? {
+                ...message,
+                id: messageId || message.id,
+                status: succeeded ? 'complete' : message.status
+              }
             : message
         )
 

@@ -1,6 +1,6 @@
 import { createFileRoute, Navigate } from '@tanstack/react-router'
 
-import { useChat } from '@/providers/chat-provider'
+import { useChat } from '@/providers/chat-context'
 
 export const Route = createFileRoute('/_app/')({
   component: AppIndexPage

@@ -70,6 +70,11 @@ public sealed class AgentSessionManager
 
     public async Task<ChatSession?> GetOrLoadSessionAsync(Guid chatId, CancellationToken cancellationToken)
     {
+        if (_sessions.TryGetValue(chatId, out ChatSession? cached))
+        {
+            return cached;
+        }
+
         ChatSession? loaded = await _chatStore.GetAsync(chatId, cancellationToken);
         if (loaded is null)
         {
@@ -77,16 +82,33 @@ public sealed class AgentSessionManager
             return null;
         }
 
-        if (_sessions.TryGetValue(chatId, out ChatSession? cached))
-        {
-            cached.ProjectId = loaded.ProjectId;
-            cached.WorkspaceId = loaded.WorkspaceId;
-            cached.ModelId = loaded.ModelId;
-            return cached;
-        }
-
         _sessions[chatId] = loaded;
         return loaded;
+    }
+
+    public async Task<IReadOnlyList<ChatSession>> ListChildSessionsAsync(
+        Guid parentChatId,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyList<ChatSession> fromStore =
+            await _chatStore.ListChildrenAsync(parentChatId, cancellationToken);
+        var merged = new Dictionary<Guid, ChatSession>();
+        foreach (ChatSession session in fromStore)
+        {
+            merged[session.Id] = session;
+        }
+
+        foreach (ChatSession cached in _sessions.Values)
+        {
+            if (cached.ParentChatId == parentChatId)
+            {
+                merged[cached.Id] = cached;
+            }
+        }
+
+        return merged.Values
+            .OrderByDescending(session => session.Messages.LastOrDefault()?.CreatedAt ?? DateTimeOffset.MinValue)
+            .ToArray();
     }
 
     public async Task<Result<ChatSession>> CreateSessionAsync(
@@ -180,10 +202,16 @@ public sealed class AgentSessionManager
         string? mode,
         CancellationToken cancellationToken)
     {
-        ChatSession? session = await GetOrLoadSessionAsync(chatId, cancellationToken);
+        ChatSession? session = GetSession(chatId);
         if (session is null)
         {
-            return Result.Failure<ChatSession>(Error.NotFound($"Chat '{chatId}' was not found."));
+            session = await _chatStore.GetAsync(chatId, cancellationToken);
+            if (session is null)
+            {
+                return Result.Failure<ChatSession>(Error.NotFound($"Chat '{chatId}' was not found."));
+            }
+
+            _sessions[chatId] = session;
         }
 
         lock (session.Sync)
