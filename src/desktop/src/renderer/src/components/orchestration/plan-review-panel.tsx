@@ -4,6 +4,7 @@ import { X } from 'lucide-react'
 import { MarkdownContent } from '@/components/markdown-content'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { useLiveRef } from '@/hooks/use-live-ref'
 import {
   REVIEW_PANEL_DEFAULT_WIDTH,
   clampReviewPanelWidth,
@@ -44,14 +45,13 @@ export function PlanReviewPanel({
   onClose,
   onKickOff
 }: PlanReviewPanelProps): React.JSX.Element {
-  const [width, setWidth] = useState(REVIEW_PANEL_DEFAULT_WIDTH)
+  const [preferredWidth, setPreferredWidth] = useState(REVIEW_PANEL_DEFAULT_WIDTH)
   const isDragging = useRef(false)
   const dragStartX = useRef(0)
   const dragStartWidth = useRef(REVIEW_PANEL_DEFAULT_WIDTH)
-  const containerWidthRef = useRef(containerWidth)
+  const containerWidthRef = useLiveRef(containerWidth)
 
-  containerWidthRef.current = containerWidth
-
+  const width = clampReviewPanelWidth(preferredWidth, containerWidth)
   const { min: minWidth, max: maxWidth } = getReviewPanelWidthBounds(containerWidth)
 
   const openPlans = openTabIds
@@ -68,23 +68,19 @@ export function PlanReviewPanel({
     ? isPlanKickingOff(parentChatId, activePlan.planId)
     : false
 
-  useEffect(() => {
-    setWidth((current) => clampReviewPanelWidth(current, containerWidth))
-  }, [containerWidth])
+  const handleMouseMove = useCallback(
+    (event: MouseEvent) => {
+      if (!isDragging.current) {
+        return
+      }
 
-  const handleMouseMove = useCallback((event: MouseEvent) => {
-    if (!isDragging.current) {
-      return
-    }
-
-    const delta = dragStartX.current - event.clientX
-    setWidth(
-      clampReviewPanelWidth(
-        dragStartWidth.current + delta,
-        containerWidthRef.current
+      const delta = dragStartX.current - event.clientX
+      setPreferredWidth(
+        clampReviewPanelWidth(dragStartWidth.current + delta, containerWidthRef.current)
       )
-    )
-  }, [])
+    },
+    [containerWidthRef]
+  )
 
   const handleMouseUp = useCallback(() => {
     isDragging.current = false
@@ -171,9 +167,7 @@ export function PlanReviewPanel({
               <div className="space-y-2 px-4 py-4">
                 <p className="truncate text-xs text-muted-foreground">{activePlan.planId}</p>
                 <MarkdownContent>
-                  {showingReview
-                    ? activeReviewPlan!.contentMarkdown
-                    : activePlan.contentMarkdown}
+                  {showingReview ? activeReviewPlan!.contentMarkdown : activePlan.contentMarkdown}
                 </MarkdownContent>
               </div>
             </ScrollArea>

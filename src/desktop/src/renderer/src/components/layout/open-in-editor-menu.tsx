@@ -34,24 +34,36 @@ export function OpenInEditorMenu({ workspacePath }: OpenInEditorMenuProps): Reac
 
   return (
     <div className="flex flex-col items-end gap-1">
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={disabled}
-            className="h-8 gap-1.5 px-3 text-xs font-normal"
-            aria-label="Open workspace in editor"
-          >
-            Open
-            <ChevronDown className="size-3.5 opacity-60" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => void handleOpen('vscode')}>VS Code</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => void handleOpen('cursor')}>Cursor</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <div className="inline-flex -space-x-px">
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={disabled}
+          className="h-8 rounded-r-none px-3 text-xs font-normal"
+          aria-label="Open workspace in VS Code"
+          onClick={() => void handleOpen('vscode')}
+        >
+          Open In Code
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={disabled}
+              className="h-8 rounded-l-none px-2"
+              aria-label="Open workspace in another editor"
+            >
+              <ChevronDown className="size-3.5 opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => void handleOpen('cursor')}>
+              Open in Cursor
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
       {error ? <p className="max-w-48 truncate text-[10px] text-destructive">{error}</p> : null}
     </div>
   )
