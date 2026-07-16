@@ -11,17 +11,21 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" Version="10.7.0" />
     <PackageReference Include="FluentValidation" Version="12.1.1" />
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.9">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.9" />
-    <PackageReference Include="Scalar.AspNetCore" Version="2.16.6" />
+    <!-- Pin patched transitive: Microsoft.AspNetCore.OpenApi 10.0.9 pulls vulnerable 2.0.0; 2.8.0+ fixes GHSA-v5pm-xwqc-g5wc and stays compatible with the OpenApi source generator (3.x breaks IOpenApiMediaType.Example). -->
+    <PackageReference Include="Microsoft.OpenApi" Version="2.8.0" />
+    <PackageReference Include="Scalar.AspNetCore" Version="2.16.10" />
     <PackageReference Include="Scrutor" Version="7.0.0" />
+    <!-- Pin patched transitive: EF Core Sqlite 10.0.9 still pulls vulnerable SQLitePCLRaw.lib.e_sqlite3 2.1.11 (GHSA-2m69-gcr7-jv3q). -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
   </ItemGroup>
 
 </Project>

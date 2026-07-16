@@ -5,8 +5,6 @@ namespace Orchi.Api.Data;
 
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
-    public DbSet<PipelineRun> PipelineRuns => Set<PipelineRun>();
-
     public DbSet<Chat> Chats => Set<Chat>();
 
     public DbSet<ChatMessageEntity> ChatMessages => Set<ChatMessageEntity>();

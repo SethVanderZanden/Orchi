@@ -7,6 +7,11 @@ using Orchi.Api.Infrastructure.Pipeline;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Host.ConfigureHostOptions(options =>
+{
+    options.ShutdownTimeout = TimeSpan.FromSeconds(10);
+});
+
 builder.Services
     .AddOrchiDatabase(builder.Configuration)
     .AddOrchiCaching(builder.Configuration)

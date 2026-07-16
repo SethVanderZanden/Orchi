@@ -17,18 +17,6 @@ public static class CreateProject
     {
         public async Task<Result<CreateProjectResponse>> Handle(Command command, CancellationToken cancellationToken)
         {
-            if (string.IsNullOrWhiteSpace(command.Name))
-            {
-                return Result.Failure<CreateProjectResponse>(
-                    Error.Validation("Name.Required", "Project name is required."));
-            }
-
-            if (string.IsNullOrWhiteSpace(command.DefaultWorkspacePath))
-            {
-                return Result.Failure<CreateProjectResponse>(
-                    Error.Validation("DefaultWorkspacePath.Required", "Default workspace path is required."));
-            }
-
             string fullPath = Path.GetFullPath(command.DefaultWorkspacePath);
             if (!Directory.Exists(fullPath))
             {

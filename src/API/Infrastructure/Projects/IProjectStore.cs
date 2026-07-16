@@ -6,6 +6,8 @@ public sealed record ProjectCreateResult(Project Project, Workspace DefaultWorks
 
 public sealed record WorkspaceCreateResult(Workspace Workspace);
 
+public sealed record ProjectDeleteResult(IReadOnlyList<Guid> OrphanedChatIds);
+
 public interface IProjectStore
 {
     Task<Project?> GetProjectAsync(Guid projectId, CancellationToken cancellationToken);
@@ -21,7 +23,7 @@ public interface IProjectStore
 
     Task<Project?> UpdateProjectAsync(Guid projectId, string name, CancellationToken cancellationToken);
 
-    Task<bool> DeleteProjectAsync(Guid projectId, CancellationToken cancellationToken);
+    Task<ProjectDeleteResult?> DeleteProjectAsync(Guid projectId, CancellationToken cancellationToken);
 
     Task<WorkspaceCreateResult?> CreateWorkspaceAsync(
         Guid projectId,

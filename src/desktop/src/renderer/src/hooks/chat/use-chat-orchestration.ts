@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import type { NavigateOptions } from '@tanstack/react-router'
 
@@ -9,7 +9,9 @@ import {
   kickOffKey,
   removeKickoffKeysForParent
 } from '@/lib/chat/kickoff-keys'
+import { registerChatIdMigrator } from '@/lib/chat/migrate-chat-client-state'
 import type { ParsedPlan } from '@/lib/orchestration/parse-plans'
+import { mergeOrchestrationChildren } from '@/lib/orchestration/orchestration-cache'
 import { kickOffAllOrchestration } from '@/lib/orchestration/orchestration-events'
 import { workflowProgressFromState } from '@/lib/orchestration/orchestration-state'
 import type { OrchestrationWorkflowProgress } from '@/lib/orchestration/orchestration-state'
@@ -19,6 +21,7 @@ import { findChildForPlan } from '@/lib/projects/chat-tree'
 type UseChatOrchestrationOptions = {
   getChat: (chatId: string) => ChatThread | undefined
   getChildChats: (parentChatId: string) => ChatThread[]
+  loadChat: (chatId: string) => Promise<ChatThread | undefined>
   sendMessage: (chatId: string, content: string) => Promise<void>
   navigate: (options: NavigateOptions) => void
 }
@@ -31,6 +34,7 @@ type UseChatOrchestrationResult = {
     parentChatId: string,
     progress: OrchestrationWorkflowProgress | null
   ) => void
+  getOrchestrationError: (parentChatId: string) => string | null
   isPlanKickingOff: (parentChatId: string, planId: string) => boolean
   isParentKickingOffAny: (parentChatId: string) => boolean
   purgeKickoffState: (chatId: string) => void
@@ -39,6 +43,7 @@ type UseChatOrchestrationResult = {
 export function useChatOrchestration({
   getChat,
   getChildChats,
+  loadChat,
   sendMessage,
   navigate
 }: UseChatOrchestrationOptions): UseChatOrchestrationResult {
@@ -47,6 +52,50 @@ export function useChatOrchestration({
   const [orchestrationKickoffProgress, setOrchestrationKickoffProgressState] = useState<
     Record<string, OrchestrationWorkflowProgress | null>
   >({})
+  const [orchestrationErrorByChatId, setOrchestrationErrorByChatId] = useState<
+    Record<string, string | null>
+  >({})
+
+  useEffect(() => {
+    return registerChatIdMigrator((fromId, toId) => {
+      setKickingOffKeys((current) => {
+        const prefix = `${fromId}:`
+        let changed = false
+        const next = new Set<string>()
+
+        for (const key of current) {
+          if (key.startsWith(prefix)) {
+            changed = true
+            next.add(`${toId}:${key.slice(prefix.length)}`)
+          } else {
+            next.add(key)
+          }
+        }
+
+        return changed ? next : current
+      })
+
+      setOrchestrationKickoffProgressState((current) => {
+        if (!(fromId in current)) {
+          return current
+        }
+
+        const next = { ...current, [toId]: current[fromId] }
+        delete next[fromId]
+        return next
+      })
+
+      setOrchestrationErrorByChatId((current) => {
+        if (!(fromId in current)) {
+          return current
+        }
+
+        const next = { ...current, [toId]: current[fromId] }
+        delete next[fromId]
+        return next
+      })
+    })
+  }, [])
 
   const setOrchestrationKickoffProgress = useCallback(
     (parentChatId: string, progress: OrchestrationWorkflowProgress | null) => {
@@ -62,6 +111,21 @@ export function useChatOrchestration({
     (parentChatId: string) => orchestrationKickoffProgress[parentChatId] ?? null,
     [orchestrationKickoffProgress]
   )
+
+  const getOrchestrationError = useCallback(
+    (parentChatId: string) => orchestrationErrorByChatId[parentChatId] ?? null,
+    [orchestrationErrorByChatId]
+  )
+
+  const clearOrchestrationError = useCallback((parentChatId: string) => {
+    setOrchestrationErrorByChatId((current) => {
+      if (!(parentChatId in current) || current[parentChatId] === null) {
+        return current
+      }
+
+      return { ...current, [parentChatId]: null }
+    })
+  }, [])
 
   const markPlanKickingOff = useCallback(
     (parentChatId: string, planId: string, kickingOff: boolean) => {
@@ -97,6 +161,15 @@ export function useChatOrchestration({
 
   const purgeKickoffState = useCallback((parentChatId: string) => {
     setKickingOffKeys((current) => removeKickoffKeysForParent(parentChatId, current))
+    setOrchestrationErrorByChatId((current) => {
+      if (!(parentChatId in current)) {
+        return current
+      }
+
+      const next = { ...current }
+      delete next[parentChatId]
+      return next
+    })
   }, [])
 
   const performKickOff = useCallback(
@@ -128,13 +201,14 @@ export function useChatOrchestration({
         childChat,
         ...current
       ])
+
       queryClient.setQueryData(chatKeys.detail(childChat.id), childChat)
 
       if (navigateToChild) {
         navigate({ to: '/chat/$chatId', params: { chatId: childChat.id } })
       }
 
-      void sendMessage(childChat.id, response.kickoffMessage)
+      await sendMessage(childChat.id, response.kickoffMessage)
     },
     [getChat, navigate, queryClient, sendMessage]
   )
@@ -147,28 +221,56 @@ export function useChatOrchestration({
       }
 
       markPlanKickingOff(chatId, plan.planId, true)
+      clearOrchestrationError(chatId)
 
       try {
         await performKickOff(chatId, plan, true)
+      } catch (error) {
+        setOrchestrationErrorByChatId((current) => ({
+          ...current,
+          [chatId]: error instanceof Error ? error.message : 'Failed to kick off plan.'
+        }))
       } finally {
         markPlanKickingOff(chatId, plan.planId, false)
       }
     },
-    [getChildChats, markPlanKickingOff, performKickOff]
+    [clearOrchestrationError, getChildChats, markPlanKickingOff, performKickOff]
   )
 
   const kickOffAllPlansAction = useCallback(
     async (chatId: string) => {
       markPlanKickingOff(chatId, '__all__', true)
+      clearOrchestrationError(chatId)
 
       try {
         const state = await kickOffAllOrchestration(chatId)
+        const parentChat = getChat(chatId)
+
+        if (parentChat) {
+          const newChildIds = mergeOrchestrationChildren(parentChat, state.children, queryClient)
+          for (const childId of newChildIds) {
+            void loadChat(childId)
+          }
+        }
+
         setOrchestrationKickoffProgress(chatId, workflowProgressFromState(state))
+      } catch (error) {
+        setOrchestrationErrorByChatId((current) => ({
+          ...current,
+          [chatId]: error instanceof Error ? error.message : 'Failed to kick off plans.'
+        }))
       } finally {
         markPlanKickingOff(chatId, '__all__', false)
       }
     },
-    [markPlanKickingOff, setOrchestrationKickoffProgress]
+    [
+      clearOrchestrationError,
+      getChat,
+      loadChat,
+      markPlanKickingOff,
+      queryClient,
+      setOrchestrationKickoffProgress
+    ]
   )
 
   return {
@@ -176,6 +278,7 @@ export function useChatOrchestration({
     kickOffAllPlans: kickOffAllPlansAction,
     getOrchestrationKickoffProgress,
     setOrchestrationKickoffProgress,
+    getOrchestrationError,
     isPlanKickingOff,
     isParentKickingOffAny,
     purgeKickoffState

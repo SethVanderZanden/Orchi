@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { getChat } from '@/lib/chat/api'
 import { isLocalChat } from '@/lib/chat/chat-persistence'
 import type { ChatThread } from '@/lib/chat/types'
+import { mergeChatDetail } from '@/lib/chat/merge-chat-detail'
 import { mergeChatLists } from '@/lib/chat/merge-chat-lists'
 import { chatKeys } from '@/lib/query-keys'
 
@@ -46,18 +47,17 @@ export function useChatCache({ chats }: UseChatCacheOptions): UseChatCacheResult
         return getChatLocal(chatId)
       }
 
-      const detail = await queryClient.fetchQuery({
-        queryKey: chatKeys.detail(chatId),
-        queryFn: () => getChat(chatId)
-      })
+      const existing = queryClient.getQueryData<ChatThread>(chatKeys.detail(chatId))
+      const incoming = await getChat(chatId)
+      const merged = mergeChatDetail(existing, incoming)
 
       queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) =>
-        mergeChatLists(current, [detail])
+        mergeChatLists(current, [merged])
       )
 
-      queryClient.setQueryData(chatKeys.detail(chatId), detail)
+      queryClient.setQueryData(chatKeys.detail(chatId), merged)
 
-      return detail
+      return merged
     },
     [getChatLocal, queryClient]
   )

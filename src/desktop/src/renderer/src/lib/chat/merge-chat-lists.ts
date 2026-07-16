@@ -1,8 +1,7 @@
 import type { ChatThread } from '@/lib/chat/types'
 
-function mergeChatThread(existing: ChatThread, incoming: ChatThread): ChatThread {
-  const messages =
-    incoming.messages.length > 0 ? incoming.messages : existing.messages
+export function mergeChatThread(existing: ChatThread, incoming: ChatThread): ChatThread {
+  const messages = incoming.messages.length > 0 ? incoming.messages : existing.messages
 
   return {
     ...existing,

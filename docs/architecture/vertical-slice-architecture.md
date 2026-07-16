@@ -1,5 +1,26 @@
 # Vertical Slice Architecture
 
+## Dummy section (start here)
+
+Traditional web apps split one feature across many folders — controller here, service there, validator somewhere else. Finding "how do I create a chat?" means opening five files in five places.
+
+**Vertical Slice Architecture (VSA)** stacks everything for one use case in one column — like a **single recipe card** that lists ingredients, steps, and how to plate the dish.
+
+```
+Layered (horizontal)                    Vertical slice (one card)
+
+Controllers/CreateChatController.cs     Features/Chats/CreateChat/CreateChat.cs
+Services/ChatService.cs                      ├── Command + Handler
+Validators/CreateChatValidator.cs            ├── Validator
+Models/CreateChatRequest.cs                └── Endpoint
+```
+
+**The aha:** one feature = one place to read and change — fewer hops, clearer ownership.
+
+Everything below is the same idea with Orchi's slice conventions.
+
+---
+
 Adapted from [Milan Jovanovic's VSA guides](https://www.milanjovanovic.tech/blog/vertical-slice-architecture-dotnet).
 
 ## What is Vertical Slice Architecture?
@@ -7,16 +28,16 @@ Adapted from [Milan Jovanovic's VSA guides](https://www.milanjovanovic.tech/blog
 Traditional layered architecture scatters one feature across many folders:
 
 ```
-Controllers/WeatherForecastController.cs
-Services/WeatherService.cs
-Models/WeatherForecast.cs
-Validators/WeatherForecastValidator.cs
+Controllers/ProjectController.cs
+Services/ProjectService.cs
+Models/ProjectSummary.cs
+Validators/ListProjectsValidator.cs
 ```
 
 Vertical Slice Architecture groups everything for one use case in one place:
 
 ```
-Features/Weather/GetForecast/GetWeatherForecast.cs
+Features/Projects/ListProjects/ListProjects.cs
 ```
 
 Each slice is self-contained: request/query, response, handler, validator, and endpoint mapping.
@@ -35,19 +56,34 @@ Each slice is self-contained: request/query, response, handler, validator, and e
 
 Each feature slice is a static class in `Features/{Domain}/{UseCase}/`:
 
-```csharp
-public static class GetWeatherForecast
-{
-    public sealed record Query(int Days = 5) : IQuery<IReadOnlyList<Response>>;
-    public sealed record Response(...);
+**Query example** — [`ListProjects.cs`](../../src/API/Features/Projects/ListProjects/ListProjects.cs):
 
-    internal sealed class Handler : IQueryHandler<Query, IReadOnlyList<Response>> { ... }
-    public sealed class Validator : AbstractValidator<Query> { ... }
+```csharp
+public static class ListProjects
+{
+    public sealed record Query : IQuery<IReadOnlyList<ProjectSummaryResponse>>;
+
+    internal sealed class Handler(IProjectStore projectStore)
+        : IQueryHandler<Query, IReadOnlyList<ProjectSummaryResponse>> { ... }
+
     public sealed class Endpoint : IEndpoint { ... }
 }
 ```
 
-See the live example: [`src/API/Features/Weather/GetForecast/GetWeatherForecast.cs`](../../src/API/Features/Weather/GetForecast/GetWeatherForecast.cs)
+**Command example** — [`CreateChat.cs`](../../src/API/Features/Chats/CreateChat/CreateChat.cs):
+
+```csharp
+public static class CreateChat
+{
+    public sealed record Command(...) : ICommand<CreateChatResponse>;
+
+    internal sealed class Handler(AgentSessionManager sessionManager)
+        : ICommandHandler<Command, CreateChatResponse> { ... }
+
+    public sealed class Validator : AbstractValidator<Command> { ... }
+    public sealed class Endpoint : IEndpoint { ... }
+}
+```
 
 ## One file vs multiple files
 
@@ -57,10 +93,10 @@ Both approaches are valid — locality matters more than file count.
 
 ## Queries vs commands
 
-- **Query** (`IQuery<TResponse>`) — read-only, no side effects
-- **Command** (`ICommand` or `ICommand<TResponse>`) — writes, state changes
+- **Query** (`IQuery<TResponse>`) — read-only, no side effects (e.g. `ListProjects`, `GetChat`)
+- **Command** (`ICommand` or `ICommand<TResponse>`) — writes, state changes (e.g. `CreateChat`, `CloseChat`)
 
-The Weather sample is a query. When you add write operations, use commands with `ICommandHandler`.
+For commands that only need success/failure, use `ICommand` with `ICommandHandler<TCommand>` — see [`CloseChat.cs`](../../src/API/Features/Chats/CloseChat/CloseChat.cs).
 
 ## Further reading
 

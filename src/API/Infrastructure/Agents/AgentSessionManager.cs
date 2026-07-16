@@ -68,6 +68,23 @@ public sealed class AgentSessionManager
     public ChatSession? GetSession(Guid chatId) =>
         _sessions.TryGetValue(chatId, out ChatSession? session) ? session : null;
 
+    public void DetachProjectLinks(IReadOnlyList<Guid> chatIds)
+    {
+        foreach (Guid chatId in chatIds)
+        {
+            if (!_sessions.TryGetValue(chatId, out ChatSession? session))
+            {
+                continue;
+            }
+
+            lock (session.Sync)
+            {
+                session.ProjectId = null;
+                session.WorkspaceId = null;
+            }
+        }
+    }
+
     public async Task<ChatSession?> GetOrLoadSessionAsync(Guid chatId, CancellationToken cancellationToken)
     {
         if (_sessions.TryGetValue(chatId, out ChatSession? cached))

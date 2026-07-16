@@ -8,6 +8,7 @@ import type { ChatThread } from '@/lib/chat/types'
 import type { ParsedPlan } from '@/lib/orchestration/parse-plans'
 import type { ParsedReviewPlan } from '@/lib/orchestration/parse-review-plans'
 import { findChildForPlan, findReviewChildForPlan } from '@/lib/projects/chat-tree'
+import { getPlanReviewVisibility } from '@/lib/orchestration/plan-review-visibility'
 import { getSequenceStepNumber, hasSequentialKickoff } from '@/lib/orchestration/plan-sequence'
 import { cn } from '@/lib/utils'
 
@@ -26,28 +27,9 @@ type PlanCardsProps = {
   parentChatId: string
   sequencePlanIds?: string[]
   sequentialKickoffProgress?: SequentialKickoffProgress | null
+  orchestrationError?: string | null
   onToggleReview: (plan: ParsedPlan) => void
   onKickOffAll: () => void
-}
-
-function isChildRunning(childChat: ChatThread | undefined): boolean {
-  if (!childChat) {
-    return false
-  }
-
-  return childChat.messages.some(
-    (message) => message.status === 'processing' || message.status === 'streaming'
-  )
-}
-
-export function getPlanReviewVisibility(
-  reviewChild: ChatThread | undefined,
-  reviewReady: boolean
-): { reviewing: boolean; reviewStarted: boolean } {
-  const reviewing = isChildRunning(reviewChild)
-  const reviewStarted = Boolean(reviewChild) && !reviewReady && !reviewing
-
-  return { reviewing, reviewStarted }
 }
 
 export function PlanCards({
@@ -59,6 +41,7 @@ export function PlanCards({
   parentChatId,
   sequencePlanIds = [],
   sequentialKickoffProgress = null,
+  orchestrationError = null,
   onToggleReview,
   onKickOffAll
 }: PlanCardsProps): React.JSX.Element | null {
@@ -75,6 +58,11 @@ export function PlanCards({
   return (
     <div className="mx-auto w-full max-w-3xl space-y-2 px-4 pb-4">
       <p className="text-sm font-semibold">Plans</p>
+      {orchestrationError ? (
+        <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {orchestrationError}
+        </p>
+      ) : null}
       {plans.map((plan) => {
         const isTabOpen = openTabIds.includes(plan.planId)
         const childChat = findChildForPlan(plan.planId, childChats)

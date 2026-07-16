@@ -1,16 +1,6 @@
 @Orchi.Api_HostAddress = http://localhost:5265
 
-GET {{Orchi.Api_HostAddress}}/WeatherForecast
-Accept: application/json
-
-###
-
-GET {{Orchi.Api_HostAddress}}/WeatherForecast?days=3
-Accept: application/json
-
-###
-
-GET {{Orchi.Api_HostAddress}}/WeatherForecast?days=99
+GET {{Orchi.Api_HostAddress}}/chats
 Accept: application/json
 
 ###

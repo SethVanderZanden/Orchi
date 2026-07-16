@@ -4,7 +4,7 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 const sidebarNavItemVariants = cva(
-  'group flex w-full min-w-0 items-start gap-2 rounded-md text-left transition-colors duration-150 ease-out',
+  'group flex w-full min-w-0 items-center gap-2 rounded-md text-left transition-colors duration-150 ease-out',
   {
     variants: {
       size: {
@@ -43,17 +43,10 @@ export function SidebarNavItem({
   const Comp = asChild ? Slot : 'button'
 
   return (
-    <Comp
-      className={cn(sidebarNavItemVariants({ size, isActive }), className)}
-      {...props}
-    >
-      {leading ? (
-        <span className="flex shrink-0 items-center gap-2 self-start pt-0.5">{leading}</span>
-      ) : null}
+    <Comp className={cn(sidebarNavItemVariants({ size, isActive }), className)} {...props}>
+      {leading ? <span className="flex shrink-0 items-center gap-2">{leading}</span> : null}
       <span className="min-w-0 flex-1 line-clamp-2 break-words">{children}</span>
-      {trailing ? (
-        <span className="shrink-0 self-start pt-0.5">{trailing}</span>
-      ) : null}
+      {trailing ? <span className="shrink-0 self-start">{trailing}</span> : null}
     </Comp>
   )
 }

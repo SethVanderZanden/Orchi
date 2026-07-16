@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { getPlanReviewVisibility } from '@/components/orchestration/plan-cards'
+import { getPlanReviewVisibility } from '@/lib/orchestration/plan-review-visibility'
 import type { ChatThread } from '@/lib/chat/types'
 
 function createReviewChild(messages: ChatThread['messages'] = []): ChatThread {

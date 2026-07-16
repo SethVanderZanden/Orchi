@@ -1,5 +1,23 @@
 # CQRS Pipeline
 
+## Dummy section (start here)
+
+Think of every API action as a **form at a service desk**. Some forms are **lookups** ("show me my projects") — read-only. Others are **change requests** ("create a chat") — they alter state.
+
+Orchi separates those mentally (**queries vs commands**) but handles them the same way mechanically: a handler does the work and returns an explicit success or failure ticket (`Result`).
+
+Before the handler runs, automatic **wrappers** check the form (validation), log that someone showed up (logging), and time how long the desk took (performance). The customer (endpoint) only talks to the outermost wrapper — they never pick which checks run.
+
+```
+HTTP request  →  Performance wrap  →  Logging wrap  →  Validation wrap  →  Handler  →  Result
+```
+
+**The aha:** cross-cutting rules apply everywhere without copy-pasting them into every feature file.
+
+Everything below is the same idea with interfaces, Scrutor, and decorator order.
+
+---
+
 Adapted from [Milan Jovanovic's CQRS without MediatR article](https://www.milanjovanovic.tech/blog/cqrs-pattern-the-way-it-should-have-been-from-the-start).
 
 ## Overview
@@ -51,10 +69,41 @@ Located in `src/API/Common/Abstractions/`:
 
 | Command marker | Handler interface | Returns | Example use case |
 |----------------|-------------------|---------|------------------|
-| `ICommand` | `ICommandHandler<TCommand>` | `Result` | Delete a record (success/failure only) |
-| `ICommand<TResponse>` | `ICommandHandler<TCommand, TResponse>` | `Result<TResponse>` | Create a record and return the new ID |
+| `ICommand` | `ICommandHandler<TCommand>` | `Result` | Close a chat (success/failure only) |
+| `ICommand<TResponse>` | `ICommandHandler<TCommand, TResponse>` | `Result<TResponse>` | Create a chat and return session details |
 
-There are no command handlers in the codebase yet — only queries like `GetWeatherForecast`. Command handler registration and decorators are pre-wired so write operations can be added without changing infrastructure.
+The codebase has **20+ command handlers** across Chats, Agents, Projects, and Workspaces, plus query handlers like `ListProjects` and `GetChat`. Command and query handlers share the same decorator pipeline.
+
+### Command examples
+
+**With typed response** — [`CreateChat.cs`](../../src/API/Features/Chats/CreateChat/CreateChat.cs):
+
+```csharp
+public sealed record Command(...) : ICommand<CreateChatResponse>;
+
+internal sealed class Handler(...) : ICommandHandler<Command, CreateChatResponse> { ... }
+```
+
+**Success/failure only** — [`CloseChat.cs`](../../src/API/Features/Chats/CloseChat/CloseChat.cs):
+
+```csharp
+public sealed record Command(Guid ChatId) : ICommand;
+
+internal sealed class Handler(...) : ICommandHandler<Command> { ... }
+```
+
+## Intentional exceptions
+
+Most slices follow the pattern above. A few endpoints deliberately diverge:
+
+| Slice | Pattern | Why |
+|-------|---------|-----|
+| [`SendMessage`](../../src/API/Features/Chats/SendMessage/SendMessage.cs) | Handler validates; endpoint streams SSE | Success is a long-lived event stream, not a JSON body |
+| [`SubscribeOrchestrationEvents`](../../src/API/Features/Chats/Orchestration/SubscribeEvents/SubscribeOrchestrationEvents.cs) | Handler loads snapshot; endpoint streams SSE | Same — live orchestration events over SSE |
+| [`GetOrchestration`](../../src/API/Features/Chats/Orchestration/GetOrchestration/GetOrchestration.cs), [`KickOffAll`](../../src/API/Features/Chats/Orchestration/KickOffAll/KickOffAll.cs) | Thin handlers delegating to `IOrchestrationWorkflowService` | Orchestration logic lives in infrastructure; handlers are adapters |
+| [`GetHealth`](../../src/API/Features/Health/GetHealth.cs) | Endpoint only, no handler | Trivial liveness check |
+
+SSE endpoints use the handler for validation and pre-checks, then write directly to `HttpContext.Response` instead of returning `.ToProblem()` on success.
 
 ## Result type
 
@@ -134,7 +183,7 @@ When an endpoint calls `handler.Handle(...)`, execution flows:
 PerformanceBehaviour.Handle()
   → LoggingBehaviour.Handle()
       → ValidationBehaviour.Handle()
-          → GetWeatherForecast.Handler.Handle()
+          → ListProjects.Handler.Handle()
 ```
 
 Each outer layer runs its logic, then calls `innerHandler.Handle(...)` to continue down the chain.
@@ -164,7 +213,7 @@ services.Scan(scan => scan
     .WithScopedLifetime());
 ```
 
-Command handler registration is included even though no commands exist yet — ready for when write operations are added.
+The same scan registers `ICommandHandler<>` and `ICommandHandler<,>` implementations. Command decorators apply automatically once handlers exist.
 
 ## Usage in an endpoint
 
@@ -172,11 +221,11 @@ Handlers are injected directly — no mediator:
 
 ```csharp
 private static async Task<IResult> Handle(
-    [AsParameters] Query query,
-    IQueryHandler<Query, IReadOnlyList<Response>> handler,
+    IQueryHandler<Query, IReadOnlyList<ProjectSummaryResponse>> handler,
     CancellationToken cancellationToken)
 {
-    Result<IReadOnlyList<Response>> result = await handler.Handle(query, cancellationToken);
+    Result<IReadOnlyList<ProjectSummaryResponse>> result =
+        await handler.Handle(new Query(), cancellationToken);
     return result.ToProblem();
 }
 ```

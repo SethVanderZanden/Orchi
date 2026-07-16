@@ -1,4 +1,6 @@
 using Orchi.Api.Common.Abstractions;
+using Orchi.Api.Common.Http;
+using Orchi.Api.Common.Results;
 using Orchi.Api.Features.Chats.Shared;
 using Orchi.Api.Infrastructure.Agents;
 
@@ -6,6 +8,33 @@ namespace Orchi.Api.Features.Chats.SendMessage;
 
 public static class SendMessage
 {
+    public sealed record SendMessageContext(Guid ChatId, string Content);
+
+    public sealed record Command(Guid ChatId, string Content) : ICommand<SendMessageContext>;
+
+    internal sealed class Handler(AgentSessionManager sessionManager)
+        : ICommandHandler<Command, SendMessageContext>
+    {
+        public async Task<Result<SendMessageContext>> Handle(
+            Command command,
+            CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(command.Content))
+            {
+                return Result.Failure<SendMessageContext>(
+                    Error.Validation("Message.Required", "Message content is required."));
+            }
+
+            if (await sessionManager.GetOrLoadSessionAsync(command.ChatId, cancellationToken) is null)
+            {
+                return Result.Failure<SendMessageContext>(
+                    Error.NotFound($"Chat '{command.ChatId}' was not found."));
+            }
+
+            return Result.Success(new SendMessageContext(command.ChatId, command.Content.Trim()));
+        }
+    }
+
     public sealed class Endpoint : IEndpoint
     {
         public void MapEndpoint(IEndpointRouteBuilder app)
@@ -18,31 +47,22 @@ public static class SendMessage
         private static async Task Handle(
             Guid chatId,
             SendMessageRequest request,
+            ICommandHandler<Command, SendMessageContext> handler,
             AgentSessionManager sessionManager,
             HttpContext httpContext,
             CancellationToken cancellationToken)
         {
-            if (string.IsNullOrWhiteSpace(request.Content))
+            Result<SendMessageContext> result = await handler.Handle(
+                new Command(chatId, request.Content),
+                cancellationToken);
+
+            if (result.IsFailure)
             {
-                httpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
-                await httpContext.Response.WriteAsJsonAsync(new
-                {
-                    Code = "Message.Required",
-                    Message = "Message content is required."
-                }, cancellationToken);
+                await httpContext.Response.WriteErrorAsync(result.Error, cancellationToken);
                 return;
             }
 
-            if (await sessionManager.GetOrLoadSessionAsync(chatId, cancellationToken) is null)
-            {
-                httpContext.Response.StatusCode = StatusCodes.Status404NotFound;
-                await httpContext.Response.WriteAsJsonAsync(new
-                {
-                    Code = "NotFound",
-                    Message = $"Chat '{chatId}' was not found."
-                }, cancellationToken);
-                return;
-            }
+            SendMessageContext context = result.Value;
 
             httpContext.Response.Headers.CacheControl = "no-cache";
             httpContext.Response.Headers.Connection = "keep-alive";
@@ -51,13 +71,13 @@ public static class SendMessage
             Guid assistantMessageId = Guid.Empty;
 
             await foreach (AgentEvent agentEvent in sessionManager.SendMessageAsync(
-                               chatId,
-                               request.Content.Trim(),
+                               context.ChatId,
+                               context.Content,
                                cancellationToken))
             {
                 if (assistantMessageId == Guid.Empty)
                 {
-                    ChatSession? session = sessionManager.GetSession(chatId);
+                    ChatSession? session = sessionManager.GetSession(context.ChatId);
                     ChatMessage? assistant = session?.Messages.LastOrDefault(message => message.Role == "assistant");
                     if (assistant is not null)
                     {

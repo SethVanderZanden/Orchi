@@ -96,13 +96,13 @@ public sealed class EfProjectStore(IDbContextFactory<AppDbContext> dbContextFact
         return project;
     }
 
-    public async Task<bool> DeleteProjectAsync(Guid projectId, CancellationToken cancellationToken)
+    public async Task<ProjectDeleteResult?> DeleteProjectAsync(Guid projectId, CancellationToken cancellationToken)
     {
         await using AppDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         Project? project = await db.Projects.FirstOrDefaultAsync(existing => existing.Id == projectId, cancellationToken);
         if (project is null)
         {
-            return false;
+            return null;
         }
 
         List<Guid> workspaceIds = await db.Workspaces
@@ -123,7 +123,7 @@ public sealed class EfProjectStore(IDbContextFactory<AppDbContext> dbContextFact
 
         db.Projects.Remove(project);
         await db.SaveChangesAsync(cancellationToken);
-        return true;
+        return new ProjectDeleteResult(orphanChats.Select(chat => chat.Id).ToList());
     }
 
     public async Task<WorkspaceCreateResult?> CreateWorkspaceAsync(

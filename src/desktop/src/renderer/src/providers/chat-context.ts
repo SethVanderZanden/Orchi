@@ -35,6 +35,7 @@ export type ChatContextValue = {
     parentChatId: string,
     progress: OrchestrationWorkflowProgress | null
   ) => void
+  getOrchestrationError: (parentChatId: string) => string | null
   isChatSending: (chatId: string) => boolean
   isPlanKickingOff: (parentChatId: string, planId: string) => boolean
   isParentKickingOffAny: (parentChatId: string) => boolean

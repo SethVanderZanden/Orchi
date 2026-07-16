@@ -210,24 +210,6 @@ namespace Orchi.Api.Migrations
                     b.ToTable("OrchestrationWorkflows");
                 });
 
-            modelBuilder.Entity("Orchi.Api.Entities.PipelineRun", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("PipelineRuns");
-                });
-
             modelBuilder.Entity("Orchi.Api.Entities.Plan", b =>
                 {
                     b.Property<string>("PlanId")

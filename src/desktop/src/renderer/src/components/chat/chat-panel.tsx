@@ -98,6 +98,8 @@ type ChatPanelProps = {
 
   sequentialKickoffProgress?: { active: boolean; currentStep: number; totalSteps: number } | null
 
+  orchestrationError?: string | null
+
   childChats?: ChatThread[]
 
   reviewPlansByPlanId?: Record<string, ParsedReviewPlan | undefined>
@@ -165,6 +167,8 @@ export function ChatPanel({
   sequencePlanIds = [],
 
   sequentialKickoffProgress = null,
+
+  orchestrationError = null,
 
   childChats = [],
 
@@ -265,6 +269,7 @@ export function ChatPanel({
                         isParentKickingOffAny={isParentKickingOffAny!}
                         sequencePlanIds={sequencePlanIds}
                         sequentialKickoffProgress={sequentialKickoffProgress}
+                        orchestrationError={orchestrationError}
                         onToggleReview={(plan) =>
                           dispatchReview({ type: 'toggle-tab', planId: plan.planId })
                         }

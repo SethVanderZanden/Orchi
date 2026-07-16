@@ -1,3 +1,4 @@
+using FluentValidation;
 using Orchi.Api.Common.Abstractions;
 using Orchi.Api.Common.Http;
 using Orchi.Api.Common.Results;
@@ -25,10 +26,20 @@ public static class RemoveAgentModel
             {
                 return Result.Failure(Error.Validation("Agent.Unsupported", ex.Message));
             }
-            catch (ArgumentException ex)
-            {
-                return Result.Failure(Error.Validation("Agent.Required", ex.Message));
-            }
+        }
+    }
+
+    public sealed class Validator : AbstractValidator<Command>
+    {
+        public Validator()
+        {
+            RuleFor(command => command.AgentId)
+                .NotEmpty()
+                .WithMessage("Agent id is required.");
+
+            RuleFor(command => command.ModelId)
+                .NotEmpty()
+                .WithMessage("Model id is required.");
         }
     }
 

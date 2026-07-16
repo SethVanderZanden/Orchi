@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 
 import { ChatPanel } from '@/components/chat/chat-panel'
 import { ChatWorkspaceHeader } from '@/components/layout/chat-workspace-header'
@@ -31,6 +31,7 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
     kickOffAllPlans,
     getOrchestrationKickoffProgress,
     setOrchestrationKickoffProgress,
+    getOrchestrationError,
     updateChatMode,
     getModeUpdateError,
     updateChatModel,
@@ -71,30 +72,45 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
     }
   }, [chat.mode, chat.parentChatId, getChat, loadChat])
 
-  const { workflowProgress, sequencePlanIds: backendSequencePlanIds } = useOrchestration({
-    parentChatId: needsHydration ? chat.id : undefined,
-    parentChat: needsHydration ? chat : undefined,
-    enabled: needsHydration,
-    onWorkflowProgress: (progress) => setOrchestrationKickoffProgress(chat.id, progress),
-    onChildrenHydrated: (childIds) => {
+  const onWorkflowProgress = useCallback(
+    (progress: Parameters<typeof setOrchestrationKickoffProgress>[1]) => {
+      setOrchestrationKickoffProgress(chat.id, progress)
+    },
+    [chat.id, setOrchestrationKickoffProgress]
+  )
+
+  const onChildrenHydrated = useCallback(
+    (childIds: string[]) => {
       for (const childId of childIds) {
         const child = getChat(childId)
         if (child && child.messages.length === 0) {
           void loadChat(childId)
         }
       }
-    }
+    },
+    [getChat, loadChat]
+  )
+
+  const { workflowProgress, sequencePlanIds: backendSequencePlanIds } = useOrchestration({
+    parentChatId: needsHydration ? chat.id : undefined,
+    parentChat: needsHydration ? chat : undefined,
+    getChat,
+    enabled: needsHydration,
+    onWorkflowProgress,
+    onChildrenHydrated
   })
 
   useOrchestrationParentEvents({
     childChat: chat.parentChatId ? chat : undefined,
     parentChat: parentChat?.mode === 'orchestration' ? parentChat : undefined,
     parentChildCount,
-    isParentKickoffActive: parentChat ? isParentKickingOffAny(parentChat.id) : false
+    isParentKickoffActive: parentChat ? isParentKickingOffAny(parentChat.id) : false,
+    getChat
   })
   const sequencePlanIds =
     backendSequencePlanIds.length > 0 ? backendSequencePlanIds : orchestrationParse.sequencePlanIds
   const orchestrationKickoffProgress = workflowProgress ?? getOrchestrationKickoffProgress(chat.id)
+  const orchestrationError = getOrchestrationError(chat.id)
   const childChats = getChildChats(chat.id).map((child) => getChat(child.id) ?? child)
   const reviewPlansByPlanId = Object.fromEntries(
     plans.map((plan) => {
@@ -192,6 +208,7 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
         sequentialKickoffProgress={
           chat.mode === 'orchestration' ? orchestrationKickoffProgress : undefined
         }
+        orchestrationError={chat.mode === 'orchestration' ? orchestrationError : undefined}
         childChats={chat.mode === 'orchestration' ? childChats : undefined}
         reviewPlansByPlanId={chat.mode === 'orchestration' ? reviewPlansByPlanId : undefined}
         showPlanReview={showPlanReview}

@@ -39,6 +39,17 @@ export function useChatReadState({
   }, [activeChatId, activeChat?.updatedAt, activeChat?.messages.length, activeChat])
 
   useEffect(() => {
+    if (!activeChatId || isLocalChat(activeChatId)) {
+      return
+    }
+
+    const chat = getChat(activeChatId)
+    if (chat && chat.messages.length === 0 && !isChatSending(activeChatId)) {
+      void loadChat(activeChatId)
+    }
+  }, [activeChatId, getChat, isChatSending, loadChat])
+
+  useEffect(() => {
     if (!activeChatId) {
       return
     }
@@ -48,11 +59,6 @@ export function useChatReadState({
 
     if (!needsOrchestrationHydration(chat, childCount, isParentKickingOffAny(activeChatId))) {
       return
-    }
-
-    const resolved = getChat(activeChatId)
-    if (!resolved?.messages.length) {
-      void loadChat(activeChatId)
     }
 
     for (const child of getChildChats(activeChatId)) {

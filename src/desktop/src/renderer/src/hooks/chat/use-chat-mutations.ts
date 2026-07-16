@@ -53,7 +53,7 @@ export function useChatMutations({
           return current
         }
 
-        const next = { ...current }
+        const next = { ...current, [toId]: current[fromId] }
         delete next[fromId]
         return next
       })
@@ -63,7 +63,7 @@ export function useChatMutations({
           return current
         }
 
-        const next = { ...current }
+        const next = { ...current, [toId]: current[fromId] }
         delete next[fromId]
         return next
       })

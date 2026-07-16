@@ -12,6 +12,7 @@ import {
 } from '@/lib/chat/message-updates'
 import { createMessageStreamHandlers } from '@/lib/chat/message-stream-handlers'
 import { registerChatIdMigrator } from '@/lib/chat/migrate-chat-client-state'
+import { resolveDetailCache } from '@/lib/chat/resolve-detail-cache'
 import { maybeHydrateOrchestrationAfterChildSend } from '@/lib/orchestration/orchestration-cache'
 import { promoteLocalChat } from '@/lib/chat/promote-local-chat'
 import type { ChatMarker, ChatThread } from '@/lib/chat/types'
@@ -158,23 +159,24 @@ export function useChatStream({
   const finalizeInterruptedAssistant = useCallback(
     (chatId: string) => {
       queryClient.setQueryData<ChatThread>(chatKeys.detail(chatId), (current) => {
-        if (!current) {
+        const base = current ?? resolveDetailCache(queryClient, chatId, getChat)
+        if (!base) {
           return current
         }
 
-        const { messages, changed } = finalizeAssistantMessages(current.messages)
+        const { messages, changed } = finalizeAssistantMessages(base.messages)
         if (!changed) {
-          return current
+          return base
         }
 
         return {
-          ...current,
+          ...base,
           messages,
           updatedAt: new Date().toISOString()
         }
       })
     },
-    [queryClient]
+    [getChat, queryClient]
   )
 
   const updateAssistantMessage = useCallback(
@@ -184,14 +186,15 @@ export function useChatStream({
       updater: Parameters<typeof updateMessageInThread>[2]
     ) => {
       queryClient.setQueryData<ChatThread>(chatKeys.detail(chatId), (current) => {
-        if (!current) {
+        const base = current ?? resolveDetailCache(queryClient, chatId, getChat)
+        if (!base) {
           return current
         }
 
-        return updateMessageInThread(current, assistantMessageId, updater)
+        return updateMessageInThread(base, assistantMessageId, updater)
       })
     },
-    [queryClient]
+    [getChat, queryClient]
   )
 
   const releaseStream = useCallback(
@@ -243,11 +246,12 @@ export function useChatStream({
       const assistantMessageId = crypto.randomUUID()
 
       queryClient.setQueryData<ChatThread>(chatKeys.detail(resolvedChatId), (current) => {
-        if (!current) {
+        const base = current ?? resolveDetailCache(queryClient, resolvedChatId, getChat)
+        if (!base) {
           return current
         }
 
-        return appendUserAndAssistantMessages(current, content, assistantMessageId)
+        return appendUserAndAssistantMessages(base, content, assistantMessageId)
       })
 
       appendMarker(resolvedChatId, {

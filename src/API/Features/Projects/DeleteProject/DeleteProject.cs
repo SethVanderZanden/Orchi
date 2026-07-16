@@ -1,6 +1,7 @@
 using Orchi.Api.Common.Abstractions;
 using Orchi.Api.Common.Http;
 using Orchi.Api.Common.Results;
+using Orchi.Api.Infrastructure.Agents;
 using Orchi.Api.Infrastructure.Projects;
 
 namespace Orchi.Api.Features.Projects.DeleteProject;
@@ -9,17 +10,19 @@ public static class DeleteProject
 {
     public sealed record Command(Guid ProjectId) : ICommand;
 
-    internal sealed class Handler(IProjectStore projectStore)
+    internal sealed class Handler(IProjectStore projectStore, AgentSessionManager sessionManager)
         : ICommandHandler<Command>
     {
         public async Task<Result> Handle(Command command, CancellationToken cancellationToken)
         {
-            bool deleted = await projectStore.DeleteProjectAsync(command.ProjectId, cancellationToken);
-            if (!deleted)
+            ProjectDeleteResult? result =
+                await projectStore.DeleteProjectAsync(command.ProjectId, cancellationToken);
+            if (result is null)
             {
                 return Result.Failure(Error.NotFound($"Project '{command.ProjectId}' was not found."));
             }
 
+            sessionManager.DetachProjectLinks(result.OrphanedChatIds);
             return Result.Success();
         }
     }

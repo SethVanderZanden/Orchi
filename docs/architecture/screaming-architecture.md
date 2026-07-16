@@ -1,5 +1,27 @@
 # Screaming Architecture
 
+## Dummy section (start here)
+
+Open two restaurant floor plans. **Plan A** labels rooms "Heat source," "Cutting surface," "Storage." **Plan B** labels them "Grill station," "Salad bar," "Dessert counter." Plan B tells you what gets *served*; Plan A only tells you what *equipment* exists.
+
+**Screaming architecture** means your codebase layout should read like Plan B — a new developer glances at folders and immediately knows the product: chats, projects, agents, orchestration.
+
+```
+Technical layout (screams "web framework")     vs     Orchi layout (screams "AI orchestrator")
+
+Controllers/                                          Features/
+Services/                                                 ├── Chats/
+Repositories/                                             ├── Projects/
+Models/                                                   ├── Agents/
+                                                          └── Workspaces/
+```
+
+**The aha:** structure is documentation — names should match how you talk about the product, not how ASP.NET is organized.
+
+Everything below is the same idea with Orchi's actual folder tree.
+
+---
+
 Adapted from [Milan Jovanovic's Screaming Architecture article](https://www.milanjovanovic.tech/blog/screaming-architecture).
 
 ## The idea
@@ -19,11 +41,13 @@ A structure organized by use cases screams the **business domain**:
 
 ```
 Features/
-└── Weather/
-    └── GetForecast/
+├── Chats/
+│   └── CreateChat/
+└── Projects/
+    └── ListProjects/
 ```
 
-Orchi uses the latter. As real features are added, the tree will scream "AI engineering orchestrator" — not "web framework."
+Orchi uses the latter. The tree screams "AI engineering orchestrator" — not "web framework."
 
 ## Use-case driven folders
 
@@ -31,20 +55,32 @@ Each top-level folder under `Features/` represents a domain concept:
 
 ```
 Features/
-├── Weather/          ← sample (temporary)
-│   └── GetForecast/
-├── Agents/           ← future
-├── Worktrees/        ← future
-└── Reviews/          ← future
+├── Agents/           ← agent model catalog, mode defaults
+├── Chats/            ← chat lifecycle, messaging, plans
+│   └── Orchestration/  ← multi-agent plan orchestration
+├── Projects/         ← projects and nested workspace creation
+├── Workspaces/       ← workspace update/delete
+└── Health/           ← liveness probe
 ```
 
 Inside each domain folder, one subfolder per use case:
 
 ```
-Features/Weather/
-└── GetForecast/
-    └── GetWeatherForecast.cs
+Features/Chats/
+├── CreateChat/
+│   └── CreateChat.cs
+├── ListChats/
+│   └── ListChats.cs
+└── Orchestration/
+    └── GetOrchestration/
+        └── GetOrchestration.cs
 ```
+
+### Route-driven grouping
+
+Not every slice lives under the folder you'd guess from the resource name alone. **`CreateWorkspace`** sits under `Features/Projects/` because its route is nested under a project (`POST /projects/{projectId}/workspaces`). **`UpdateWorkspace`** and **`DeleteWorkspace`** live under `Features/Workspaces/` because their routes are top-level (`PATCH/DELETE /workspaces/{id}`).
+
+This is intentional **route-driven grouping**, not a mistake to "fix" by moving files. Group slices by the URL shape they serve.
 
 ## What stays outside Features/
 
@@ -53,11 +89,13 @@ Not everything belongs in a slice. Shared infrastructure lives separately:
 | Folder | Purpose |
 |--------|---------|
 | `Common/` | CQRS abstractions, behaviours, Result type |
-| `Infrastructure/` | DI setup, OpenAPI, endpoint discovery |
+| `Infrastructure/` | DI setup, OpenAPI, endpoint discovery, agent adapters |
 | `Data/` | EF Core DbContext |
-| `Entities/` | Shared domain entities (when domain design begins) |
+| `Entities/` | Shared domain entities used across slices |
 
-Shared logic used by multiple slices (email, storage, etc.) goes in `Common/` or a dedicated module — not duplicated across slices.
+Active entities include `Chat`, `Project`, `Workspace`, `Plan`, `OrchestrationWorkflow`, `AgentModel`, and related types. Orchestration state is persisted via `OrchestrationWorkflow` — not a separate placeholder entity.
+
+Shared logic used by multiple slices (caching, agent adapters, project store) goes in `Infrastructure/` or `Common/` — not duplicated across slices.
 
 ## Benefits
 
@@ -66,17 +104,8 @@ Shared logic used by multiple slices (email, storage, etc.) goes in `Common/` or
 - **Easier navigation** for new developers
 - **Aligned with business language** — folders match how stakeholders describe the system
 
-## When domain design begins
-
-The `Weather/` folder is a temporary sample. When Orchi's real domain is designed:
-
-1. Add new domain folders under `Features/`
-2. Leave `Entities/` for shared domain models used across slices
-3. Remove `Weather/` when the sample is no longer needed
-
-The `PipelineRun` entity in `Entities/` is an early placeholder — dormant until orchestration domain design starts.
-
 ## Further reading
 
 - [Vertical Slice Architecture](vertical-slice-architecture.md)
 - [Adding a Feature](adding-a-feature.md)
+- [Agent adapters](../agents/README.md)

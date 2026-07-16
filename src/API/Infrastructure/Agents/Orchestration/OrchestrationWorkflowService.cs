@@ -1,9 +1,5 @@
 using System.Collections.Concurrent;
-using Orchi.Api.Common.Abstractions;
 using Orchi.Api.Common.Results;
-using Orchi.Api.Features.Chats.KickOffPlan;
-using Orchi.Api.Features.Chats.KickOffReview;
-using Orchi.Api.Features.Chats.Shared;
 using Orchi.Api.Infrastructure.Agents.Modes;
 using Orchi.Api.Infrastructure.Agents.Orchestration.Persistence;
 using Orchi.Api.Infrastructure.Agents.Plans;
@@ -44,7 +40,7 @@ public sealed class OrchestrationWorkflowService(
     IOrchestrationWorkflowStore workflowStore,
     OrchestrationStepPipeline stepPipeline,
     OrchestrationEventHub eventHub,
-    IServiceScopeFactory scopeFactory,
+    IOrchiKickoffExecutor kickoffExecutor,
     ILogger<OrchestrationWorkflowService> logger) : IOrchestrationWorkflowService
 {
     private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> ParentLocks = new();
@@ -185,13 +181,13 @@ public sealed class OrchestrationWorkflowService(
                         // Start every independent plan that is still waiting.
                         foreach (PlanMarkdownParser.ParsedPlan plan in plansToKick)
                         {
-                            await KickOffPlanAndRunAsync(parentId, plan, CancellationToken.None);
+                            await kickoffExecutor.KickOffPlanAndRunAsync(parentId, plan, CancellationToken.None);
                         }
 
                         // Start only the next assembly-line step (not the whole sequence).
                         if (firstSequenced is not null)
                         {
-                            await KickOffPlanAndRunAsync(parentId, firstSequenced, CancellationToken.None);
+                            await kickoffExecutor.KickOffPlanAndRunAsync(parentId, firstSequenced, CancellationToken.None);
                         }
                     }
                     catch (Exception ex)
@@ -300,7 +296,10 @@ public sealed class OrchestrationWorkflowService(
                     return;
                 }
 
-                await KickOffReviewAndRunAsync(parent.Id, action.ImplementationChildChatId.Value, cancellationToken);
+                await kickoffExecutor.KickOffReviewAndRunAsync(
+                    parent.Id,
+                    action.ImplementationChildChatId.Value,
+                    cancellationToken);
                 break;
 
             case OrchestrationStepActionKind.KickOffNextPlan:
@@ -324,126 +323,9 @@ public sealed class OrchestrationWorkflowService(
                     },
                     cancellationToken);
 
-                await KickOffPlanAndRunAsync(parent.Id, action.Plan, cancellationToken);
+                await kickoffExecutor.KickOffPlanAndRunAsync(parent.Id, action.Plan, cancellationToken);
                 break;
         }
-    }
-
-    private async Task KickOffPlanAndRunAsync(
-        Guid parentChatId,
-        PlanMarkdownParser.ParsedPlan plan,
-        CancellationToken cancellationToken)
-    {
-        ChatSession? parent = await sessionManager.GetOrLoadSessionAsync(parentChatId, cancellationToken);
-        if (parent is null)
-        {
-            return;
-        }
-
-        using IServiceScope scope = scopeFactory.CreateScope();
-        ICommandHandler<KickOffPlan.Command, KickOffPlanResponse> kickOffPlanHandler =
-            scope.ServiceProvider.GetRequiredService<ICommandHandler<KickOffPlan.Command, KickOffPlanResponse>>();
-
-        Result<KickOffPlanResponse> result = await kickOffPlanHandler.Handle(
-            new KickOffPlan.Command(parent.Id, plan.PlanId, plan.Title, plan.ContentMarkdown),
-            cancellationToken);
-
-        if (result.IsFailure)
-        {
-            logger.LogWarning(
-                "Plan kickoff failed for {PlanId} on chat {ParentChatId}: {Error}",
-                plan.PlanId,
-                parent.Id,
-                result.Error.Message);
-            return;
-        }
-
-        KickOffPlanResponse response = result.Value;
-
-        await eventHub.PublishAsync(
-            parent.Id,
-            new OrchestrationChatCreatedEvent(
-                response.ChildChatId,
-                ImplementationAgentModeStrategy.Mode,
-                parent.Id,
-                plan.PlanId,
-                response.PlanFilePath),
-            cancellationToken);
-
-        await AppendParentStatusMessageAsync(
-            parentChatId,
-            $"Started implementation for plan `{plan.PlanId}`.",
-            cancellationToken);
-
-        RunAgentTurnInBackground(parentChatId, response.ChildChatId, response.KickoffMessage);
-    }
-
-    private async Task KickOffReviewAndRunAsync(
-        Guid parentChatId,
-        Guid implementationChildChatId,
-        CancellationToken cancellationToken)
-    {
-        using IServiceScope scope = scopeFactory.CreateScope();
-        ICommandHandler<KickOffReview.Command, KickOffReviewResponse> kickOffReviewHandler =
-            scope.ServiceProvider.GetRequiredService<ICommandHandler<KickOffReview.Command, KickOffReviewResponse>>();
-
-        Result<KickOffReviewResponse> result = await kickOffReviewHandler.Handle(
-            new KickOffReview.Command(implementationChildChatId),
-            cancellationToken);
-
-        if (result.IsFailure)
-        {
-            logger.LogWarning(
-                "Review kickoff failed for implementation chat {ImplementationChildChatId}: {Error}",
-                implementationChildChatId,
-                result.Error.Message);
-            return;
-        }
-
-        KickOffReviewResponse response = result.Value;
-        string? planId = PlanMarkdownParser.TryExtractPlanIdFromPath(
-            (await sessionManager.GetOrLoadSessionAsync(implementationChildChatId, cancellationToken))?.PlanFilePath);
-
-        await eventHub.PublishAsync(
-            parentChatId,
-            new OrchestrationChatCreatedEvent(
-                response.ReviewChildChatId,
-                ReviewAgentModeStrategy.Mode,
-                parentChatId,
-                planId,
-                response.ReviewFilePath),
-            cancellationToken);
-
-        await AppendParentStatusMessageAsync(
-            parentChatId,
-            planId is null
-                ? "Started review."
-                : $"Started review for plan `{planId}`.",
-            cancellationToken);
-
-        RunAgentTurnInBackground(parentChatId, response.ReviewChildChatId, response.InitialPrompt);
-    }
-
-    private void RunAgentTurnInBackground(Guid parentChatId, Guid childChatId, string content)
-    {
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                using IServiceScope scope = scopeFactory.CreateScope();
-                OrchestrationAgentRunner runner =
-                    scope.ServiceProvider.GetRequiredService<OrchestrationAgentRunner>();
-
-                await runner.RunTurnAsync(parentChatId, childChatId, content, CancellationToken.None);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(
-                    ex,
-                    "Background agent run failed for child chat {ChildChatId}",
-                    childChatId);
-            }
-        }, CancellationToken.None);
     }
 
     private async Task AppendParentStatusMessageAsync(

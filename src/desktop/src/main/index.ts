@@ -4,16 +4,9 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { getApiBaseUrl, startApiHost, stopApiHost } from './api-host'
 import { openInEditor, type EditorId } from './open-in-editor'
+import { BeforeQuitState, createDefaultShutdownDeps, handleBeforeQuit } from './shutdown'
 
-let isShuttingDown = false
-
-async function shutdownApiSessions(): Promise<void> {
-  try {
-    await fetch(`${getApiBaseUrl()}/chats/shutdown`, { method: 'POST' })
-  } catch {
-    // Best-effort cleanup when the API is unavailable.
-  }
-}
+const shutdownState = { current: BeforeQuitState.NotStarted }
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -92,22 +85,16 @@ app.whenReady().then(async () => {
 })
 
 app.on('before-quit', (event) => {
-  if (isShuttingDown) {
-    return
-  }
-
-  event.preventDefault()
-  isShuttingDown = true
-
-  void shutdownApiSessions()
-    .then(async () => {
-      if (!is.dev) {
-        await stopApiHost()
-      }
-    })
-    .finally(() => {
-      app.quit()
-    })
+  handleBeforeQuit(
+    event,
+    shutdownState,
+    createDefaultShutdownDeps({
+      isDev: is.dev,
+      getApiBaseUrl,
+      stopApiHost
+    }),
+    () => app.quit()
+  )
 })
 
 app.on('window-all-closed', () => {

@@ -1,5 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query'
 
+import { resolveDetailCache } from '@/lib/chat/resolve-detail-cache'
 import type { ChatThread } from '@/lib/chat/types'
 import {
   appendParentOrchestrationMessage,
@@ -37,19 +38,31 @@ export function mergeOrchestrationChildren(
 
       return [childChat, ...current]
     })
-
-    queryClient.setQueryData<ChatThread>(
-      chatKeys.detail(childChat.id),
-      (current) => current ?? childChat
-    )
   }
 
   return newChildIds
 }
 
+function resolveChildDetailCache(
+  queryClient: QueryClient,
+  childChatId: string,
+  getChat: (chatId: string) => ChatThread | undefined
+): ChatThread | undefined {
+  return resolveDetailCache(queryClient, childChatId, getChat)
+}
+
+function resolveParentDetailCache(
+  queryClient: QueryClient,
+  parentChat: ChatThread,
+  getChat: (chatId: string) => ChatThread | undefined
+): ChatThread {
+  return resolveDetailCache(queryClient, parentChat.id, getChat) ?? parentChat
+}
+
 export function createOrchestrationEventHandlers(
   parentChat: ChatThread,
   queryClient: QueryClient,
+  getChat: (chatId: string) => ChatThread | undefined,
   options?: {
     onWorkflow?: OrchestrationEventHandlers['onWorkflow']
     onChatCreated?: OrchestrationEventHandlers['onChatCreated']
@@ -66,21 +79,22 @@ export function createOrchestrationEventHandlers(
 
         return [childChat, ...current]
       })
-      queryClient.setQueryData(chatKeys.detail(childChat.id), childChat)
       options?.onChatCreated?.(payload)
     },
     onParentMessage: (payload) => {
-      queryClient.setQueryData<ChatThread>(chatKeys.detail(parentChat.id), (current) =>
-        current ? appendParentOrchestrationMessage(current, payload) : current
-      )
+      queryClient.setQueryData<ChatThread>(chatKeys.detail(parentChat.id), (current) => {
+        const base = current ?? resolveParentDetailCache(queryClient, parentChat, getChat)
+        return appendParentOrchestrationMessage(base, payload)
+      })
     },
     onAgentToken: ({ childChatId, text }) => {
       queryClient.setQueryData<ChatThread>(chatKeys.detail(childChatId), (current) => {
-        if (!current) {
+        const base = current ?? resolveChildDetailCache(queryClient, childChatId, getChat)
+        if (!base) {
           return current
         }
 
-        const messages = [...current.messages]
+        const messages = [...base.messages]
         const last = messages.at(-1)
 
         if (!last || last.role !== 'assistant') {
@@ -100,7 +114,7 @@ export function createOrchestrationEventHandlers(
           }
         }
 
-        return { ...current, messages, updatedAt: new Date().toISOString() }
+        return { ...base, messages, updatedAt: new Date().toISOString() }
       })
     },
     onAgentTool: () => {
@@ -108,38 +122,42 @@ export function createOrchestrationEventHandlers(
     },
     onAgentDone: ({ childChatId, messageId, succeeded }) => {
       queryClient.setQueryData<ChatThread>(chatKeys.detail(childChatId), (current) => {
-        if (!current) {
+        const base = current ?? resolveChildDetailCache(queryClient, childChatId, getChat)
+        if (!base) {
           return current
         }
 
-        const messages = current.messages.map((message) =>
-          message.id === messageId || message.role === 'assistant'
-            ? {
-                ...message,
-                id: messageId || message.id,
-                status: succeeded ? 'complete' : message.status
-              }
-            : message
-        )
+        const messages = [...base.messages]
+        const targetIndex = messageId
+          ? messages.findIndex((message) => message.id === messageId)
+          : messages.findLastIndex(
+              (message) =>
+                message.role === 'assistant' &&
+                (message.status === 'processing' || message.status === 'streaming')
+            )
 
-        return {
-          ...current,
-          messages: messages.map((message, index, all) =>
-            index === all.length - 1 && message.role === 'assistant'
-              ? { ...message, status: succeeded ? 'complete' : 'error' }
-              : message
-          )
+        if (targetIndex === -1) {
+          return base
         }
+
+        messages[targetIndex] = {
+          ...messages[targetIndex],
+          id: messageId || messages[targetIndex].id,
+          status: succeeded ? 'complete' : 'error'
+        }
+
+        return { ...base, messages }
       })
       void queryClient.invalidateQueries({ queryKey: chatKeys.lists() })
     },
     onAgentError: ({ childChatId, message }) => {
       queryClient.setQueryData<ChatThread>(chatKeys.detail(childChatId), (current) => {
-        if (!current) {
+        const base = current ?? resolveChildDetailCache(queryClient, childChatId, getChat)
+        if (!base) {
           return current
         }
 
-        const messages = [...current.messages]
+        const messages = [...base.messages]
         const last = messages.at(-1)
         if (last?.role === 'assistant') {
           messages[messages.length - 1] = {
@@ -149,7 +167,7 @@ export function createOrchestrationEventHandlers(
           }
         }
 
-        return { ...current, messages }
+        return { ...base, messages }
       })
     }
   }

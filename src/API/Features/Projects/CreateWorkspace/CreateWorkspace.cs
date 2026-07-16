@@ -16,12 +16,6 @@ public static class CreateWorkspace
     {
         public async Task<Result<WorkspaceResponse>> Handle(Command command, CancellationToken cancellationToken)
         {
-            if (string.IsNullOrWhiteSpace(command.Path))
-            {
-                return Result.Failure<WorkspaceResponse>(
-                    Error.Validation("Path.Required", "Workspace path is required."));
-            }
-
             string fullPath = Path.GetFullPath(command.Path);
             if (!Directory.Exists(fullPath))
             {

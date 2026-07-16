@@ -33,7 +33,7 @@ function ChatRow({
   const isActive = chat.id === actions.activeChatId
 
   return (
-    <div className="group relative min-w-0">
+    <div className="group/chat-row relative min-w-0">
       <SidebarNavItem
         type="button"
         title={chat.title}
@@ -69,7 +69,7 @@ function ChatRow({
       <Button
         variant="ghost"
         size="icon"
-        className="pointer-events-none absolute top-1 right-0.5 z-10 size-6 bg-sidebar/90 text-sidebar-muted opacity-0 backdrop-blur-sm transition-opacity duration-150 ease-out group-hover:pointer-events-auto group-hover:text-sidebar-accent-foreground group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100"
+        className="pointer-events-none absolute top-1 right-0.5 z-10 size-6 bg-sidebar/90 text-sidebar-muted opacity-0 backdrop-blur-sm transition-opacity duration-150 ease-out group-hover/chat-row:pointer-events-auto group-hover/chat-row:text-sidebar-accent-foreground group-hover/chat-row:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 disabled:pointer-events-none disabled:opacity-0 disabled:group-hover/chat-row:pointer-events-none disabled:group-hover/chat-row:opacity-0"
         aria-label={`Delete ${chat.title}`}
         disabled={actions.isChatSending(chat.id) || actions.isDeletingChat(chat.id)}
         onClick={(event) => {

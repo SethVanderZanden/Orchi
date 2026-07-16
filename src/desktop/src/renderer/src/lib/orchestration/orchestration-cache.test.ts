@@ -24,7 +24,7 @@ function createParentChat(): ChatThread {
 }
 
 describe('mergeOrchestrationChildren', () => {
-  it('adds orchestration children to the chat list and detail cache', () => {
+  it('adds orchestration children to the chat list only', () => {
     const queryClient = new QueryClient()
     const parentChat = createParentChat()
 
@@ -53,8 +53,8 @@ describe('mergeOrchestrationChildren', () => {
     expect(list).toHaveLength(2)
     expect(list?.map((chat) => chat.id).sort()).toEqual(['impl-child-id', 'review-child-id'].sort())
 
-    const reviewChild = queryClient.getQueryData<ChatThread>(chatKeys.detail('review-child-id'))
-    expect(reviewChild).toMatchObject({
+    expect(queryClient.getQueryData(chatKeys.detail('review-child-id'))).toBeUndefined()
+    expect(list?.find((chat) => chat.id === 'review-child-id')).toMatchObject({
       id: 'review-child-id',
       mode: 'review',
       parentChatId: 'parent-id',

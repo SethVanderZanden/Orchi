@@ -1,3 +1,4 @@
+using FluentValidation;
 using Orchi.Api.Common.Abstractions;
 using Orchi.Api.Common.Http;
 using Orchi.Api.Common.Results;
@@ -46,14 +47,20 @@ public static class SyncAgentModels
             {
                 return Result.Failure<Response>(Error.Validation("Agent.Unsupported", ex.Message));
             }
-            catch (ArgumentException ex)
-            {
-                return Result.Failure<Response>(Error.Validation("Agent.Required", ex.Message));
-            }
         }
 
         private static ModelResponse ToResponse(AgentModelDto model) =>
             new(model.Id, model.Label, model.IsDefault, model.IsCurrent, model.IsEnabled, model.Source);
+    }
+
+    public sealed class Validator : AbstractValidator<Command>
+    {
+        public Validator()
+        {
+            RuleFor(command => command.AgentId)
+                .NotEmpty()
+                .WithMessage("Agent id is required.");
+        }
     }
 
     public sealed class Endpoint : IEndpoint

@@ -40,6 +40,7 @@ public static class AgentsExtensions
         services.AddSingleton<IOrchestrationStepHandler, SequentialAdvanceStepHandler>();
         services.AddSingleton<OrchestrationStepPipeline>();
         services.AddScoped<OrchestrationAgentRunner>();
+        services.AddSingleton<IOrchiKickoffExecutor, OrchiKickoffExecutor>();
         services.AddSingleton<IOrchestrationWorkflowService, OrchestrationWorkflowService>();
         services.AddSingleton<IAgentTurnCompletionNotifier, AgentTurnCompletionNotifier>();
         services.AddSingleton<AgentSessionManager>();

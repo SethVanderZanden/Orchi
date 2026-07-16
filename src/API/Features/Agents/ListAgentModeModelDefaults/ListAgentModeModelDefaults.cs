@@ -1,3 +1,4 @@
+using FluentValidation;
 using Orchi.Api.Common.Abstractions;
 using Orchi.Api.Common.Http;
 using Orchi.Api.Common.Results;
@@ -31,14 +32,20 @@ public static class ListAgentModeModelDefaults
             {
                 return Result.Failure<Response>(Error.Validation("Agent.Unsupported", ex.Message));
             }
-            catch (ArgumentException ex)
-            {
-                return Result.Failure<Response>(Error.Validation("Agent.Required", ex.Message));
-            }
         }
 
         private static DefaultResponse ToResponse(AgentModeModelDefaultDto dto) =>
             new(dto.Mode, dto.Label, dto.ModelId);
+    }
+
+    public sealed class Validator : AbstractValidator<Query>
+    {
+        public Validator()
+        {
+            RuleFor(query => query.AgentId)
+                .NotEmpty()
+                .WithMessage("Agent id is required.");
+        }
     }
 
     public sealed class Endpoint : IEndpoint

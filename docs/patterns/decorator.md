@@ -46,6 +46,8 @@ You ask for:  "Pizza, please"
 
 That is the whole pattern: **decorate the object with extra behaviour without the core object knowing or caring.** Everything below this section is the same idea, but with C#, DI, and Scrutor.
 
+> **Note:** Examples below use a hypothetical `GetWeatherForecast` slice for teaching — the same pipeline wraps every real handler today. For a live command example, see [`CreateChat.cs`](../../src/API/Features/Chats/CreateChat/CreateChat.cs); for a query, see [`ListProjects.cs`](../../src/API/Features/Projects/ListProjects/ListProjects.cs).
+
 ---
 
 Orchi uses the [decorator pattern](https://refactoring.guru/design-patterns/decorator) to wrap CQRS handlers with cross-cutting **behaviours** — validation, logging, and performance monitoring — without changing handler or endpoint code.
@@ -208,7 +210,7 @@ private static void TryDecorateOpenGeneric(IServiceCollection services, Type ser
 
 `HasOpenGenericImplementations` checks whether any closed registration exists for the open generic (e.g. `IQueryHandler<GetWeatherForecast.Query, ...>`).
 
-**Why:** Orchi registers decorators for both queries and commands. No command handlers exist yet, so decorating `ICommandHandler<>` would fail without the guard. Once the first command handler is scanned in, command decorators apply automatically.
+**Why:** Orchi registers decorators for both queries and commands. `TryDecorateOpenGeneric` skips decoration when no closed handler registration exists yet — useful during startup ordering and when a handler interface has zero implementations. Command handlers (e.g. `CreateChat`, `CloseChat`) are registered and decorated the same way as queries.
 
 ## `CommandHandler` vs `CommandBaseHandler`
 

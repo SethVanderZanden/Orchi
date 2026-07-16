@@ -147,7 +147,7 @@ Projects are a **desktop-only** registry (`localStorage` + folder picker IPC). T
 | Trigger | Action |
 |---------|--------|
 | User closes chat | `DELETE /chats/{id}` via `closeChat()` |
-| Electron app quit | Main process `POST /chats/shutdown` in `before-quit` |
+| Electron app quit | Main process `POST /chats/shutdown` (10s timeout), then stops bundled `Orchi.Api.exe` in production (15s total shutdown budget) |
 | SSE abort | `AbortController` cancels in-flight stream; API cancels CLI |
 
 ## Further reading

@@ -40,6 +40,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
   const orchestration = useChatOrchestration({
     getChat: cache.getChat,
     getChildChats: cache.getChildChats,
+    loadChat: cache.loadChat,
     sendMessage: stream.sendMessage,
     navigate
   })
@@ -89,6 +90,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
       kickOffAllPlans: orchestration.kickOffAllPlans,
       getOrchestrationKickoffProgress: orchestration.getOrchestrationKickoffProgress,
       setOrchestrationKickoffProgress: orchestration.setOrchestrationKickoffProgress,
+      getOrchestrationError: orchestration.getOrchestrationError,
       isChatSending: stream.isChatSending,
       isPlanKickingOff: orchestration.isPlanKickingOff,
       isParentKickingOffAny: orchestration.isParentKickingOffAny,

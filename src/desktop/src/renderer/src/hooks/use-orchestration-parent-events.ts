@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 
+import { useLiveRef } from '@/hooks/use-live-ref'
 import type { ChatThread } from '@/lib/chat/types'
 import { createOrchestrationEventHandlers } from '@/lib/orchestration/orchestration-cache'
 import { needsOrchestrationHydration } from '@/lib/orchestration/needs-orchestration-hydration'
@@ -11,21 +12,29 @@ type UseOrchestrationParentEventsOptions = {
   parentChat: ChatThread | undefined
   parentChildCount: number
   isParentKickoffActive: boolean
+  getChat: (chatId: string) => ChatThread | undefined
 }
 
 export function useOrchestrationParentEvents({
   childChat,
   parentChat,
   parentChildCount,
-  isParentKickoffActive
+  isParentKickoffActive,
+  getChat
 }: UseOrchestrationParentEventsOptions): void {
   const queryClient = useQueryClient()
+  const parentChatRef = useLiveRef(parentChat)
+  const getChatRef = useLiveRef(getChat)
+
+  const parentChatId = parentChat?.id
 
   useEffect(() => {
+    const parent = parentChatRef.current
     if (
       !childChat?.parentChatId ||
-      !parentChat ||
-      !needsOrchestrationHydration(parentChat, parentChildCount, isParentKickoffActive)
+      !parentChatId ||
+      !parent ||
+      !needsOrchestrationHydration(parent, parentChildCount, isParentKickoffActive)
     ) {
       return
     }
@@ -33,8 +42,8 @@ export function useOrchestrationParentEvents({
     const controller = new AbortController()
 
     void subscribeOrchestrationEvents(
-      parentChat.id,
-      createOrchestrationEventHandlers(parentChat, queryClient),
+      parentChatId,
+      createOrchestrationEventHandlers(parent, queryClient, (chatId) => getChatRef.current(chatId)),
       controller.signal
     ).catch(() => {
       // Stream closed on unmount or network error.
@@ -43,12 +52,5 @@ export function useOrchestrationParentEvents({
     return () => {
       controller.abort()
     }
-  }, [
-    childChat?.id,
-    childChat?.parentChatId,
-    isParentKickoffActive,
-    parentChat,
-    parentChildCount,
-    queryClient
-  ])
+  }, [childChat?.parentChatId, isParentKickoffActive, parentChatId, parentChildCount, queryClient])
 }

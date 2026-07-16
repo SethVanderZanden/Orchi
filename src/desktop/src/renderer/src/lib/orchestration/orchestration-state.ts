@@ -51,3 +51,30 @@ export function workflowProgressFromState(
     status: state.status
   }
 }
+
+export function workflowProgressFromWorkflowEvent(payload: {
+  status: string
+  currentStep: number | null
+  totalSteps: number | null
+  planId: string | null
+}): OrchestrationWorkflowProgress | null {
+  if (payload.totalSteps === null || payload.totalSteps === 0 || payload.currentStep === null) {
+    if (payload.status === 'running') {
+      return {
+        active: true,
+        currentStep: payload.currentStep ?? 1,
+        totalSteps: payload.totalSteps ?? 1,
+        status: payload.status
+      }
+    }
+
+    return null
+  }
+
+  return {
+    active: payload.status === 'running',
+    currentStep: payload.currentStep,
+    totalSteps: payload.totalSteps,
+    status: payload.status
+  }
+}

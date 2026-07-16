@@ -8,6 +8,17 @@ namespace Orchi.Api.Features.Chats.Orchestration.SubscribeEvents;
 
 public static class SubscribeOrchestrationEvents
 {
+    public sealed record Query(Guid ParentChatId) : IQuery<OrchestrationSnapshot>;
+
+    internal sealed class Handler(IOrchestrationWorkflowService workflowService)
+        : IQueryHandler<Query, OrchestrationSnapshot>
+    {
+        public Task<Result<OrchestrationSnapshot>> Handle(
+            Query query,
+            CancellationToken cancellationToken) =>
+            workflowService.GetSnapshotAsync(query.ParentChatId, cancellationToken);
+    }
+
     public sealed class Endpoint : IEndpoint
     {
         public void MapEndpoint(IEndpointRouteBuilder app)
@@ -19,27 +30,17 @@ public static class SubscribeOrchestrationEvents
 
         private static async Task Handle(
             Guid parentChatId,
-            IOrchestrationWorkflowService workflowService,
+            IQueryHandler<Query, OrchestrationSnapshot> handler,
             OrchestrationEventHub eventHub,
             HttpContext httpContext,
             CancellationToken cancellationToken)
         {
             Result<OrchestrationSnapshot> snapshotResult =
-                await workflowService.GetSnapshotAsync(parentChatId, cancellationToken);
+                await handler.Handle(new Query(parentChatId), cancellationToken);
 
             if (snapshotResult.IsFailure)
             {
-                int statusCode = snapshotResult.Error.Code == "NotFound"
-                    ? StatusCodes.Status404NotFound
-                    : StatusCodes.Status400BadRequest;
-
-                httpContext.Response.StatusCode = statusCode;
-
-                await httpContext.Response.WriteAsJsonAsync(new
-                {
-                    Code = snapshotResult.Error.Code,
-                    Message = snapshotResult.Error.Message
-                }, cancellationToken);
+                await httpContext.Response.WriteErrorAsync(snapshotResult.Error, cancellationToken);
                 return;
             }
 

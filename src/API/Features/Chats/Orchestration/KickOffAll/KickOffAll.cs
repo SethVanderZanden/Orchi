@@ -8,6 +8,27 @@ namespace Orchi.Api.Features.Chats.Orchestration.KickOffAll;
 
 public static class KickOffAll
 {
+    public sealed record Command(Guid ParentChatId) : ICommand<OrchestrationStateResponse>;
+
+    internal sealed class Handler(IOrchestrationWorkflowService workflowService)
+        : ICommandHandler<Command, OrchestrationStateResponse>
+    {
+        public async Task<Result<OrchestrationStateResponse>> Handle(
+            Command command,
+            CancellationToken cancellationToken)
+        {
+            Result<OrchestrationSnapshot> result =
+                await workflowService.StartKickoffAllAsync(command.ParentChatId, cancellationToken);
+
+            if (result.IsFailure)
+            {
+                return Result.Failure<OrchestrationStateResponse>(result.Error);
+            }
+
+            return Result.Success(OrchestrationMapper.ToResponse(result.Value));
+        }
+    }
+
     public sealed class Endpoint : IEndpoint
     {
         public void MapEndpoint(IEndpointRouteBuilder app)
@@ -20,15 +41,13 @@ public static class KickOffAll
 
         private static async Task<IResult> Handle(
             Guid parentChatId,
-            IOrchestrationWorkflowService workflowService,
+            ICommandHandler<Command, OrchestrationStateResponse> handler,
             CancellationToken cancellationToken)
         {
-            Result<OrchestrationSnapshot> result =
-                await workflowService.StartKickoffAllAsync(parentChatId, cancellationToken);
+            Result<OrchestrationStateResponse> result =
+                await handler.Handle(new Command(parentChatId), cancellationToken);
 
-            return result.IsSuccess
-                ? Results.Ok(OrchestrationMapper.ToResponse(result.Value))
-                : result.ToProblem();
+            return result.ToProblem();
         }
     }
 }
