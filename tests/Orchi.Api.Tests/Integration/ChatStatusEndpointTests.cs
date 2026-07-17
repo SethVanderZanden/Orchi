@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Orchi.Api.Entities;
 using Orchi.Api.Features.Chats.Shared;
+using Orchi.Api.Infrastructure.Agents;
 using Orchi.Api.Infrastructure.Agents.Persistence;
 using Orchi.Api.Tests.Common;
 
@@ -13,6 +14,11 @@ namespace Orchi.Api.Tests.Integration;
 
 public class ChatStatusEndpointTests : IClassFixture<TestWebApplicationFactory>, IAsyncLifetime
 {
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+    };
+
     private readonly TestWebApplicationFactory _factory;
     private readonly HttpClient _client;
 
@@ -40,12 +46,12 @@ public class ChatStatusEndpointTests : IClassFixture<TestWebApplicationFactory>,
 
         HttpResponseMessage createResponse = await _client.PostAsJsonAsync(
             "/chats",
-            new CreateChatRequest("cursor", workspaceId));
+            new CreateChatRequest(workspaceId, "cursor"));
 
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 
         ChatSummaryResponse[]? chats =
-            await (await _client.GetAsync("/chats")).Content.ReadFromJsonAsync<ChatSummaryResponse[]>();
+            await (await _client.GetAsync("/chats")).Content.ReadFromJsonAsync<ChatSummaryResponse[]>(JsonOptions);
 
         Assert.NotNull(chats);
         Assert.Single(chats);
@@ -62,7 +68,7 @@ public class ChatStatusEndpointTests : IClassFixture<TestWebApplicationFactory>,
 
         CreateChatResponse? created = await (await _client.PostAsJsonAsync(
             "/chats",
-            new CreateChatRequest("cursor", workspaceId))).Content.ReadFromJsonAsync<CreateChatResponse>();
+            new CreateChatRequest(workspaceId, "cursor"))).Content.ReadFromJsonAsync<CreateChatResponse>(JsonOptions);
 
         Assert.NotNull(created);
 
@@ -77,21 +83,21 @@ public class ChatStatusEndpointTests : IClassFixture<TestWebApplicationFactory>,
         Assert.Equal(HttpStatusCode.OK, markResponse.StatusCode);
 
         ChatSummaryResponse? summary =
-            await markResponse.Content.ReadFromJsonAsync<ChatSummaryResponse>();
+            await markResponse.Content.ReadFromJsonAsync<ChatSummaryResponse>(JsonOptions);
 
         Assert.NotNull(summary);
         Assert.Equal(ChatStatus.Read, summary.Status);
         Assert.NotNull(summary.LastReadAt);
 
         ChatSummaryResponse[]? chats =
-            await (await _client.GetAsync("/chats")).Content.ReadFromJsonAsync<ChatSummaryResponse[]>();
+            await (await _client.GetAsync("/chats")).Content.ReadFromJsonAsync<ChatSummaryResponse[]>(JsonOptions);
 
         Assert.NotNull(chats);
         Assert.Equal(ChatStatus.Read, chats[0].Status);
     }
 
     [Fact]
-    public async Task MarkChatRead_WhileInProgress_KeepsInProgress()
+    public async Task MarkChatRead_WhenIdleInProgress_SetsRead()
     {
         Guid workspaceId = await ProjectTestHelper.CreateProjectWithWorkspaceAsync(
             _client,
@@ -99,7 +105,7 @@ public class ChatStatusEndpointTests : IClassFixture<TestWebApplicationFactory>,
 
         CreateChatResponse? created = await (await _client.PostAsJsonAsync(
             "/chats",
-            new CreateChatRequest("cursor", workspaceId))).Content.ReadFromJsonAsync<CreateChatResponse>();
+            new CreateChatRequest(workspaceId, "cursor"))).Content.ReadFromJsonAsync<CreateChatResponse>(JsonOptions);
 
         Assert.NotNull(created);
 
@@ -110,11 +116,54 @@ public class ChatStatusEndpointTests : IClassFixture<TestWebApplicationFactory>,
         Assert.Equal(HttpStatusCode.OK, markResponse.StatusCode);
 
         ChatSummaryResponse? summary =
-            await markResponse.Content.ReadFromJsonAsync<ChatSummaryResponse>();
+            await markResponse.Content.ReadFromJsonAsync<ChatSummaryResponse>(JsonOptions);
 
         Assert.NotNull(summary);
-        Assert.Equal(ChatStatus.InProgress, summary.Status);
+        Assert.Equal(ChatStatus.Read, summary.Status);
         Assert.NotNull(summary.LastReadAt);
+    }
+
+    [Fact]
+    public async Task MarkChatRead_WhileSessionRunning_KeepsInProgress()
+    {
+        Guid workspaceId = await ProjectTestHelper.CreateProjectWithWorkspaceAsync(
+            _client,
+            Directory.GetCurrentDirectory());
+
+        CreateChatResponse? created = await (await _client.PostAsJsonAsync(
+            "/chats",
+            new CreateChatRequest(workspaceId, "cursor"))).Content.ReadFromJsonAsync<CreateChatResponse>(JsonOptions);
+
+        Assert.NotNull(created);
+
+        AgentSessionManager sessions = _factory.Services.GetRequiredService<AgentSessionManager>();
+        ChatSession? session = await sessions.GetOrLoadSessionAsync(created.Id, CancellationToken.None);
+        Assert.NotNull(session);
+
+        var runCts = new CancellationTokenSource();
+        session.RunCts = runCts;
+        session.Status = ChatStatus.InProgress;
+
+        IChatStore store = _factory.Services.GetRequiredService<IChatStore>();
+        await store.UpdateStatusAsync(created.Id, ChatStatus.InProgress, CancellationToken.None);
+
+        try
+        {
+            HttpResponseMessage markResponse = await _client.PostAsync($"/chats/{created.Id}/read", content: null);
+            Assert.Equal(HttpStatusCode.OK, markResponse.StatusCode);
+
+            ChatSummaryResponse? summary =
+                await markResponse.Content.ReadFromJsonAsync<ChatSummaryResponse>(JsonOptions);
+
+            Assert.NotNull(summary);
+            Assert.Equal(ChatStatus.InProgress, summary.Status);
+            Assert.NotNull(summary.LastReadAt);
+        }
+        finally
+        {
+            session.RunCts = null;
+            runCts.Dispose();
+        }
     }
 
     [Fact]
@@ -126,7 +175,7 @@ public class ChatStatusEndpointTests : IClassFixture<TestWebApplicationFactory>,
 
         CreateChatResponse? created = await (await _client.PostAsJsonAsync(
             "/chats",
-            new CreateChatRequest("cursor", workspaceId))).Content.ReadFromJsonAsync<CreateChatResponse>();
+            new CreateChatRequest(workspaceId, "cursor"))).Content.ReadFromJsonAsync<CreateChatResponse>(JsonOptions);
 
         Assert.NotNull(created);
 
@@ -151,15 +200,7 @@ public class ChatStatusEndpointTests : IClassFixture<TestWebApplicationFactory>,
 
         string json = dataLine["data: ".Length..];
         ChatStatusSnapshotItem[]? snapshot =
-            JsonSerializer.Deserialize<ChatStatusSnapshotItem[]>(
-                json,
-                new JsonSerializerOptions(JsonSerializerDefaults.Web)
-                {
-                    Converters =
-                    {
-                        new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)
-                    }
-                });
+            JsonSerializer.Deserialize<ChatStatusSnapshotItem[]>(json, JsonOptions);
 
         Assert.NotNull(snapshot);
         Assert.Contains(snapshot, item => item.ChatId == created.Id && item.Status == ChatStatus.Read);

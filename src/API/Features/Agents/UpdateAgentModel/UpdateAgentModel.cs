@@ -1,4 +1,5 @@
 using FluentValidation;
+using Microsoft.AspNetCore.Mvc;
 using Orchi.Api.Common.Abstractions;
 using Orchi.Api.Common.Http;
 using Orchi.Api.Common.Results;
@@ -56,7 +57,7 @@ public static class UpdateAgentModel
         }
     }
 
-    public sealed record Request(bool Enabled);
+    public sealed record Request(string ModelId, bool Enabled);
 
     public sealed class Validator : AbstractValidator<Command>
     {
@@ -72,7 +73,7 @@ public static class UpdateAgentModel
     {
         public void MapEndpoint(IEndpointRouteBuilder app)
         {
-            app.MapPatch("/agents/{agentId}/models/{modelId}", Handle)
+            app.MapPatch("/agents/{agentId}/models", Handle)
                 .WithName("UpdateAgentModel")
                 .WithTags("Agents")
                 .Produces<ModelResponse>();
@@ -80,13 +81,12 @@ public static class UpdateAgentModel
 
         private static async Task<IResult> Handle(
             string agentId,
-            string modelId,
-            Request request,
+            [FromBody] Request request,
             ICommandHandler<Command, ModelResponse> handler,
             CancellationToken cancellationToken)
         {
             Result<ModelResponse> result = await handler.Handle(
-                new Command(agentId, modelId, request.Enabled),
+                new Command(agentId, request.ModelId, request.Enabled),
                 cancellationToken);
 
             return result.ToProblem();

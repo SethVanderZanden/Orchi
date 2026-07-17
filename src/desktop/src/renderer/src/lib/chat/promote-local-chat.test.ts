@@ -40,6 +40,9 @@ describe('promoteLocalChat', () => {
           workspacePath: draft.workspacePath,
           mode: 'orchestration',
           modelId: null,
+          contextSizeId: null,
+          reasoningEffortId: null,
+          approvalPolicyId: null,
           parentChatId: null,
           planFilePath: null
         }),

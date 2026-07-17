@@ -9,8 +9,14 @@ namespace Orchi.Api.Features.Chats.CreateChat;
 
 public static class CreateChat
 {
-    public sealed record Command(string Agent, Guid WorkspaceId, string? Mode, string? ModelId)
-        : ICommand<CreateChatResponse>;
+    public sealed record Command(
+        Guid WorkspaceId,
+        string? Agent,
+        string? Mode,
+        string? ModelId,
+        string? ContextSizeId,
+        string? ReasoningEffortId,
+        string? ApprovalPolicyId) : ICommand<CreateChatResponse>;
 
     internal sealed class Handler(AgentSessionManager sessionManager)
         : ICommandHandler<Command, CreateChatResponse>
@@ -18,10 +24,13 @@ public static class CreateChat
         public async Task<Result<CreateChatResponse>> Handle(Command command, CancellationToken cancellationToken)
         {
             Result<ChatSession> result = await sessionManager.CreateSessionAsync(
-                command.Agent,
                 command.WorkspaceId,
-                command.Mode,
+                agentId: command.Agent,
+                mode: command.Mode,
                 modelId: command.ModelId,
+                contextSizeId: command.ContextSizeId,
+                reasoningEffortId: command.ReasoningEffortId,
+                approvalPolicyId: command.ApprovalPolicyId,
                 cancellationToken: cancellationToken);
 
             if (result.IsFailure)
@@ -38,6 +47,9 @@ public static class CreateChat
                 session.WorkspacePath,
                 session.Mode,
                 session.ModelId,
+                session.ContextSizeId,
+                session.ReasoningEffortId,
+                session.ApprovalPolicyId,
                 session.ParentChatId,
                 session.PlanFilePath));
         }
@@ -47,10 +59,6 @@ public static class CreateChat
     {
         public Validator()
         {
-            RuleFor(command => command.Agent)
-                .NotEmpty()
-                .WithMessage("Agent is required.");
-
             RuleFor(command => command.WorkspaceId)
                 .NotEmpty()
                 .WithMessage("Workspace id is required.");
@@ -73,7 +81,14 @@ public static class CreateChat
             CancellationToken cancellationToken)
         {
             Result<CreateChatResponse> result = await handler.Handle(
-                new Command(request.Agent, request.WorkspaceId, request.Mode, request.ModelId),
+                new Command(
+                    request.WorkspaceId,
+                    request.Agent,
+                    request.Mode,
+                    request.ModelId,
+                    request.ContextSizeId,
+                    request.ReasoningEffortId,
+                    request.ApprovalPolicyId),
                 cancellationToken);
 
             if (result.IsSuccess)

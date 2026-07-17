@@ -65,13 +65,15 @@ services.AddSingleton<IAgentAdapterFactory, AgentAdapterFactory>();
 
 `AgentAdapterFactory` resolves by `AgentId` string from `POST /chats`.
 
-## Adding Codex or Claude (future)
+## Adding Claude (future)
 
 1. Implement `IAgentAdapter` with agent-specific spawn + output parsing
-2. Add config section (`Agents:Codex`, etc.)
-3. Allow `agent: "codex"` in `CreateChatRequest` (validation already checks factory)
+2. Add config section (`Agents:Claude`, etc.)
+3. Allow `agent: "claude"` in `CreateChatRequest` (validation already checks factory)
 4. Add parser unit tests with fixture stdout (no real CLI in CI)
 5. Document CLI flags and event mapping in a new `docs/agents/{name}.md`
+
+Codex is implemented — see [codex.md](codex.md).
 
 ## Session manager responsibilities
 

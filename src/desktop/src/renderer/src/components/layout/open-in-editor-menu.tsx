@@ -8,16 +8,22 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
-
-type EditorId = 'vscode' | 'cursor'
+import { usePreferredEditor } from '@/hooks/use-preferred-editor'
+import {
+  getAlternateEditor,
+  getOpenInEditorLabel,
+  type EditorId
+} from '@/lib/preferences/preferred-editor'
 
 type OpenInEditorMenuProps = {
   workspacePath: string
 }
 
 export function OpenInEditorMenu({ workspacePath }: OpenInEditorMenuProps): React.JSX.Element {
+  const { preferredEditor } = usePreferredEditor()
   const [error, setError] = useState<string | null>(null)
   const disabled = !workspacePath.trim()
+  const alternateEditor = getAlternateEditor(preferredEditor)
 
   async function handleOpen(editor: EditorId): Promise<void> {
     if (!window.api?.openInEditor) {
@@ -39,11 +45,14 @@ export function OpenInEditorMenu({ workspacePath }: OpenInEditorMenuProps): Reac
           variant="outline"
           size="sm"
           disabled={disabled}
-          className="h-8 rounded-r-none px-3 text-xs font-normal"
-          aria-label="Open workspace in VS Code"
-          onClick={() => void handleOpen('vscode')}
+          className="h-8 rounded-r-none gap-1.5 px-3 text-xs font-normal"
+          aria-label={getOpenInEditorLabel(preferredEditor)}
+          onClick={() => void handleOpen(preferredEditor)}
         >
-          Open In Code
+          {getOpenInEditorLabel(preferredEditor)}
+          <kbd className="pointer-events-none rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px] text-muted-foreground">
+            Ctrl+E
+          </kbd>
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -58,8 +67,8 @@ export function OpenInEditorMenu({ workspacePath }: OpenInEditorMenuProps): Reac
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => void handleOpen('cursor')}>
-              Open in Cursor
+            <DropdownMenuItem onClick={() => void handleOpen(alternateEditor)}>
+              {getOpenInEditorLabel(alternateEditor)}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

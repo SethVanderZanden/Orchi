@@ -23,6 +23,9 @@ function mapCreatedToThread(
     workspacePath: created.workspacePath,
     mode: created.mode,
     modelId: created.modelId ?? null,
+    contextSizeId: created.contextSizeId ?? null,
+    reasoningEffortId: created.reasoningEffortId ?? null,
+    approvalPolicyId: created.approvalPolicyId ?? null,
     parentChatId: created.parentChatId,
     planFilePath: created.planFilePath,
     status: created.status,
@@ -52,10 +55,13 @@ async function promoteDraftOnce(
   }
 
   const created = await createChat({
-    agent: draft.agentId,
     workspaceId: draft.workspaceId,
+    agent: draft.agentId,
     mode: draft.mode,
-    modelId: draft.modelId
+    modelId: draft.modelId,
+    contextSizeId: draft.contextSizeId,
+    reasoningEffortId: draft.reasoningEffortId,
+    approvalPolicyId: draft.approvalPolicyId
   })
 
   const persisted = mapCreatedToThread(draft, created)

@@ -1,7 +1,13 @@
 import { createContext, useContext } from 'react'
 
-import type { AgentMode, ChatMarker, ChatThread, CreateChatOptions } from '@/lib/chat/types'
-import type { ChatSidebarStatusVariant } from '@/lib/chat/chat-sidebar-status'
+import type {
+  AgentMode,
+  ChatMarker,
+  ChatThread,
+  CreateChatOptions,
+  SendMessageOptions
+} from '@/lib/chat/types'
+import type { ChatStatusVariant } from '@/lib/chat/chat-status-variant'
 import type { ParsedPlan } from '@/lib/orchestration/parse-plans'
 import type { OrchestrationWorkflowProgress } from '@/lib/orchestration/orchestration-state'
 
@@ -24,10 +30,16 @@ export type ChatContextValue = {
   getModeUpdateError: (chatId: string) => string | undefined
   updateChatModel: (chatId: string, modelId: string | null) => Promise<void>
   getModelUpdateError: (chatId: string) => string | undefined
+  updateChatContextSize: (chatId: string, contextSizeId: string | null) => Promise<void>
+  getContextSizeUpdateError: (chatId: string) => string | undefined
+  updateChatReasoningEffort: (chatId: string, reasoningEffortId: string | null) => Promise<void>
+  getReasoningEffortUpdateError: (chatId: string) => string | undefined
+  updateChatApprovalPolicy: (chatId: string, approvalPolicyId: string | null) => Promise<void>
+  getApprovalPolicyUpdateError: (chatId: string) => string | undefined
   updateChatProject: (chatId: string, projectId: string) => void
   closeChat: (chatId: string) => Promise<void>
   deleteChat: (chatId: string) => Promise<void>
-  sendMessage: (chatId: string, content: string) => Promise<void>
+  sendMessage: (chatId: string, content: string, options?: SendMessageOptions) => Promise<void>
   kickOffPlan: (chatId: string, plan: ParsedPlan) => Promise<void>
   kickOffAllPlans: (chatId: string) => Promise<void>
   getOrchestrationKickoffProgress: (parentChatId: string) => OrchestrationWorkflowProgress | null
@@ -43,7 +55,7 @@ export type ChatContextValue = {
   subscribeAgentActivity: (listener: (detail: AgentActivityDetail) => void) => () => void
   activeChatId?: string
   markChatRead: (chatId: string) => void
-  getChatSidebarStatus: (chat: ChatThread) => ChatSidebarStatusVariant
+  getChatStatusVariant: (chat: ChatThread, options?: { isViewing?: boolean }) => ChatStatusVariant
 }
 
 export const ChatContext = createContext<ChatContextValue | null>(null)

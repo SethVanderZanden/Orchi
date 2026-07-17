@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import type { NavigateOptions } from '@tanstack/react-router'
 
 import { kickOffPlan } from '@/lib/chat/api'
-import type { ChatThread } from '@/lib/chat/types'
+import type { ChatThread, SendMessageOptions } from '@/lib/chat/types'
 import {
   isParentKickingOffAnyKeys,
   kickOffKey,
@@ -22,7 +22,7 @@ type UseChatOrchestrationOptions = {
   getChat: (chatId: string) => ChatThread | undefined
   getChildChats: (parentChatId: string) => ChatThread[]
   loadChat: (chatId: string) => Promise<ChatThread | undefined>
-  sendMessage: (chatId: string, content: string) => Promise<void>
+  sendMessage: (chatId: string, content: string, options?: SendMessageOptions) => Promise<void>
   navigate: (options: NavigateOptions) => void
 }
 
@@ -186,12 +186,15 @@ export function useChatOrchestration({
         title: plan.title,
         preview: response.initialPrompt,
         updatedAt: new Date().toISOString(),
-        agentId: 'cursor',
+        agentId: parentChat?.agentId ?? 'cursor',
         projectId: parentChat?.projectId ?? null,
         workspaceId: parentChat?.workspaceId ?? null,
         workspacePath: parentChat?.workspacePath ?? '',
         mode: 'implementation',
         modelId: parentChat?.modelId ?? null,
+        contextSizeId: parentChat?.contextSizeId ?? null,
+        reasoningEffortId: parentChat?.reasoningEffortId ?? null,
+        approvalPolicyId: parentChat?.approvalPolicyId ?? null,
         parentChatId: chatId,
         planFilePath: response.planFilePath,
         status: 'inProgress',
@@ -210,7 +213,7 @@ export function useChatOrchestration({
         navigate({ to: '/chat/$chatId', params: { chatId: childChat.id } })
       }
 
-      await sendMessage(childChat.id, response.kickoffMessage)
+      await sendMessage(childChat.id, response.kickoffMessage, { skipPostMessageBehavior: true })
     },
     [getChat, navigate, queryClient, sendMessage]
   )

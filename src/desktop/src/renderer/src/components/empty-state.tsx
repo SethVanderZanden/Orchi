@@ -4,8 +4,9 @@ import { cn } from '@/lib/utils'
 
 type EmptyStateProps = {
   title: string
-  description?: string
+  description?: ReactNode
   icon?: ReactNode
+  children?: ReactNode
   className?: string
 }
 
@@ -13,6 +14,7 @@ export function EmptyState({
   title,
   description,
   icon,
+  children,
   className
 }: EmptyStateProps): React.JSX.Element {
   return (
@@ -26,9 +28,10 @@ export function EmptyState({
       <div className="space-y-1">
         <p className="text-sm font-medium">{title}</p>
         {description ? (
-          <p className="max-w-sm text-sm text-muted-foreground">{description}</p>
+          <div className="max-w-sm text-sm text-muted-foreground">{description}</div>
         ) : null}
       </div>
+      {children}
     </div>
   )
 }

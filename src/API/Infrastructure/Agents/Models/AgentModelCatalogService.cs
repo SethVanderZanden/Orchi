@@ -100,17 +100,22 @@ public sealed class AgentModelCatalogService(
         return Result.Success(ToDto(updated));
     }
 
-    public async Task<Result> RemoveManualAsync(
+    public async Task<Result> RemoveAsync(
         string agentId,
         string modelId,
         CancellationToken cancellationToken)
     {
         ValidateAgent(agentId);
 
-        bool removed = await store.RemoveManualAsync(agentId, modelId, cancellationToken);
+        if (string.IsNullOrWhiteSpace(modelId))
+        {
+            return Result.Failure(Error.Validation("Model.Required", "Model id is required."));
+        }
+
+        bool removed = await store.RemoveAsync(agentId, modelId.Trim(), cancellationToken);
         if (!removed)
         {
-            return Result.Failure(Error.NotFound($"Manual model '{modelId}' was not found."));
+            return Result.Failure(Error.NotFound($"Model '{modelId}' was not found."));
         }
 
         await InvalidateCacheAsync(agentId, cancellationToken);

@@ -1,4 +1,5 @@
 using FluentValidation;
+using Microsoft.AspNetCore.Mvc;
 using Orchi.Api.Common.Abstractions;
 using Orchi.Api.Common.Http;
 using Orchi.Api.Common.Results;
@@ -17,7 +18,7 @@ public static class RemoveAgentModel
         {
             try
             {
-                return await catalogService.RemoveManualAsync(
+                return await catalogService.RemoveAsync(
                     command.AgentId,
                     command.ModelId,
                     cancellationToken);
@@ -28,6 +29,8 @@ public static class RemoveAgentModel
             }
         }
     }
+
+    public sealed record Request(string ModelId);
 
     public sealed class Validator : AbstractValidator<Command>
     {
@@ -47,18 +50,22 @@ public static class RemoveAgentModel
     {
         public void MapEndpoint(IEndpointRouteBuilder app)
         {
-            app.MapDelete("/agents/{agentId}/models/{modelId}", Handle)
+            // Body carries modelId so values with spaces/ANSI/brackets are not mangled in the path.
+            app.MapPost("/agents/{agentId}/models/remove", Handle)
                 .WithName("RemoveAgentModel")
                 .WithTags("Agents");
         }
 
         private static async Task<IResult> Handle(
             string agentId,
-            string modelId,
+            [FromBody] Request request,
             ICommandHandler<Command> handler,
             CancellationToken cancellationToken)
         {
-            Result result = await handler.Handle(new Command(agentId, modelId), cancellationToken);
+            Result result = await handler.Handle(
+                new Command(agentId, request.ModelId),
+                cancellationToken);
+
             return result.IsSuccess ? Results.NoContent() : result.ToProblem();
         }
     }

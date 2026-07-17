@@ -1,13 +1,14 @@
 import { MessageSquare } from 'lucide-react'
 
 import { AgentModeAvatar } from '@/components/chat/agent-mode-avatar'
+import { MessageSelectionMenu } from '@/components/chat/message-selection-menu'
+import { ChatToolCalls } from '@/components/chat/chat-tool-calls'
+import { EmptyState } from '@/components/empty-state'
+import { MarkdownContent } from '@/components/markdown-content'
 import { Bubble, BubbleContent } from '@/components/ui/bubble'
 import { Marker, MarkerContent } from '@/components/ui/marker'
 import { Message, MessageAvatar, MessageContent } from '@/components/ui/message'
 import { MessageScrollerItem } from '@/components/ui/message-scroller'
-import { ChatToolCalls } from '@/components/chat/chat-tool-calls'
-import { EmptyState } from '@/components/empty-state'
-import { MarkdownContent } from '@/components/markdown-content'
 import type { AgentMode, ChatMarker, ChatMessage as OrchiChatMessage } from '@/lib/chat/types'
 
 type ChatMessageListProps = {
@@ -73,28 +74,26 @@ function ChatMessageRow({ message, markers, mode }: ChatMessageRowProps): React.
     return (
       <Message align="end">
         <MessageContent>
-          <Bubble>
-            <BubbleContent className="overflow-x-auto">
-              <MarkdownContent>{message.content}</MarkdownContent>
-            </BubbleContent>
-          </Bubble>
+          <MessageSelectionMenu>
+            <Bubble>
+              <BubbleContent className="overflow-x-auto">
+                <MarkdownContent>{message.content}</MarkdownContent>
+              </BubbleContent>
+            </Bubble>
+          </MessageSelectionMenu>
         </MessageContent>
       </Message>
     )
   }
 
-  const toolCalls = markers
-    .filter((marker) => marker.variant === 'tool')
-    .map((marker) => ({
-      key: marker.id,
-      name: 'tool',
-      target: marker.content,
-      status: markers.some((item) => item.variant === 'status')
-        ? ('running' as const)
-        : ('complete' as const)
-    }))
-
-  const bubbleVariant = message.status === 'error' ? 'destructive' : 'muted'
+  const toolMarkers = markers.filter((marker) => marker.variant === 'tool')
+  const isRunning = markers.some((item) => item.variant === 'status')
+  const toolCalls = toolMarkers.map((marker, index) => ({
+    key: marker.id,
+    label: marker.content,
+    status:
+      isRunning && index === toolMarkers.length - 1 ? ('running' as const) : ('complete' as const)
+  }))
 
   return (
     <Message>
@@ -102,15 +101,17 @@ function ChatMessageRow({ message, markers, mode }: ChatMessageRowProps): React.
         <AgentModeAvatar mode={mode} />
       </MessageAvatar>
       <MessageContent>
-        <Bubble variant={bubbleVariant} className="max-w-full">
-          <BubbleContent className="max-w-none overflow-x-auto">
-            {showPlaceholder ? (
-              <span className="text-muted-foreground">…</span>
-            ) : (
-              <MarkdownContent className="prose-base">{message.content}</MarkdownContent>
-            )}
-          </BubbleContent>
-        </Bubble>
+        <MessageSelectionMenu>
+          {showPlaceholder ? (
+            <span className="text-muted-foreground">…</span>
+          ) : (
+            <MarkdownContent
+              className={message.status === 'error' ? 'prose-base text-destructive' : 'prose-base'}
+            >
+              {message.content}
+            </MarkdownContent>
+          )}
+        </MessageSelectionMenu>
         {showActivity ? (
           toolCalls.length > 0 ? (
             <ChatToolCalls calls={toolCalls} />

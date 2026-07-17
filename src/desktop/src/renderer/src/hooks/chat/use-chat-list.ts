@@ -22,7 +22,7 @@ export function useChatList(): UseChatListResult {
   const queryClient = useQueryClient()
   const [searchQuery, setSearchQuery] = useState('')
 
-  const chatsQuery = useQuery({
+  const { data, isLoading, isPending, isFetching, error, refetch } = useQuery({
     queryKey: chatKeys.lists(),
     queryFn: async () => {
       const fromApi = await listChats()
@@ -37,21 +37,21 @@ export function useChatList(): UseChatListResult {
   })
 
   const refetchChats = useCallback(async () => {
-    const result = await chatsQuery.refetch()
+    const result = await refetch()
     if (result.data) {
       queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) =>
         mergeChatLists(current, result.data!)
       )
     }
     return result
-  }, [chatsQuery, queryClient])
+  }, [refetch, queryClient])
 
   return {
-    chats: chatsQuery.data ?? [],
-    isLoadingChats: chatsQuery.isLoading,
-    isPendingChats: chatsQuery.isPending,
-    isFetchingChats: chatsQuery.isFetching,
-    chatsError: chatsQuery.error as Error | null,
+    chats: data ?? [],
+    isLoadingChats: isLoading,
+    isPendingChats: isPending,
+    isFetchingChats: isFetching,
+    chatsError: error as Error | null,
     refetchChats,
     searchQuery,
     setSearchQuery

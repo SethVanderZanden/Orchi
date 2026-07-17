@@ -135,7 +135,7 @@ public class UpdateChatModelEndpointTests : IClassFixture<TestWebApplicationFact
 
         HttpResponseMessage createResponse = await _client.PostAsJsonAsync(
             "/chats",
-            new CreateChatRequest("cursor", workspaceId));
+            new CreateChatRequest(workspaceId, "cursor"));
 
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 

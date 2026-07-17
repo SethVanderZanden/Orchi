@@ -14,4 +14,6 @@ internal sealed class AgentAdapterFactory(IEnumerable<IAgentAdapter> adapters) :
 
         return adapter;
     }
+
+    public IReadOnlyList<string> ListAgentIds() => _adapters.Keys.ToArray();
 }

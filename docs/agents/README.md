@@ -36,8 +36,8 @@ Agent integration lives under `src/API/Infrastructure/Agents/`.
 
 | Agent ID | Adapter | Status |
 |----------|---------|--------|
-| `cursor` | `CursorAgentAdapter` | Implemented (v1) |
-| `codex` | — | Interface only; see [adapters.md](adapters.md) |
+| `cursor` | `CursorAgentAdapter` | Implemented |
+| `codex` | `CodexAgentAdapter` | Implemented — see [codex.md](codex.md) |
 | `claude` | — | Interface only; see [adapters.md](adapters.md) |
 
 ## Key types
@@ -45,7 +45,11 @@ Agent integration lives under `src/API/Infrastructure/Agents/`.
 - **`IAgentAdapter`** — send a message for a session; yield `AgentEvent` stream
 - **`AgentSessionManager`** — write-through cache over `IChatStore`, process lifecycle, turn execution
 - **`IChatStore`** — EF-backed persistence (SQLite); in-memory implementation for unit tests
-- **`ChatSession`** — Orchi chat id, agent id, workspace path, Cursor resume id, optional model slug, running process handle
+- **`ChatSession`** — Orchi chat id, agent id, workspace path, external resume id, optional model slug, optional context size / reasoning effort / approval policy, hydrated `CliConfigOverrides`, running process handle
+
+## Mode runtime defaults
+
+Each Orchi mode (`default`, `orchestration`, …) has a settings-backed tuple: **agent + model + context size + CLI options** (reasoning effort, approval policy). Creating a chat or changing mode applies that tuple. See Settings → Agents → Mode defaults. Codex `-c` knobs are user-populated catalogs — see [codex.md](codex.md).
 
 ## Agent model catalog
 
@@ -56,8 +60,8 @@ Each agent can expose a model list (Cursor via `agent --list-models`). Orchi sto
 | `GET /agents/{agentId}/models` | List enabled (or all) models for dropdown/settings |
 | `POST /agents/{agentId}/models/sync` | Refresh from CLI; absent models are disabled, not deleted |
 | `POST /agents/{agentId}/models` | Manually add a model slug |
-| `PATCH /agents/{agentId}/models/{modelId}` | Enable/disable a catalog entry |
-| `DELETE /agents/{agentId}/models/{modelId}` | Remove a manual entry |
+| `PATCH /agents/{agentId}/models` | Enable/disable a catalog entry (`{ modelId, enabled }` body) |
+| `POST /agents/{agentId}/models/remove` | Remove a catalog entry by `modelId` in the body |
 | `PATCH /chats/{chatId}/model` | Set per-chat model (`null` = CLI default) |
 
 Child chats created via plan/review kickoff inherit the parent's `ModelId`.

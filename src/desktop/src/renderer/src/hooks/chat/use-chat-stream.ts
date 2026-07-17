@@ -15,7 +15,7 @@ import { registerChatIdMigrator } from '@/lib/chat/migrate-chat-client-state'
 import { resolveDetailCache } from '@/lib/chat/resolve-detail-cache'
 import { maybeHydrateOrchestrationAfterChildSend } from '@/lib/orchestration/orchestration-cache'
 import { promoteLocalChat } from '@/lib/chat/promote-local-chat'
-import type { ChatMarker, ChatThread } from '@/lib/chat/types'
+import type { ChatMarker, ChatThread, SendMessageOptions } from '@/lib/chat/types'
 import { chatKeys } from '@/lib/query-keys'
 
 import type { AgentActivityDetail } from '@/lib/chat/types'
@@ -26,10 +26,11 @@ type UseChatStreamOptions = {
   refetchChats: () => Promise<unknown>
   activeChatId?: string
   navigate: (options: NavigateOptions) => void
+  applyPostMessageBehavior?: (chatId: string) => void | Promise<void>
 }
 
 type UseChatStreamResult = {
-  sendMessage: (chatId: string, content: string) => Promise<void>
+  sendMessage: (chatId: string, content: string, options?: SendMessageOptions) => Promise<void>
   isChatSending: (chatId: string) => boolean
   getMarkers: (chatId: string) => ChatMarker[]
   subscribeAgentActivity: (listener: (detail: AgentActivityDetail) => void) => () => void
@@ -42,7 +43,8 @@ export function useChatStream({
   loadChat,
   refetchChats,
   activeChatId,
-  navigate
+  navigate,
+  applyPostMessageBehavior
 }: UseChatStreamOptions): UseChatStreamResult {
   const queryClient = useQueryClient()
   const [sendingChatIds, setSendingChatIds] = useState<Set<string>>(() => new Set())
@@ -210,7 +212,7 @@ export function useChatStream({
   )
 
   const sendMessage = useCallback(
-    async (chatId: string, content: string) => {
+    async (chatId: string, content: string, options?: SendMessageOptions) => {
       let resolvedChatId = chatId
 
       try {
@@ -244,6 +246,15 @@ export function useChatStream({
       clearMarkers(resolvedChatId)
 
       const assistantMessageId = crypto.randomUUID()
+      const startedAt = new Date().toISOString()
+
+      queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) =>
+        current.map((chat) =>
+          chat.id === resolvedChatId
+            ? { ...chat, status: 'inProgress' as const, updatedAt: startedAt }
+            : chat
+        )
+      )
 
       queryClient.setQueryData<ChatThread>(chatKeys.detail(resolvedChatId), (current) => {
         const base = current ?? resolveDetailCache(queryClient, resolvedChatId, getChat)
@@ -251,7 +262,11 @@ export function useChatStream({
           return current
         }
 
-        return appendUserAndAssistantMessages(base, content, assistantMessageId)
+        return appendUserAndAssistantMessages(
+          { ...base, status: 'inProgress', updatedAt: startedAt },
+          content,
+          assistantMessageId
+        )
       })
 
       appendMarker(resolvedChatId, {
@@ -280,7 +295,35 @@ export function useChatStream({
           return
         }
 
+        // Optimistically leave InProgress so the tab does not stay amber if SSE lags.
+        const readyAt = new Date().toISOString()
+        const markReadyForReview = (): void => {
+          queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) =>
+            current.map((chat) =>
+              chat.id === resolvedChatId
+                ? { ...chat, status: 'readyForReview' as const, updatedAt: readyAt }
+                : chat
+            )
+          )
+          queryClient.setQueryData<ChatThread>(chatKeys.detail(resolvedChatId), (current) => {
+            if (!current) {
+              return current
+            }
+
+            return { ...current, status: 'readyForReview', updatedAt: readyAt }
+          })
+        }
+
+        markReadyForReview()
+
         await loadChat(resolvedChatId)
+
+        // loadChat can briefly reintroduce stale in-memory InProgress; re-assert.
+        const loaded = queryClient.getQueryData<ChatThread>(chatKeys.detail(resolvedChatId))
+        if (loaded?.status === 'inProgress') {
+          markReadyForReview()
+        }
+
         void refetchChats()
 
         maybeHydrateOrchestrationAfterChildSend(
@@ -289,6 +332,14 @@ export function useChatStream({
           getChat,
           loadChat
         )
+
+        if (
+          !options?.skipPostMessageBehavior &&
+          applyPostMessageBehavior &&
+          resolvedChatId === activeChatId
+        ) {
+          await applyPostMessageBehavior(resolvedChatId)
+        }
       } catch (error) {
         if (isAbortError(error) || !isActiveTurn()) {
           return
@@ -310,6 +361,7 @@ export function useChatStream({
       abortStream,
       activeChatId,
       appendMarker,
+      applyPostMessageBehavior,
       clearMarkers,
       finalizeInterruptedAssistant,
       getChat,

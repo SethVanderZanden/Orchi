@@ -69,7 +69,7 @@ Live board: `GET /chats/status/events`
 | `snapshot` | `[{ chatId, status }, …]` | Seed list/detail caches |
 | `status` | `{ chatId, status }` | Patch sidebar dots |
 
-Desktop: `subscribeChatStatusEvents` + `useChatStatusEvents`; active chat auto-calls `markChatRead`. Dot mapping lives in `lib/chat/chat-sidebar-status.ts`.
+Desktop: `subscribeChatStatusEvents` + `useChatStatusEvents`; active chat auto-calls `markChatRead`. Dot mapping lives in `lib/chat/chat-status-variant.ts`.
 
 ## SSE event schema
 

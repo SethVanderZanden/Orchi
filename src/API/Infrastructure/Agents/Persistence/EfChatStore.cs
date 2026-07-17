@@ -1,11 +1,14 @@
 using Microsoft.EntityFrameworkCore;
 using Orchi.Api.Data;
 using Orchi.Api.Entities;
+using Orchi.Api.Infrastructure.Agents.Search;
 using DomainChatMessage = Orchi.Api.Infrastructure.Agents.ChatMessage;
 
 namespace Orchi.Api.Infrastructure.Agents.Persistence;
 
-public sealed class EfChatStore(IDbContextFactory<AppDbContext> dbContextFactory) : IChatStore
+public sealed class EfChatStore(
+    IDbContextFactory<AppDbContext> dbContextFactory,
+    ChatSearchComposer searchComposer) : IChatStore
 {
     public async Task<ChatSession> CreateAsync(ChatCreateModel model, CancellationToken cancellationToken)
     {
@@ -23,6 +26,9 @@ public sealed class EfChatStore(IDbContextFactory<AppDbContext> dbContextFactory
             ParentChatId = model.ParentChatId,
             PlanFilePath = model.PlanFilePath,
             ModelId = model.ModelId,
+            ContextSizeId = model.ContextSizeId,
+            ReasoningEffortId = model.ReasoningEffortId,
+            ApprovalPolicyId = model.ApprovalPolicyId,
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -60,6 +66,44 @@ public sealed class EfChatStore(IDbContextFactory<AppDbContext> dbContextFactory
         return entities
             .OrderByDescending(chat => chat.UpdatedAt)
             .Select(ChatStoreMapper.ToSession)
+            .ToArray();
+    }
+
+    public async Task<IReadOnlyList<ChatSession>> SearchAsync(
+        ChatSearchCriteria criteria,
+        CancellationToken cancellationToken)
+    {
+        await using AppDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        IQueryable<Chat> filtered = searchComposer.Apply(db.Chats.AsNoTracking(), criteria);
+        int limit = criteria.ResolveLimit();
+
+        // SQLite cannot ORDER BY DateTimeOffset in SQL — project then order in memory (same as ListAsync).
+        var projected = await filtered
+            .Select(chat => new { chat.Id, chat.UpdatedAt })
+            .ToListAsync(cancellationToken);
+
+        List<Guid> orderedIds = projected
+            .OrderByDescending(chat => chat.UpdatedAt)
+            .Take(limit)
+            .Select(chat => chat.Id)
+            .ToList();
+
+        if (orderedIds.Count == 0)
+        {
+            return [];
+        }
+
+        List<Chat> entities = await db.Chats
+            .AsNoTracking()
+            .Include(chat => chat.Messages)
+            .Where(chat => orderedIds.Contains(chat.Id))
+            .ToListAsync(cancellationToken);
+
+        Dictionary<Guid, Chat> byId = entities.ToDictionary(chat => chat.Id);
+        return orderedIds
+            .Where(byId.ContainsKey)
+            .Select(id => ChatStoreMapper.ToSession(byId[id]))
             .ToArray();
     }
 
@@ -241,6 +285,99 @@ public sealed class EfChatStore(IDbContextFactory<AppDbContext> dbContextFactory
         return true;
     }
 
+    public async Task<bool> UpdateContextSizeIdAsync(
+        Guid chatId,
+        string? contextSizeId,
+        CancellationToken cancellationToken)
+    {
+        await using AppDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        Chat? chat = await db.Chats.FirstOrDefaultAsync(existing => existing.Id == chatId, cancellationToken);
+
+        if (chat is null)
+        {
+            return false;
+        }
+
+        chat.ContextSizeId = string.IsNullOrWhiteSpace(contextSizeId) ? null : contextSizeId.Trim();
+        chat.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<bool> UpdateReasoningEffortIdAsync(
+        Guid chatId,
+        string? reasoningEffortId,
+        CancellationToken cancellationToken)
+    {
+        await using AppDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        Chat? chat = await db.Chats.FirstOrDefaultAsync(existing => existing.Id == chatId, cancellationToken);
+
+        if (chat is null)
+        {
+            return false;
+        }
+
+        chat.ReasoningEffortId = string.IsNullOrWhiteSpace(reasoningEffortId) ? null : reasoningEffortId.Trim();
+        chat.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<bool> UpdateApprovalPolicyIdAsync(
+        Guid chatId,
+        string? approvalPolicyId,
+        CancellationToken cancellationToken)
+    {
+        await using AppDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        Chat? chat = await db.Chats.FirstOrDefaultAsync(existing => existing.Id == chatId, cancellationToken);
+
+        if (chat is null)
+        {
+            return false;
+        }
+
+        chat.ApprovalPolicyId = string.IsNullOrWhiteSpace(approvalPolicyId) ? null : approvalPolicyId.Trim();
+        chat.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<bool> UpdateRuntimeAsync(
+        Guid chatId,
+        string agentId,
+        string mode,
+        string? modelId,
+        string? contextSizeId,
+        string? reasoningEffortId,
+        string? approvalPolicyId,
+        bool clearExternalSessionId,
+        CancellationToken cancellationToken)
+    {
+        await using AppDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        Chat? chat = await db.Chats.FirstOrDefaultAsync(existing => existing.Id == chatId, cancellationToken);
+
+        if (chat is null)
+        {
+            return false;
+        }
+
+        chat.AgentId = agentId;
+        chat.Mode = mode;
+        chat.ModelId = string.IsNullOrWhiteSpace(modelId) ? null : modelId.Trim();
+        chat.ContextSizeId = string.IsNullOrWhiteSpace(contextSizeId) ? null : contextSizeId.Trim();
+        chat.ReasoningEffortId = string.IsNullOrWhiteSpace(reasoningEffortId) ? null : reasoningEffortId.Trim();
+        chat.ApprovalPolicyId = string.IsNullOrWhiteSpace(approvalPolicyId) ? null : approvalPolicyId.Trim();
+
+        if (clearExternalSessionId)
+        {
+            chat.ExternalSessionId = null;
+        }
+
+        chat.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     public async Task<ChatStatus?> UpdateStatusAsync(
         Guid chatId,
         ChatStatus status,
@@ -264,28 +401,47 @@ public sealed class EfChatStore(IDbContextFactory<AppDbContext> dbContextFactory
         return status;
     }
 
-    public async Task<ChatSession?> MarkReadAsync(Guid chatId, CancellationToken cancellationToken)
+    public async Task<ChatSession?> MarkReadAsync(
+        Guid chatId,
+        bool clearInProgress,
+        CancellationToken cancellationToken)
     {
         await using AppDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-        Chat? chat = await db.Chats
-            .Include(existing => existing.Messages)
-            .FirstOrDefaultAsync(existing => existing.Id == chatId, cancellationToken);
+        DateTimeOffset now = DateTimeOffset.UtcNow;
 
-        if (chat is null)
+        // Atomic update avoids a tracked-entity SaveChanges race with concurrent status writes.
+        int affected = clearInProgress
+            ? await db.Chats
+                .Where(chat => chat.Id == chatId)
+                .ExecuteUpdateAsync(
+                    setters => setters
+                        .SetProperty(chat => chat.LastReadAt, now)
+                        .SetProperty(chat => chat.UpdatedAt, now)
+                        .SetProperty(chat => chat.Status, ChatStatus.Read),
+                    cancellationToken)
+            : await db.Chats
+                .Where(chat => chat.Id == chatId)
+                .ExecuteUpdateAsync(
+                    setters => setters
+                        .SetProperty(chat => chat.LastReadAt, now)
+                        .SetProperty(chat => chat.UpdatedAt, now)
+                        .SetProperty(
+                            chat => chat.Status,
+                            chat => chat.Status == ChatStatus.InProgress
+                                ? ChatStatus.InProgress
+                                : ChatStatus.Read),
+                    cancellationToken);
+
+        if (affected == 0)
         {
             return null;
         }
 
-        DateTimeOffset now = DateTimeOffset.UtcNow;
-        chat.LastReadAt = now;
-        chat.UpdatedAt = now;
+        Chat? chat = await db.Chats
+            .AsNoTracking()
+            .Include(existing => existing.Messages)
+            .FirstOrDefaultAsync(existing => existing.Id == chatId, cancellationToken);
 
-        if (chat.Status != ChatStatus.InProgress)
-        {
-            chat.Status = ChatStatus.Read;
-        }
-
-        await db.SaveChangesAsync(cancellationToken);
-        return ChatStoreMapper.ToSession(chat);
+        return chat is null ? null : ChatStoreMapper.ToSession(chat);
     }
 }

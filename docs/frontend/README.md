@@ -42,7 +42,7 @@ main.tsx
   └── RouterProvider          ← TanStack Router (which page?)
         └── __root.tsx
               └── QueryClientProvider   ← TanStack Query (API data)
-                    └── _app layout     ← sidebar + Outlet
+                    └── _app layout     ← header tabs + Outlet
                           └── page routes (chat, settings, …)
 ```
 

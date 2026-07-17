@@ -84,6 +84,16 @@ public class ChatStatusServiceTests
         public Task<IReadOnlyList<ChatSession>> ListAsync(CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<ChatSession>>(Sessions.Values.ToArray());
 
+        public Task<IReadOnlyList<ChatSession>> SearchAsync(
+            Orchi.Api.Infrastructure.Agents.Search.ChatSearchCriteria criteria,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<ChatSession>>(
+                Sessions.Values
+                    .OrderByDescending(session =>
+                        session.Messages.LastOrDefault()?.CreatedAt ?? DateTimeOffset.MinValue)
+                    .Take(criteria.ResolveLimit())
+                    .ToArray());
+
         public Task<IReadOnlyList<ChatSession>> ListChildrenAsync(
             Guid parentChatId,
             CancellationToken cancellationToken) =>
@@ -124,6 +134,36 @@ public class ChatStatusServiceTests
         public Task<bool> UpdateModelIdAsync(Guid chatId, string? modelId, CancellationToken cancellationToken) =>
             Task.FromResult(false);
 
+        public Task<bool> UpdateContextSizeIdAsync(
+            Guid chatId,
+            string? contextSizeId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(false);
+
+        public Task<bool> UpdateReasoningEffortIdAsync(
+            Guid chatId,
+            string? reasoningEffortId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(false);
+
+        public Task<bool> UpdateApprovalPolicyIdAsync(
+            Guid chatId,
+            string? approvalPolicyId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(false);
+
+        public Task<bool> UpdateRuntimeAsync(
+            Guid chatId,
+            string agentId,
+            string mode,
+            string? modelId,
+            string? contextSizeId,
+            string? reasoningEffortId,
+            string? approvalPolicyId,
+            bool clearExternalSessionId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(false);
+
         public Task<ChatStatus?> UpdateStatusAsync(
             Guid chatId,
             ChatStatus status,
@@ -138,7 +178,10 @@ public class ChatStatusServiceTests
             return Task.FromResult<ChatStatus?>(status);
         }
 
-        public Task<ChatSession?> MarkReadAsync(Guid chatId, CancellationToken cancellationToken)
+        public Task<ChatSession?> MarkReadAsync(
+            Guid chatId,
+            bool clearInProgress,
+            CancellationToken cancellationToken)
         {
             if (!Sessions.TryGetValue(chatId, out ChatSession? session))
             {
@@ -146,7 +189,7 @@ public class ChatStatusServiceTests
             }
 
             session.LastReadAt = DateTimeOffset.UtcNow;
-            if (session.Status != ChatStatus.InProgress)
+            if (clearInProgress || session.Status != ChatStatus.InProgress)
             {
                 session.Status = ChatStatus.Read;
             }

@@ -197,7 +197,7 @@ public sealed class EfAgentModelStore(IDbContextFactory<AppDbContext> dbContextF
         return ToStored(entity);
     }
 
-    public async Task<bool> RemoveManualAsync(
+    public async Task<bool> RemoveAsync(
         string agentId,
         string modelId,
         CancellationToken cancellationToken)
@@ -209,8 +209,7 @@ public sealed class EfAgentModelStore(IDbContextFactory<AppDbContext> dbContextF
                 model => model.AgentId == agentId && model.ModelId == modelId,
                 cancellationToken);
 
-        if (entity is null
-            || !string.Equals(entity.Source, AgentModelSource.Manual, StringComparison.OrdinalIgnoreCase))
+        if (entity is null)
         {
             return false;
         }

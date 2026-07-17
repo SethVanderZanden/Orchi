@@ -1,6 +1,7 @@
 import { ExternalLink, FileText } from 'lucide-react'
 import { useNavigate } from '@tanstack/react-router'
 
+import { ShortcutHint } from '@/components/app-header/shortcut-hint'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -160,17 +161,22 @@ export function PlanCards({
       })}
 
       <Button
-        className="w-full"
+        className="w-full min-w-0 gap-2 overflow-hidden"
         disabled={kickingOffAny || kickOffAllCount === 0 || sequentialRunActive}
         onClick={onKickOffAll}
       >
-        {sequentialRunActive && sequentialKickoffProgress
-          ? `Running plan ${sequentialKickoffProgress.currentStep} of ${sequentialKickoffProgress.totalSteps}…`
-          : kickingOffAny
-            ? 'Kicking off plans…'
-            : isSequentialKickoff
-              ? `Kick off in order (${kickOffAllCount})`
-              : `Kick off all (${kickOffAllCount})`}
+        <span className="min-w-0 truncate">
+          {sequentialRunActive && sequentialKickoffProgress
+            ? `Running plan ${sequentialKickoffProgress.currentStep} of ${sequentialKickoffProgress.totalSteps}…`
+            : kickingOffAny
+              ? 'Kicking off plans…'
+              : isSequentialKickoff
+                ? `Kick off in order (${kickOffAllCount})`
+                : `Kick Off All (${kickOffAllCount})`}
+        </span>
+        {!kickingOffAny && !sequentialRunActive && kickOffAllCount > 0 ? (
+          <ShortcutHint className="shrink-0">Ctrl+Enter</ShortcutHint>
+        ) : null}
       </Button>
     </div>
   )

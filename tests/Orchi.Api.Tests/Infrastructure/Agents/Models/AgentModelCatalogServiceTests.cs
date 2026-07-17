@@ -66,7 +66,7 @@ public class AgentModelCatalogServiceTests
     }
 
     [Fact]
-    public async Task RemoveManualAsync_RemovesOnlyManualEntries()
+    public async Task RemoveAsync_RemovesManualAndCliEntries()
     {
         await using ServiceProvider provider = BuildProvider();
         IAgentModelCatalogService catalog = provider.GetRequiredService<IAgentModelCatalogService>();
@@ -76,11 +76,26 @@ public class AgentModelCatalogServiceTests
         await catalog.SyncAsync("cursor", CancellationToken.None);
         await catalog.AddManualAsync("cursor", "manual-model", CancellationToken.None);
 
-        Result removedCli = await catalog.RemoveManualAsync("cursor", "cli-model", CancellationToken.None);
-        Assert.True(removedCli.IsFailure);
+        Result removedCli = await catalog.RemoveAsync("cursor", "cli-model", CancellationToken.None);
+        Assert.True(removedCli.IsSuccess);
 
-        Result removedManual = await catalog.RemoveManualAsync("cursor", "manual-model", CancellationToken.None);
+        Result removedManual = await catalog.RemoveAsync("cursor", "manual-model", CancellationToken.None);
         Assert.True(removedManual.IsSuccess);
+
+        IReadOnlyList<AgentModelDto> remaining =
+            await catalog.ListAsync("cursor", includeDisabled: true, CancellationToken.None);
+
+        Assert.Empty(remaining);
+    }
+
+    [Fact]
+    public async Task RemoveAsync_WhenMissing_ReturnsNotFound()
+    {
+        await using ServiceProvider provider = BuildProvider();
+        IAgentModelCatalogService catalog = provider.GetRequiredService<IAgentModelCatalogService>();
+
+        Result removed = await catalog.RemoveAsync("cursor", "missing-model", CancellationToken.None);
+        Assert.True(removed.IsFailure);
     }
 
     private static ServiceProvider BuildProvider()

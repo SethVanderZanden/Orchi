@@ -1,18 +1,24 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowUp } from 'lucide-react'
 
 import { ChatModeBadge } from '@/components/chat/chat-mode-badge'
 import { ChatModeDropdown } from '@/components/chat/chat-mode-dropdown'
 import { ChatModelSelector } from '@/components/chat/chat-model-selector'
+import { ChatContextSizeSelector } from '@/components/chat/chat-context-size-selector'
+import { ChatCliOptionSelector } from '@/components/chat/chat-cli-option-selector'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { getComposerDraft, setComposerDraft } from '@/lib/chat/composer-drafts'
 import type { AgentMode } from '@/lib/chat/types'
 import { cn } from '@/lib/utils'
 
 type ChatComposerProps = {
+  chatId: string
   disabled?: boolean
   onSend: (content: string) => void
   expanded?: boolean
+  /** Prefills the composer once on mount (e.g. text copied into a new split chat). */
+  initialDraft?: string
   mode: AgentMode
   showModeControls?: boolean
   canChangeMode?: boolean
@@ -23,12 +29,26 @@ type ChatComposerProps = {
   canChangeModel?: boolean
   modelUpdateError?: string | null
   onModelChange: (modelId: string | null) => void
+  contextSizeId: string | null
+  canChangeContextSize?: boolean
+  contextSizeUpdateError?: string | null
+  onContextSizeChange: (contextSizeId: string | null) => void
+  reasoningEffortId: string | null
+  canChangeReasoningEffort?: boolean
+  reasoningEffortUpdateError?: string | null
+  onReasoningEffortChange: (reasoningEffortId: string | null) => void
+  approvalPolicyId: string | null
+  canChangeApprovalPolicy?: boolean
+  approvalPolicyUpdateError?: string | null
+  onApprovalPolicyChange: (approvalPolicyId: string | null) => void
 }
 
 export function OrchiChatComposer({
+  chatId,
   disabled = false,
   onSend,
   expanded = false,
+  initialDraft,
   mode,
   showModeControls = false,
   canChangeMode = false,
@@ -38,9 +58,25 @@ export function OrchiChatComposer({
   modelId,
   canChangeModel = true,
   modelUpdateError = null,
-  onModelChange
+  onModelChange,
+  contextSizeId,
+  canChangeContextSize = true,
+  contextSizeUpdateError = null,
+  onContextSizeChange,
+  reasoningEffortId,
+  canChangeReasoningEffort = true,
+  reasoningEffortUpdateError = null,
+  onReasoningEffortChange,
+  approvalPolicyId,
+  canChangeApprovalPolicy = true,
+  approvalPolicyUpdateError = null,
+  onApprovalPolicyChange
 }: ChatComposerProps): React.JSX.Element {
-  const [draft, setDraft] = useState('')
+  const [draft, setDraft] = useState(() => initialDraft ?? getComposerDraft(chatId) ?? '')
+
+  useEffect(() => {
+    setComposerDraft(chatId, draft)
+  }, [chatId, draft])
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>): void {
     event.preventDefault()
@@ -51,6 +87,7 @@ export function OrchiChatComposer({
 
     onSend(content)
     setDraft('')
+    setComposerDraft(chatId, '')
   }
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>): void {
@@ -99,6 +136,35 @@ export function OrchiChatComposer({
               disabled={!canChangeModel}
               error={modelUpdateError}
               onModelChange={onModelChange}
+              compact
+            />
+            <ChatContextSizeSelector
+              agentId={agentId}
+              contextSizeId={contextSizeId}
+              mode={mode}
+              disabled={!canChangeContextSize}
+              error={contextSizeUpdateError}
+              onContextSizeChange={onContextSizeChange}
+              compact
+            />
+            <ChatCliOptionSelector
+              agentId={agentId}
+              kind="model_reasoning_effort"
+              optionId={reasoningEffortId}
+              mode={mode}
+              disabled={!canChangeReasoningEffort}
+              error={reasoningEffortUpdateError}
+              onOptionChange={onReasoningEffortChange}
+              compact
+            />
+            <ChatCliOptionSelector
+              agentId={agentId}
+              kind="approval_policy"
+              optionId={approvalPolicyId}
+              mode={mode}
+              disabled={!canChangeApprovalPolicy}
+              error={approvalPolicyUpdateError}
+              onOptionChange={onApprovalPolicyChange}
               compact
             />
           </div>

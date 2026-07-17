@@ -16,6 +16,12 @@ public class Chat
 
     public string? ModelId { get; set; }
 
+    public string? ContextSizeId { get; set; }
+
+    public string? ReasoningEffortId { get; set; }
+
+    public string? ApprovalPolicyId { get; set; }
+
     public Guid? ParentChatId { get; set; }
 
     public string? PlanFilePath { get; set; }

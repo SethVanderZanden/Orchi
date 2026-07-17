@@ -6,6 +6,7 @@ using Orchi.Api.Infrastructure.Database;
 using Orchi.Api.Infrastructure.Endpoints;
 using Orchi.Api.Infrastructure.OpenApi;
 using Orchi.Api.Infrastructure.Pipeline;
+using Orchi.Api.Infrastructure.UserPreferences;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,6 +26,7 @@ builder.Services
     .AddOrchiCaching(builder.Configuration)
     .AddOrchiPipeline(builder.Configuration)
     .AddOrchiAgents(builder.Configuration)
+    .AddOrchiUserPreferences()
     .AddOrchiOpenApi();
 
 builder.Services.AddCors(options =>

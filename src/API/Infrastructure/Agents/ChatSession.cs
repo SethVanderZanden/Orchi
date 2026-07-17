@@ -7,7 +7,7 @@ public sealed class ChatSession
 {
     public required Guid Id { get; init; }
 
-    public required string AgentId { get; init; }
+    public required string AgentId { get; set; }
 
     public Guid? ProjectId { get; set; }
 
@@ -18,6 +18,20 @@ public sealed class ChatSession
     public string Mode { get; set; } = "default";
 
     public string? ModelId { get; set; }
+
+    public string? ContextSizeId { get; set; }
+
+    public int? ContextSizeTokens { get; set; }
+
+    public string? ReasoningEffortId { get; set; }
+
+    public string? ApprovalPolicyId { get; set; }
+
+    /// <summary>
+    /// Hydrated CLI config overrides (config key → raw value) for adapters that emit
+    /// <c>-c</c>/<c>--config</c> pairs (Codex). Populated by <see cref="AgentSessionManager"/>.
+    /// </summary>
+    public Dictionary<string, string> CliConfigOverrides { get; } = new(StringComparer.Ordinal);
 
     public Guid? ParentChatId { get; init; }
 

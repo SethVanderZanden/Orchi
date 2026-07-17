@@ -41,6 +41,8 @@ import type { ParsedPlan } from '@/lib/orchestration/parse-plans'
 
 import type { ParsedReviewPlan } from '@/lib/orchestration/parse-review-plans'
 
+import { findChildForPlan } from '@/lib/projects/chat-tree'
+
 import type { Project } from '@/lib/projects/types'
 
 type ChatPanelProps = {
@@ -70,6 +72,30 @@ type ChatPanelProps = {
 
   onModelChange: (modelId: string | null) => void
 
+  contextSizeId: string | null
+
+  canChangeContextSize: boolean
+
+  contextSizeUpdateError?: string | null
+
+  onContextSizeChange: (contextSizeId: string | null) => void
+
+  reasoningEffortId: string | null
+
+  canChangeReasoningEffort: boolean
+
+  reasoningEffortUpdateError?: string | null
+
+  onReasoningEffortChange: (reasoningEffortId: string | null) => void
+
+  approvalPolicyId: string | null
+
+  canChangeApprovalPolicy: boolean
+
+  approvalPolicyUpdateError?: string | null
+
+  onApprovalPolicyChange: (approvalPolicyId: string | null) => void
+
   projectId: string | null
 
   projectName: string | null
@@ -79,6 +105,8 @@ type ChatPanelProps = {
   canChangeProject?: boolean
 
   onProjectChange?: (projectId: string) => void
+
+  chatId: string
 
   plans?: ParsedPlan[]
 
@@ -140,6 +168,30 @@ export function ChatPanel({
 
   onModelChange,
 
+  contextSizeId,
+
+  canChangeContextSize,
+
+  contextSizeUpdateError = null,
+
+  onContextSizeChange,
+
+  reasoningEffortId,
+
+  canChangeReasoningEffort,
+
+  reasoningEffortUpdateError = null,
+
+  onReasoningEffortChange,
+
+  approvalPolicyId,
+
+  canChangeApprovalPolicy,
+
+  approvalPolicyUpdateError = null,
+
+  onApprovalPolicyChange,
+
   projectId,
 
   projectName,
@@ -149,6 +201,8 @@ export function ChatPanel({
   canChangeProject = false,
 
   onProjectChange,
+
+  chatId,
 
   plans = [],
 
@@ -214,10 +268,81 @@ export function ChatPanel({
 
   const { width: splitContainerWidth, ref: splitContainerRef } = useElementWidth<HTMLDivElement>()
 
+  const activeReviewPlan = activeReviewTabId
+    ? plans.find((plan) => plan.planId === activeReviewTabId)
+    : undefined
+  const activeReviewPlanHasChild = activeReviewPlan
+    ? Boolean(findChildForPlan(activeReviewPlan.planId, childChats))
+    : false
+  const activeReviewPlanKickingOff =
+    activeReviewPlan && isPlanKickingOff && parentChatId
+      ? isPlanKickingOff(parentChatId, activeReviewPlan.planId)
+      : false
+  const activeReviewPlanShowingReview = activeReviewPlan
+    ? Boolean(reviewPlansByPlanId[activeReviewPlan.planId])
+    : false
+
+  const kickOffActivePlan = useCallback((): boolean => {
+    if (!onKickOffPlan || !reviewState.panelOpen || !activeReviewPlan) {
+      return false
+    }
+
+    if (activeReviewPlanShowingReview || activeReviewPlanHasChild || activeReviewPlanKickingOff) {
+      return false
+    }
+
+    onKickOffPlan(activeReviewPlan)
+    return true
+  }, [
+    activeReviewPlan,
+    activeReviewPlanHasChild,
+    activeReviewPlanKickingOff,
+    activeReviewPlanShowingReview,
+    onKickOffPlan,
+    reviewState.panelOpen
+  ])
+
+  useKeyboardShortcutCombo({ key: 'Enter', shift: true }, kickOffActivePlan, {
+    enabled:
+      showPlanReview &&
+      reviewState.panelOpen &&
+      Boolean(onKickOffPlan) &&
+      Boolean(activeReviewPlan) &&
+      !activeReviewPlanShowingReview &&
+      !activeReviewPlanHasChild &&
+      !activeReviewPlanKickingOff,
+    allowInTextarea: true
+  })
+
+  const kickOffAllCount = plans.filter((plan) => !findChildForPlan(plan.planId, childChats)).length
+  const sequentialRunActive = sequentialKickoffProgress?.active ?? false
+  const kickingOffAny =
+    parentChatId && isParentKickingOffAny ? isParentKickingOffAny(parentChatId) : false
+
+  const kickOffAllPlans = useCallback((): boolean => {
+    if (!onKickOffAllPlans || kickingOffAny || kickOffAllCount === 0 || sequentialRunActive) {
+      return false
+    }
+
+    onKickOffAllPlans()
+    return true
+  }, [kickOffAllCount, kickingOffAny, onKickOffAllPlans, sequentialRunActive])
+
+  useKeyboardShortcutCombo({ key: 'Enter', ctrl: true }, kickOffAllPlans, {
+    enabled:
+      showPlanReview &&
+      Boolean(onKickOffAllPlans) &&
+      !kickingOffAny &&
+      kickOffAllCount > 0 &&
+      !sequentialRunActive,
+    allowInTextarea: true
+  })
+
   const isNewRootChat = messages.length === 0 && markers.length === 0 && showModeSelector
 
   const composer = (
     <OrchiChatComposer
+      chatId={chatId}
       disabled={isSending}
       onSend={onSend}
       expanded={isNewRootChat}
@@ -231,6 +356,18 @@ export function ChatPanel({
       canChangeModel={canChangeModel}
       modelUpdateError={modelUpdateError}
       onModelChange={onModelChange}
+      contextSizeId={contextSizeId}
+      canChangeContextSize={canChangeContextSize}
+      contextSizeUpdateError={contextSizeUpdateError}
+      onContextSizeChange={onContextSizeChange}
+      reasoningEffortId={reasoningEffortId}
+      canChangeReasoningEffort={canChangeReasoningEffort}
+      reasoningEffortUpdateError={reasoningEffortUpdateError}
+      onReasoningEffortChange={onReasoningEffortChange}
+      approvalPolicyId={approvalPolicyId}
+      canChangeApprovalPolicy={canChangeApprovalPolicy}
+      approvalPolicyUpdateError={approvalPolicyUpdateError}
+      onApprovalPolicyChange={onApprovalPolicyChange}
     />
   )
 

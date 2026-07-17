@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { RefreshCw, Trash2 } from 'lucide-react'
+import { BookOpen, ExternalLink, RefreshCw, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -18,8 +19,20 @@ import { agentKeys } from '@/lib/query-keys'
 
 const ONE_HOUR_MS = 60 * 60 * 1000
 
+const AGENT_MODEL_DOCS: Record<string, { label: string; href: string }> = {
+  cursor: {
+    label: 'Cursor CLI models',
+    href: 'https://cursor.com/docs/cli/reference/parameters'
+  },
+  codex: {
+    label: 'Codex CLI config',
+    href: 'https://developers.openai.com/codex/config-advanced'
+  }
+}
+
 type AgentModelsCardProps = {
   agentId: string
+  agentLabel?: string
 }
 
 function invalidateAgentModelQueries(
@@ -29,10 +42,14 @@ function invalidateAgentModelQueries(
   void queryClient.invalidateQueries({ queryKey: agentKeys.modelsForAgent(agentId) })
 }
 
-export function AgentModelsCard({ agentId }: AgentModelsCardProps): React.JSX.Element {
+function openExternalDocs(href: string): void {
+  window.open(href, '_blank', 'noopener,noreferrer')
+}
+
+export function AgentModelsCard({ agentId, agentLabel }: AgentModelsCardProps): React.JSX.Element {
   const queryClient = useQueryClient()
   const [manualSlug, setManualSlug] = useState('')
-  const [actionError, setActionError] = useState<string | null>(null)
+  const docs = AGENT_MODEL_DOCS[agentId]
 
   const modelsQuery = useQuery({
     queryKey: agentKeys.models(agentId, true),
@@ -43,39 +60,38 @@ export function AgentModelsCard({ agentId }: AgentModelsCardProps): React.JSX.El
   const syncMutation = useMutation({
     mutationFn: () => syncAgentModels(agentId),
     onSuccess: () => {
-      setActionError(null)
       invalidateAgentModelQueries(queryClient, agentId)
+      toast.success('Models synced')
     },
-    onError: (error: Error) => setActionError(error.message)
+    onError: (error: Error) => toast.error(error.message)
   })
 
   const addMutation = useMutation({
     mutationFn: (modelId: string) => addAgentModel(agentId, modelId),
     onSuccess: () => {
-      setActionError(null)
       setManualSlug('')
       invalidateAgentModelQueries(queryClient, agentId)
+      toast.success('Model added')
     },
-    onError: (error: Error) => setActionError(error.message)
+    onError: (error: Error) => toast.error(error.message)
   })
 
   const toggleMutation = useMutation({
     mutationFn: ({ modelId, enabled }: { modelId: string; enabled: boolean }) =>
       updateAgentModelEnabled(agentId, modelId, enabled),
     onSuccess: () => {
-      setActionError(null)
       invalidateAgentModelQueries(queryClient, agentId)
     },
-    onError: (error: Error) => setActionError(error.message)
+    onError: (error: Error) => toast.error(error.message)
   })
 
   const removeMutation = useMutation({
     mutationFn: (modelId: string) => removeAgentModel(agentId, modelId),
     onSuccess: () => {
-      setActionError(null)
       invalidateAgentModelQueries(queryClient, agentId)
+      toast.success('Model removed')
     },
-    onError: (error: Error) => setActionError(error.message)
+    onError: (error: Error) => toast.error(error.message)
   })
 
   const models = modelsQuery.data?.models ?? []
@@ -99,20 +115,35 @@ export function AgentModelsCard({ agentId }: AgentModelsCardProps): React.JSX.El
     <Card>
       <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
         <div className="space-y-1">
-          <CardTitle className="text-base">Agent models</CardTitle>
+          <CardTitle className="text-base">{agentLabel ?? agentId} models</CardTitle>
           <CardDescription>
-            Sync models from the Cursor CLI, choose which appear in chat, and add manual slugs.
+            Sync models from the CLI when available, choose which appear in chat, add manual slugs,
+            or remove models you do not need.
           </CardDescription>
         </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled={isBusy}
-          onClick={() => syncMutation.mutate()}
-        >
-          <RefreshCw className={cnIcon(syncMutation.isPending)} />
-          Sync now
-        </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          {docs ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => openExternalDocs(docs.href)}
+              aria-label={`Open ${docs.label} documentation`}
+            >
+              <BookOpen className="size-4" />
+              Docs
+              <ExternalLink className="size-3.5 opacity-70" />
+            </Button>
+          ) : null}
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={isBusy}
+            onClick={() => syncMutation.mutate()}
+          >
+            <RefreshCw className={cnIcon(syncMutation.isPending)} />
+            Sync now
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {modelsQuery.isLoading ? (
@@ -158,17 +189,15 @@ export function AgentModelsCard({ agentId }: AgentModelsCardProps): React.JSX.El
                     </span>
                   </span>
                 </label>
-                {model.source === 'manual' ? (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Remove ${model.label}`}
-                    disabled={isBusy}
-                    onClick={() => removeMutation.mutate(model.id)}
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
-                ) : null}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Remove ${model.label}`}
+                  disabled={isBusy}
+                  onClick={() => removeMutation.mutate(model.id)}
+                >
+                  <Trash2 className="size-4" />
+                </Button>
               </li>
             ))}
           </ul>
@@ -180,14 +209,12 @@ export function AgentModelsCard({ agentId }: AgentModelsCardProps): React.JSX.El
           </p>
         ) : null}
 
-        {actionError ? <p className="text-sm text-destructive">{actionError}</p> : null}
-
         <Separator />
 
         <div className="space-y-2">
-          <Label htmlFor="manual-model-slug">Add manual slug</Label>
+          <Label htmlFor={`manual-model-slug-${agentId}`}>Add manual slug</Label>
           <Input
-            id="manual-model-slug"
+            id={`manual-model-slug-${agentId}`}
             value={manualSlug}
             onChange={(event) => setManualSlug(event.target.value)}
             placeholder="e.g. claude-sonnet-4"

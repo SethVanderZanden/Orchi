@@ -24,7 +24,7 @@ public interface IAgentModelCatalogService
         bool enabled,
         CancellationToken cancellationToken);
 
-    Task<Result> RemoveManualAsync(
+    Task<Result> RemoveAsync(
         string agentId,
         string modelId,
         CancellationToken cancellationToken);

@@ -79,12 +79,14 @@ public static class KickOffPlan
             }
 
             Result<ChatSession> childResult = await sessionManager.CreateSessionAsync(
-                parent.AgentId,
                 parent.WorkspaceId.Value,
-                ImplementationAgentModeStrategy.Mode,
+                mode: ImplementationAgentModeStrategy.Mode,
                 parentChatId: parent.Id,
                 planFilePath: planFilePath,
                 modelId: parent.ModelId,
+                contextSizeId: parent.ContextSizeId,
+                reasoningEffortId: parent.ReasoningEffortId,
+                approvalPolicyId: parent.ApprovalPolicyId,
                 cancellationToken: cancellationToken);
 
             if (childResult.IsFailure)

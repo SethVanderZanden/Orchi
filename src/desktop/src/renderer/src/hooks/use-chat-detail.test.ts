@@ -10,7 +10,10 @@ describe('getChatDetailQueryOptions', () => {
     expect(options.queryKey).toEqual(chatKeys.detail('chat-1'))
     expect(options.staleTime).toBe(0)
     expect(options.refetchOnMount).toBe('always')
-    expect(options.placeholderData(undefined)).toBeUndefined()
+    expect(typeof options.placeholderData).toBe('function')
+    if (typeof options.placeholderData === 'function') {
+      expect(options.placeholderData(undefined, undefined as never)).toBeUndefined()
+    }
 
     const cachedDetail = {
       id: 'chat-1',
@@ -23,14 +26,19 @@ describe('getChatDetailQueryOptions', () => {
       workspacePath: '',
       mode: 'default' as const,
       modelId: null,
+      contextSizeId: null,
+      reasoningEffortId: null,
+      approvalPolicyId: null,
       parentChatId: null,
       planFilePath: null,
-      status: 'read',
+      status: 'read' as const,
       lastReadAt: null,
       messages: []
     }
 
-    expect(options.placeholderData(cachedDetail)).toBe(cachedDetail)
+    if (typeof options.placeholderData === 'function') {
+      expect(options.placeholderData(cachedDetail, undefined as never)).toBe(cachedDetail)
+    }
   })
 
   it('disables query for local draft chats', () => {

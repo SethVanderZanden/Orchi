@@ -85,7 +85,10 @@ All TanStack Query keys are centralized:
 | `agentKeys.modes()` | `['agents', 'modes']` | Chat mode dropdown |
 | `agentKeys.modelsForAgent(agentId)` | `['agents', 'models', id]` | Invalidate all model queries for an agent |
 | `agentKeys.models(agentId, includeDisabled?)` | `['agents', 'models', id, { includeDisabled }]` | Model selectors, settings |
-| `agentKeys.modeModelDefaults(agentId)` | `['agents', 'mode-model-defaults', id]` | Mode default models card |
+| `agentKeys.contextSizesForAgent(agentId)` | `['agents', 'context-sizes', id]` | Invalidate context size queries |
+| `agentKeys.contextSizes(agentId, includeDisabled?)` | `['agents', 'context-sizes', id, { includeDisabled }]` | Context selectors, settings |
+| `agentKeys.modeDefaults()` | `['agents', 'mode-defaults']` | Mode defaults card (agent + model + context) |
+| `agentKeys.list()` | `['agents', 'list']` | Registered agents |
 
 **Invalidation:** use a prefix to bust related keys. Example — after syncing models in settings, invalidate every models query for that agent (both enabled-only and include-disabled variants):
 
@@ -130,10 +133,11 @@ SSE streams update TanStack Query cache directly or via context handlers — the
 
 | Module | Base paths | Key functions |
 |--------|------------|---------------|
-| `lib/chat/api.ts` | `/chats`, `/agents/modes` | `listChats`, `getChat`, `createChat`, `sendMessageStream`, `updateChatMode`, `updateChatModel`, `kickOffPlan`, `kickOffReview`, `closeChat` |
+| `lib/chat/api.ts` | `/chats`, `/agents/modes` | `listChats`, `getChat`, `createChat`, `sendMessageStream`, `updateChatMode`, `updateChatModel`, `updateChatContextSize`, `kickOffPlan`, `kickOffReview`, `closeChat` |
 | `lib/projects/api.ts` | `/projects`, `/workspaces` | `listProjects`, `getProject`, `createProject`, `updateProject`, `deleteProject`, `createWorkspace`, `updateWorkspace`, `deleteWorkspace` |
 | `lib/chat/agent-models-api.ts` | `/agents/{id}/models` | `listAgentModels`, `syncAgentModels`, `addAgentModel`, `updateAgentModelEnabled`, `removeAgentModel` |
-| `lib/chat/agent-mode-model-defaults-api.ts` | `/agents/{id}/mode-model-defaults` | `listAgentModeModelDefaults`, `updateAgentModeModelDefault` |
+| `lib/chat/agent-context-sizes-api.ts` | `/agents`, `/agents/{id}/context-sizes` | `listAgents`, `listAgentContextSizes`, `addAgentContextSize`, … |
+| `lib/chat/mode-runtime-defaults-api.ts` | `/agents/mode-defaults` | `listModeRuntimeDefaults`, `updateModeRuntimeDefault` |
 | `lib/orchestration/orchestration-events.ts` | `/chats/{id}/orchestration` | `getOrchestration`, `subscribeOrchestrationEvents`, `kickOffAllOrchestration` |
 
 ## Existing API modules (query key mapping)
@@ -143,7 +147,8 @@ SSE streams update TanStack Query cache directly or via context handlers — the
 | Chat | `lib/chat/api.ts` | `chatKeys` via `ChatProvider`, `useChatDetail` |
 | Projects | `lib/projects/api.ts` | `projectKeys` via `ProjectProvider` |
 | Agent models | `lib/chat/agent-models-api.ts` | `agentKeys.models` |
-| Mode/model defaults | `lib/chat/agent-mode-model-defaults-api.ts` | `agentKeys.modeModelDefaults` |
+| Context sizes | `lib/chat/agent-context-sizes-api.ts` | `agentKeys.contextSizes`, `agentKeys.list` |
+| Mode defaults | `lib/chat/mode-runtime-defaults-api.ts` | `agentKeys.modeDefaults` |
 | Orchestration | `lib/orchestration/orchestration-events.ts` | SSE + one-shot fetches (no query cache) |
 
 ## Optional: Zod runtime validation

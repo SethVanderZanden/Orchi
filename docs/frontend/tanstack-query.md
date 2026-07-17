@@ -125,12 +125,15 @@ export const chatKeys = {
 
 export const agentKeys = {
   all: ['agents'] as const,
+  list: () => [...agentKeys.all, 'list'] as const,
   modes: () => [...agentKeys.all, 'modes'] as const,
   modelsForAgent: (agentId: string) => [...agentKeys.all, 'models', agentId] as const,
   models: (agentId: string, includeDisabled = false) =>
     [...agentKeys.all, 'models', agentId, { includeDisabled }] as const,
-  modeModelDefaults: (agentId: string) =>
-    [...agentKeys.all, 'mode-model-defaults', agentId] as const
+  contextSizesForAgent: (agentId: string) => [...agentKeys.all, 'context-sizes', agentId] as const,
+  contextSizes: (agentId: string, includeDisabled = false) =>
+    [...agentKeys.all, 'context-sizes', agentId, { includeDisabled }] as const,
+  modeDefaults: () => [...agentKeys.all, 'mode-defaults'] as const
 }
 ```
 
@@ -141,8 +144,8 @@ cache['chats']['list']           →  ChatThread[] (sidebar)
 cache['chats']['detail'][id]     →  ChatThread (messages)
 cache['agents']['modes']         →  AgentModeOption[]
 cache['agents']['models'][id]    →  AgentModelListResponse
+cache['agents']['mode-defaults'] →  ModeRuntimeDefaultsListResponse
 ```
-
 Use factories (`chatKeys.detail(id)`) so invalidation stays consistent:
 
 ```tsx
@@ -168,10 +171,10 @@ useQuery({
   staleTime: 60 * 60 * 1000
 })
 
-// Mode default models card
+// Mode defaults card (agent + model + context per mode)
 useQuery({
-  queryKey: agentKeys.modeModelDefaults(agentId),
-  queryFn: () => listAgentModeModelDefaults(agentId)
+  queryKey: agentKeys.modeDefaults(),
+  queryFn: listModeRuntimeDefaults
 })
 ```
 
@@ -182,7 +185,7 @@ useQuery({
 void queryClient.invalidateQueries({ queryKey: agentKeys.modelsForAgent(agentId) })
 ```
 
-Use `agentKeys.all` only when every agent-related cache must reset. Prefer `modelsForAgent(agentId)` or `modeModelDefaults(agentId)` for targeted updates.
+Use `agentKeys.all` only when every agent-related cache must reset. Prefer `modelsForAgent(agentId)`, `contextSizesForAgent(agentId)`, or `modeDefaults()` for targeted updates.
 
 See [API conventions](api-conventions.md#query-keys-libquery-keysts) for the full key table.
 

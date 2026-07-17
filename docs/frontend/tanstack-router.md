@@ -4,11 +4,11 @@
 
 Think of your app as a **building with fixed hallways and swap-out rooms**.
 
-- The **hallways** (sidebar, header shell) stay put — you walk the same path no matter which room you enter.
+- The **hallways** (header tabs, shell) stay put — you walk the same path no matter which room you enter.
 - Each **room** is a page — chat, settings, etc.
 - **`<Outlet />`** is the **doorway** where the current room connects to the hallway. The layout says: "everything around this doorway stays; only the room behind the door changes."
 
-When you click a chat in the sidebar, you are not rebuilding the whole building. You are walking to a different room. The sidebar (hallway) never unmounts.
+When you open a chat tab, you are not rebuilding the whole building. You are walking to a different room. The header shell never unmounts.
 
 **Blazor version:** this is like a `LayoutComponent` with `@Body` — the layout renders once; `@Body` is where the active page appears.
 
@@ -20,7 +20,7 @@ When you click a chat in the sidebar, you are not rebuilding the whole building.
 |---------------|------------|
 | Whole building bootstrap | `main.tsx` → `RouterProvider` |
 | Global providers (API cache) | `routes/__root.tsx` |
-| Fixed hallway (sidebar layout) | `routes/_app.tsx` → `AppLayout` |
+| Fixed hallway (header layout) | `routes/_app.tsx` → `AppLayout` |
 | Doorway where page appears | `<Outlet />` in `app-layout.tsx` |
 | Individual room | `routes/_app/chat.$chatId.tsx`, `settings.tsx`, etc. |
 
@@ -47,7 +47,7 @@ Orchi uses **file-based routing**: each file in `src/desktop/src/renderer/src/ro
 
 | Problem | How the router helps |
 |---------|----------------------|
-| Share sidebar across pages | Layout route + `<Outlet />` — layout stays mounted |
+| Share shell across pages | Layout route + `<Outlet />` — layout stays mounted |
 | Bookmark / refresh a specific chat | URL `/chat/abc-123` maps to a real route |
 | Type-safe navigation | `Link to="/chat/$chatId" params={{ chatId }}` — typos caught at compile time |
 | Code-split pages | Router plugin can lazy-load route modules |
@@ -70,7 +70,7 @@ createRoot(...).render(<RouterProvider router={router} />)
 
 ```
 __root.tsx                    ← QueryClientProvider, devtools
-  └── _app.tsx                ← pathless layout: ChatProvider + sidebar
+  └── _app.tsx                ← pathless layout: ChatProvider + header tabs
         ├── index.tsx         → URL: /
         ├── chat.$chatId.tsx  → URL: /chat/:chatId
         └── settings.tsx      → URL: /settings
@@ -86,13 +86,13 @@ Parent layout:
 
 ```tsx
 // components/layout/app-layout.tsx
-<ChatSidebar ... />
-<SidebarInset>
+<AppHeader />
+<div className="flex-1">
   <Outlet />   {/* ← current page renders HERE */}
-</SidebarInset>
+</div>
 ```
 
-When you navigate to `/settings`, the router renders `SettingsPage` inside that `<Outlet />`. The sidebar and `SidebarProvider` above it **do not re-mount**.
+When you navigate to `/settings`, the router renders `SettingsPage` inside that `<Outlet />`. The header and providers above it **do not re-mount**.
 
 **Analogies:**
 
@@ -105,7 +105,7 @@ When you navigate to `/settings`, the router renders `SettingsPage` inside that 
 There can be multiple nested outlets (layout inside layout). Orchi uses two levels:
 
 1. `__root.tsx` → `<Outlet />` for the whole app under providers
-2. `AppLayout` → `<Outlet />` for the main content beside the sidebar
+2. `AppLayout` → `<Outlet />` for the main content under the header tabs
 
 ### How navigation works
 
@@ -161,7 +161,7 @@ function ChatPage() {
 
 ### Knowing which route is active
 
-For sidebar highlighting, Orchi uses `useMatch`:
+For active-tab highlighting, Orchi uses `useMatch`:
 
 ```tsx
 const chatMatch = useMatch({
@@ -210,17 +210,17 @@ function AgentsPage() {
 }
 ```
 
-The sidebar layout applies automatically because the file lives under `_app`.
+The header layout applies automatically because the file lives under `_app`.
 
 ## Layout vs page state
 
 | Put it in… | When… |
 |------------|-------|
-| **Layout** (`AppLayout`, `_app.tsx`) | UI shared across routes — sidebar, providers that must survive navigation |
+| **Layout** (`AppLayout`, `_app.tsx`) | UI shared across routes — header tabs, providers that must survive navigation |
 | **Page route** (`chat.$chatId.tsx`) | Content specific to one URL |
 | **React context** (`ChatProvider`) | Data shared across routes but not in the URL — chat list, search filter |
 
-Chat list lives in `ChatProvider` so it persists when you visit Settings. Active chat **id** comes from the **URL** so links are shareable and the sidebar knows what's selected.
+Chat list lives in `ChatProvider` so it persists when you visit Settings. Active chat **id** comes from the **URL** so links are shareable and open tabs stay in sync.
 
 ## Regenerating routes
 
@@ -261,7 +261,7 @@ Both give you layouts that persist and a slot for page content. TanStack Router 
 4. New page renders inside `<Outlet />`
 5. React re-renders only what changed
 
-The sidebar collapse state survives because `SidebarProvider` wraps the `<Outlet />`, not the other way around.
+Open tabs are session-only (`ChatTabsProvider`); the active chat URL stays in sync with the selected tab.
 
 ### Does "paging" mean pagination?
 

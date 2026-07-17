@@ -3,8 +3,9 @@ import { useQueryClient } from '@tanstack/react-query'
 
 import { markChatRead as markChatReadApi } from '@/lib/chat/api'
 import { isLocalChat } from '@/lib/chat/chat-persistence'
-import { getChatSidebarStatus, type ChatSidebarStatusVariant } from '@/lib/chat/chat-sidebar-status'
+import { getChatStatusVariant, type ChatStatusVariant } from '@/lib/chat/chat-status-variant'
 import { mergeChatThread } from '@/lib/chat/merge-chat-lists'
+import { preferChatStatus } from '@/lib/chat/prefer-chat-status'
 import { needsOrchestrationHydration } from '@/lib/orchestration/needs-orchestration-hydration'
 import type { ChatThread } from '@/lib/chat/types'
 import { chatKeys } from '@/lib/query-keys'
@@ -20,7 +21,7 @@ type UseChatStatusOptions = {
 
 type UseChatStatusResult = {
   markChatRead: (chatId: string) => void
-  getChatSidebarStatus: (chat: ChatThread) => ChatSidebarStatusVariant
+  getChatStatusVariant: (chat: ChatThread, options?: { isViewing?: boolean }) => ChatStatusVariant
 }
 
 function applyStatusToCaches(
@@ -28,16 +29,18 @@ function applyStatusToCaches(
   summary: ChatThread
 ): void {
   queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) =>
-    current.map((chat) =>
-      chat.id === summary.id
-        ? mergeChatThread(chat, {
-            ...chat,
-            status: summary.status,
-            lastReadAt: summary.lastReadAt,
-            updatedAt: summary.updatedAt
-          })
-        : chat
-    )
+    current.map((chat) => {
+      if (chat.id !== summary.id) {
+        return chat
+      }
+
+      return mergeChatThread(chat, {
+        ...chat,
+        status: preferChatStatus(chat.status, summary.status),
+        lastReadAt: summary.lastReadAt,
+        updatedAt: summary.updatedAt
+      })
+    })
   )
 
   queryClient.setQueryData<ChatThread>(chatKeys.detail(summary.id), (current) => {
@@ -47,7 +50,7 @@ function applyStatusToCaches(
 
     return {
       ...current,
-      status: summary.status,
+      status: preferChatStatus(current.status, summary.status),
       lastReadAt: summary.lastReadAt,
       updatedAt: summary.updatedAt || current.updatedAt
     }
@@ -138,20 +141,21 @@ export function useChatStatus({
     [queryClient]
   )
 
-  const getChatSidebarStatusForChat = useCallback(
-    (chat: ChatThread) =>
-      getChatSidebarStatus({
+  const getChatStatusVariantForChat = useCallback(
+    (chat: ChatThread, options?: { isViewing?: boolean }) =>
+      getChatStatusVariant({
         chat: getChat(chat.id) ?? chat,
         isSending: isChatSending(chat.id),
-        isParentKickingOff: isParentKickingOffAny(chat.id)
+        isParentKickingOff: isParentKickingOffAny(chat.id),
+        isViewing: options?.isViewing ?? chat.id === activeChatId
       }),
-    [getChat, isChatSending, isParentKickingOffAny]
+    [activeChatId, getChat, isChatSending, isParentKickingOffAny]
   )
 
   return {
     markChatRead,
-    getChatSidebarStatus: getChatSidebarStatusForChat
+    getChatStatusVariant: getChatStatusVariantForChat
   }
 }
 
-export type { ChatSidebarStatusVariant }
+export type { ChatStatusVariant }

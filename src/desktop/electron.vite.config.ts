@@ -33,6 +33,14 @@ export default defineConfig({
         '/workspaces': {
           target: 'http://localhost:5265',
           changeOrigin: true
+        },
+        '/selection-actions': {
+          target: 'http://localhost:5265',
+          changeOrigin: true
+        },
+        '/user-preferences': {
+          target: 'http://localhost:5265',
+          changeOrigin: true
         }
       }
     },

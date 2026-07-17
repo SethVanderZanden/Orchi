@@ -44,7 +44,7 @@ public interface IAgentModelStore
         bool isEnabled,
         CancellationToken cancellationToken);
 
-    Task<bool> RemoveManualAsync(
+    Task<bool> RemoveAsync(
         string agentId,
         string modelId,
         CancellationToken cancellationToken);

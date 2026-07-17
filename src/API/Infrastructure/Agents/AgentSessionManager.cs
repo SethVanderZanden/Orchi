@@ -19,7 +19,9 @@ public sealed class AgentSessionManager
     private readonly IAgentAdapterFactory _adapterFactory;
     private readonly IAgentModeStrategyFactory _modeStrategyFactory;
     private readonly IAgentModelCatalogService _modelCatalogService;
-    private readonly IAgentModeModelDefaultService _modeDefaultService;
+    private readonly IModeRuntimeDefaultService _modeDefaultService;
+    private readonly IAgentContextSizeCatalogService _contextSizeCatalogService;
+    private readonly IAgentCliOptionCatalogService _cliOptionCatalogService;
     private readonly IAgentPromptComposer _promptComposer;
     private readonly IAgentTurnCompletionNotifier _turnCompletionNotifier;
     private readonly IChatStatusService _chatStatusService;
@@ -31,7 +33,9 @@ public sealed class AgentSessionManager
         IAgentAdapterFactory adapterFactory,
         IAgentModeStrategyFactory modeStrategyFactory,
         IAgentModelCatalogService modelCatalogService,
-        IAgentModeModelDefaultService modeDefaultService,
+        IModeRuntimeDefaultService modeDefaultService,
+        IAgentContextSizeCatalogService contextSizeCatalogService,
+        IAgentCliOptionCatalogService cliOptionCatalogService,
         IAgentPromptComposer promptComposer,
         IAgentTurnCompletionNotifier turnCompletionNotifier,
         IChatStatusService chatStatusService,
@@ -43,6 +47,8 @@ public sealed class AgentSessionManager
         _modeStrategyFactory = modeStrategyFactory;
         _modelCatalogService = modelCatalogService;
         _modeDefaultService = modeDefaultService;
+        _contextSizeCatalogService = contextSizeCatalogService;
+        _cliOptionCatalogService = cliOptionCatalogService;
         _promptComposer = promptComposer;
         _turnCompletionNotifier = turnCompletionNotifier;
         _chatStatusService = chatStatusService;
@@ -60,7 +66,7 @@ public sealed class AgentSessionManager
 
         foreach (ChatSession cached in _sessions.Values)
         {
-            merged[cached.Id] = cached;
+            merged[cached.Id] = MergeCachedSessionForList(cached, merged);
         }
 
         return merged.Values
@@ -102,6 +108,7 @@ public sealed class AgentSessionManager
             return null;
         }
 
+        await HydrateCliConfigAsync(loaded, cancellationToken);
         _sessions[chatId] = loaded;
         return loaded;
     }
@@ -132,26 +139,23 @@ public sealed class AgentSessionManager
     }
 
     public async Task<Result<ChatSession>> CreateSessionAsync(
-        string agentId,
         Guid workspaceId,
+        string? agentId = null,
         string? mode = null,
         Guid? parentChatId = null,
         string? planFilePath = null,
         string? modelId = null,
+        string? contextSizeId = null,
+        string? reasoningEffortId = null,
+        string? approvalPolicyId = null,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(agentId))
-        {
-            return Result.Failure<ChatSession>(Error.Validation("Agent.Required", "Agent is required."));
-        }
-
         if (workspaceId == Guid.Empty)
         {
             return Result.Failure<ChatSession>(Error.Validation("Workspace.Required", "Workspace id is required."));
         }
 
         string resolvedMode = string.IsNullOrWhiteSpace(mode) ? DefaultAgentModeStrategy.Mode : mode.Trim();
-        string? resolvedModelId = string.IsNullOrWhiteSpace(modelId) ? null : modelId.Trim();
 
         try
         {
@@ -161,6 +165,20 @@ public sealed class AgentSessionManager
         {
             return Result.Failure<ChatSession>(Error.Validation("Mode.Unsupported", ex.Message));
         }
+
+        ModeRuntimeResolution defaults = await _modeDefaultService.ResolveAsync(resolvedMode, cancellationToken);
+
+        string resolvedAgentId = string.IsNullOrWhiteSpace(agentId) ? defaults.AgentId : agentId.Trim();
+        string? resolvedModelId = string.IsNullOrWhiteSpace(modelId) ? defaults.ModelId : modelId.Trim();
+        string? resolvedContextSizeId = string.IsNullOrWhiteSpace(contextSizeId)
+            ? defaults.ContextSizeId
+            : contextSizeId.Trim();
+        string? resolvedReasoningEffortId = string.IsNullOrWhiteSpace(reasoningEffortId)
+            ? defaults.ReasoningEffortId
+            : reasoningEffortId.Trim();
+        string? resolvedApprovalPolicyId = string.IsNullOrWhiteSpace(approvalPolicyId)
+            ? defaults.ApprovalPolicyId
+            : approvalPolicyId.Trim();
 
         Entities.Workspace? workspace = await _projectStore.GetWorkspaceAsync(workspaceId, cancellationToken);
         if (workspace is null)
@@ -177,42 +195,44 @@ public sealed class AgentSessionManager
 
         try
         {
-            _ = _adapterFactory.GetAdapter(agentId);
+            _ = _adapterFactory.GetAdapter(resolvedAgentId);
         }
         catch (InvalidOperationException ex)
         {
             return Result.Failure<ChatSession>(Error.Validation("Agent.Unsupported", ex.Message));
         }
 
-        if (resolvedModelId is null)
-        {
-            resolvedModelId = await _modeDefaultService.ResolveAsync(agentId, resolvedMode, cancellationToken);
-        }
+        Result validation = await ValidateRuntimeSelectionAsync(
+            resolvedAgentId,
+            resolvedModelId,
+            resolvedContextSizeId,
+            resolvedReasoningEffortId,
+            resolvedApprovalPolicyId,
+            cancellationToken);
 
-        if (resolvedModelId is not null)
+        if (validation.IsFailure)
         {
-            bool enabled = await _modelCatalogService.IsEnabledModelAsync(agentId, resolvedModelId, cancellationToken);
-            if (!enabled)
-            {
-                return Result.Failure<ChatSession>(
-                    Error.Validation("Model.Unsupported", $"Model '{resolvedModelId}' is not available."));
-            }
+            return Result.Failure<ChatSession>(validation.Error);
         }
 
         var sessionId = Guid.NewGuid();
         ChatSession session = await _chatStore.CreateAsync(
             new ChatCreateModel(
                 sessionId,
-                agentId,
+                resolvedAgentId,
                 fullPath,
                 resolvedMode,
                 parentChatId,
                 planFilePath,
                 workspace.ProjectId,
                 workspace.Id,
-                resolvedModelId),
+                resolvedModelId,
+                resolvedContextSizeId,
+                resolvedReasoningEffortId,
+                resolvedApprovalPolicyId),
             cancellationToken);
 
+        await HydrateCliConfigAsync(session, cancellationToken);
         _sessions[session.Id] = session;
         return Result.Success(session);
     }
@@ -222,16 +242,10 @@ public sealed class AgentSessionManager
         string? mode,
         CancellationToken cancellationToken)
     {
-        ChatSession? session = GetSession(chatId);
+        ChatSession? session = await GetOrLoadSessionAsync(chatId, cancellationToken);
         if (session is null)
         {
-            session = await _chatStore.GetAsync(chatId, cancellationToken);
-            if (session is null)
-            {
-                return Result.Failure<ChatSession>(Error.NotFound($"Chat '{chatId}' was not found."));
-            }
-
-            _sessions[chatId] = session;
+            return Result.Failure<ChatSession>(Error.NotFound($"Chat '{chatId}' was not found."));
         }
 
         lock (session.Sync)
@@ -257,13 +271,52 @@ public sealed class AgentSessionManager
             return Result.Failure<ChatSession>(Error.Validation("Mode.Unsupported", ex.Message));
         }
 
-        bool updated = await _chatStore.UpdateModeAsync(chatId, resolvedMode, cancellationToken);
+        ModeRuntimeResolution defaults = await _modeDefaultService.ResolveAsync(resolvedMode, cancellationToken);
+
+        Result validation = await ValidateRuntimeSelectionAsync(
+            defaults.AgentId,
+            defaults.ModelId,
+            defaults.ContextSizeId,
+            defaults.ReasoningEffortId,
+            defaults.ApprovalPolicyId,
+            cancellationToken);
+
+        if (validation.IsFailure)
+        {
+            return Result.Failure<ChatSession>(validation.Error);
+        }
+
+        bool agentChanged = !string.Equals(session.AgentId, defaults.AgentId, StringComparison.OrdinalIgnoreCase);
+
+        bool updated = await _chatStore.UpdateRuntimeAsync(
+            chatId,
+            defaults.AgentId,
+            resolvedMode,
+            defaults.ModelId,
+            defaults.ContextSizeId,
+            defaults.ReasoningEffortId,
+            defaults.ApprovalPolicyId,
+            clearExternalSessionId: agentChanged,
+            cancellationToken);
+
         if (!updated)
         {
             return Result.Failure<ChatSession>(Error.NotFound($"Chat '{chatId}' was not found."));
         }
 
+        session.AgentId = defaults.AgentId;
         session.Mode = resolvedMode;
+        session.ModelId = defaults.ModelId;
+        session.ContextSizeId = defaults.ContextSizeId;
+        session.ReasoningEffortId = defaults.ReasoningEffortId;
+        session.ApprovalPolicyId = defaults.ApprovalPolicyId;
+
+        if (agentChanged)
+        {
+            session.ExternalSessionId = null;
+        }
+
+        await HydrateCliConfigAsync(session, cancellationToken);
         _sessions[chatId] = session;
         return Result.Success(session);
     }
@@ -272,7 +325,12 @@ public sealed class AgentSessionManager
         Guid chatId,
         CancellationToken cancellationToken)
     {
-        Result<ChatSession> result = await _chatStatusService.MarkReadAsync(chatId, cancellationToken);
+        // Only keep InProgress while a turn is actually running. Idle InProgress
+        // (missed ReadyForReview after disconnect) must clear so open → read works.
+        Result<ChatSession> result = IsSessionActivelyRunning(chatId)
+            ? await _chatStatusService.TouchLastReadAsync(chatId, cancellationToken)
+            : await _chatStatusService.MarkReadAsync(chatId, cancellationToken);
+
         if (result.IsFailure)
         {
             return result;
@@ -329,6 +387,181 @@ public sealed class AgentSessionManager
         }
 
         session.ModelId = resolvedModelId;
+        _sessions[chatId] = session;
+        return Result.Success(session);
+    }
+
+    public async Task<Result<ChatSession>> UpdateContextSizeAsync(
+        Guid chatId,
+        string? contextSizeId,
+        CancellationToken cancellationToken)
+    {
+        ChatSession? session = await GetOrLoadSessionAsync(chatId, cancellationToken);
+        if (session is null)
+        {
+            return Result.Failure<ChatSession>(Error.NotFound($"Chat '{chatId}' was not found."));
+        }
+
+        lock (session.Sync)
+        {
+            if (session.RunningProcess is not null
+                || session.RunCts is not null
+                || session.Messages.Any(message =>
+                    message.Role == "assistant" && message.Status is "processing" or "streaming"))
+            {
+                return Result.Failure<ChatSession>(
+                    Error.Validation("ContextSize.Busy", "Context size cannot be changed while the agent is running."));
+            }
+        }
+
+        string? resolvedContextSizeId = string.IsNullOrWhiteSpace(contextSizeId) ? null : contextSizeId.Trim();
+
+        if (resolvedContextSizeId is not null)
+        {
+            bool enabled = await _contextSizeCatalogService.IsEnabledSizeAsync(
+                session.AgentId,
+                resolvedContextSizeId,
+                cancellationToken);
+
+            if (!enabled)
+            {
+                return Result.Failure<ChatSession>(
+                    Error.Validation(
+                        "ContextSize.Unsupported",
+                        $"Context size '{resolvedContextSizeId}' is not available."));
+            }
+        }
+
+        bool updated = await _chatStore.UpdateContextSizeIdAsync(chatId, resolvedContextSizeId, cancellationToken);
+        if (!updated)
+        {
+            return Result.Failure<ChatSession>(Error.NotFound($"Chat '{chatId}' was not found."));
+        }
+
+        session.ContextSizeId = resolvedContextSizeId;
+        await HydrateCliConfigAsync(session, cancellationToken);
+        _sessions[chatId] = session;
+        return Result.Success(session);
+    }
+
+    public async Task<Result<ChatSession>> UpdateReasoningEffortAsync(
+        Guid chatId,
+        string? reasoningEffortId,
+        CancellationToken cancellationToken)
+    {
+        ChatSession? session = await GetOrLoadSessionAsync(chatId, cancellationToken);
+        if (session is null)
+        {
+            return Result.Failure<ChatSession>(Error.NotFound($"Chat '{chatId}' was not found."));
+        }
+
+        lock (session.Sync)
+        {
+            if (session.RunningProcess is not null
+                || session.RunCts is not null
+                || session.Messages.Any(message =>
+                    message.Role == "assistant" && message.Status is "processing" or "streaming"))
+            {
+                return Result.Failure<ChatSession>(
+                    Error.Validation(
+                        "ReasoningEffort.Busy",
+                        "Reasoning effort cannot be changed while the agent is running."));
+            }
+        }
+
+        string? resolvedReasoningEffortId =
+            string.IsNullOrWhiteSpace(reasoningEffortId) ? null : reasoningEffortId.Trim();
+
+        if (resolvedReasoningEffortId is not null)
+        {
+            bool enabled = await _cliOptionCatalogService.IsEnabledOptionAsync(
+                session.AgentId,
+                AgentCliOptionKinds.ModelReasoningEffort,
+                resolvedReasoningEffortId,
+                cancellationToken);
+
+            if (!enabled)
+            {
+                return Result.Failure<ChatSession>(
+                    Error.Validation(
+                        "ReasoningEffort.Unsupported",
+                        $"Reasoning effort '{resolvedReasoningEffortId}' is not available."));
+            }
+        }
+
+        bool updated = await _chatStore.UpdateReasoningEffortIdAsync(
+            chatId,
+            resolvedReasoningEffortId,
+            cancellationToken);
+
+        if (!updated)
+        {
+            return Result.Failure<ChatSession>(Error.NotFound($"Chat '{chatId}' was not found."));
+        }
+
+        session.ReasoningEffortId = resolvedReasoningEffortId;
+        await HydrateCliConfigAsync(session, cancellationToken);
+        _sessions[chatId] = session;
+        return Result.Success(session);
+    }
+
+    public async Task<Result<ChatSession>> UpdateApprovalPolicyAsync(
+        Guid chatId,
+        string? approvalPolicyId,
+        CancellationToken cancellationToken)
+    {
+        ChatSession? session = await GetOrLoadSessionAsync(chatId, cancellationToken);
+        if (session is null)
+        {
+            return Result.Failure<ChatSession>(Error.NotFound($"Chat '{chatId}' was not found."));
+        }
+
+        lock (session.Sync)
+        {
+            if (session.RunningProcess is not null
+                || session.RunCts is not null
+                || session.Messages.Any(message =>
+                    message.Role == "assistant" && message.Status is "processing" or "streaming"))
+            {
+                return Result.Failure<ChatSession>(
+                    Error.Validation(
+                        "ApprovalPolicy.Busy",
+                        "Approval policy cannot be changed while the agent is running."));
+            }
+        }
+
+        string? resolvedApprovalPolicyId =
+            string.IsNullOrWhiteSpace(approvalPolicyId) ? null : approvalPolicyId.Trim();
+
+        if (resolvedApprovalPolicyId is not null)
+        {
+            bool enabled = await _cliOptionCatalogService.IsEnabledOptionAsync(
+                session.AgentId,
+                AgentCliOptionKinds.ApprovalPolicy,
+                resolvedApprovalPolicyId,
+                cancellationToken);
+
+            if (!enabled)
+            {
+                return Result.Failure<ChatSession>(
+                    Error.Validation(
+                        "ApprovalPolicy.Unsupported",
+                        $"Approval policy '{resolvedApprovalPolicyId}' is not available."));
+            }
+        }
+
+        bool updated = await _chatStore.UpdateApprovalPolicyIdAsync(
+            chatId,
+            resolvedApprovalPolicyId,
+            cancellationToken);
+
+        if (!updated)
+        {
+            return Result.Failure<ChatSession>(Error.NotFound($"Chat '{chatId}' was not found."));
+        }
+
+        session.ApprovalPolicyId = resolvedApprovalPolicyId;
+        await HydrateCliConfigAsync(session, cancellationToken);
         _sessions[chatId] = session;
         return Result.Success(session);
     }
@@ -591,16 +824,58 @@ public sealed class AgentSessionManager
         ChatStatus status,
         CancellationToken cancellationToken)
     {
+        // Status must persist even if the HTTP client disconnects mid-turn.
+        // Using the request token left chats stuck InProgress after completion.
+        _ = cancellationToken;
+
         if (status == ChatStatus.InProgress)
         {
-            await _chatStatusService.SetInProgressAsync(chatId, cancellationToken);
+            await _chatStatusService.SetInProgressAsync(chatId, CancellationToken.None);
         }
         else if (status == ChatStatus.ReadyForReview)
         {
-            await _chatStatusService.SetReadyForReviewAsync(chatId, cancellationToken);
+            await _chatStatusService.SetReadyForReviewAsync(chatId, CancellationToken.None);
         }
 
         ApplyStatusToCachedSession(chatId, status, session.LastReadAt);
+    }
+
+    private static ChatSession MergeCachedSessionForList(
+        ChatSession cached,
+        IReadOnlyDictionary<Guid, ChatSession> fromStoreById)
+    {
+        if (!fromStoreById.TryGetValue(cached.Id, out ChatSession? fromStore))
+        {
+            return cached;
+        }
+
+        if (IsSessionActivelyRunning(cached))
+        {
+            cached.Status = ChatStatus.InProgress;
+            return cached;
+        }
+
+        // Heal stale in-memory InProgress when DB already advanced.
+        cached.Status = fromStore.Status;
+        cached.LastReadAt = fromStore.LastReadAt;
+        return cached;
+    }
+
+    private bool IsSessionActivelyRunning(Guid chatId) =>
+        _sessions.TryGetValue(chatId, out ChatSession? session) && IsSessionActivelyRunning(session);
+
+    private static bool IsSessionActivelyRunning(ChatSession session)
+    {
+        lock (session.Sync)
+        {
+            if (session.RunCts is not null || session.RunningProcess is not null)
+            {
+                return true;
+            }
+
+            return session.Messages.Any(message =>
+                message.Role == "assistant" && message.Status is "processing" or "streaming");
+        }
     }
 
     private void ApplyStatusToCachedSession(
@@ -613,24 +888,143 @@ public sealed class AgentSessionManager
             return;
         }
 
-        session.Status = status;
+        // A late mark-read snapshot must not clobber ReadyForReview / Read with InProgress.
+        bool isDowngrade = status == ChatStatus.InProgress
+            && session.Status is ChatStatus.ReadyForReview or ChatStatus.Read;
+
+        if (!isDowngrade)
+        {
+            session.Status = status;
+        }
+
         if (lastReadAt.HasValue)
         {
             session.LastReadAt = lastReadAt;
         }
     }
 
-    private IReadOnlyList<string> BuildCliArgs(ChatSession session)
-    {
-        var args = new List<string>(_promptComposer.GetExtraCliArgs(session.Mode));
+    private IReadOnlyList<string> BuildCliArgs(ChatSession session) =>
+        _promptComposer.GetExtraCliArgs(session.Mode);
 
-        if (!string.IsNullOrWhiteSpace(session.ModelId))
+    private async Task<Result> ValidateRuntimeSelectionAsync(
+        string agentId,
+        string? modelId,
+        string? contextSizeId,
+        string? reasoningEffortId,
+        string? approvalPolicyId,
+        CancellationToken cancellationToken)
+    {
+        if (modelId is not null)
         {
-            args.Add("--model");
-            args.Add(session.ModelId);
+            bool enabled = await _modelCatalogService.IsEnabledModelAsync(agentId, modelId, cancellationToken);
+            if (!enabled)
+            {
+                return Result.Failure(
+                    Error.Validation("Model.Unsupported", $"Model '{modelId}' is not available."));
+            }
         }
 
-        return args;
+        if (contextSizeId is not null)
+        {
+            bool enabled = await _contextSizeCatalogService.IsEnabledSizeAsync(
+                agentId,
+                contextSizeId,
+                cancellationToken);
+
+            if (!enabled)
+            {
+                return Result.Failure(
+                    Error.Validation(
+                        "ContextSize.Unsupported",
+                        $"Context size '{contextSizeId}' is not available."));
+            }
+        }
+
+        if (reasoningEffortId is not null)
+        {
+            bool enabled = await _cliOptionCatalogService.IsEnabledOptionAsync(
+                agentId,
+                AgentCliOptionKinds.ModelReasoningEffort,
+                reasoningEffortId,
+                cancellationToken);
+
+            if (!enabled)
+            {
+                return Result.Failure(
+                    Error.Validation(
+                        "ReasoningEffort.Unsupported",
+                        $"Reasoning effort '{reasoningEffortId}' is not available."));
+            }
+        }
+
+        if (approvalPolicyId is not null)
+        {
+            bool enabled = await _cliOptionCatalogService.IsEnabledOptionAsync(
+                agentId,
+                AgentCliOptionKinds.ApprovalPolicy,
+                approvalPolicyId,
+                cancellationToken);
+
+            if (!enabled)
+            {
+                return Result.Failure(
+                    Error.Validation(
+                        "ApprovalPolicy.Unsupported",
+                        $"Approval policy '{approvalPolicyId}' is not available."));
+            }
+        }
+
+        return Result.Success();
+    }
+
+    private async Task HydrateCliConfigAsync(ChatSession session, CancellationToken cancellationToken)
+    {
+        session.CliConfigOverrides.Clear();
+
+        if (string.IsNullOrWhiteSpace(session.ContextSizeId))
+        {
+            session.ContextSizeTokens = null;
+        }
+        else
+        {
+            session.ContextSizeTokens = await _contextSizeCatalogService.ResolveTokenCountAsync(
+                session.AgentId,
+                session.ContextSizeId,
+                cancellationToken);
+        }
+
+        if (session.ContextSizeTokens is > 0)
+        {
+            session.CliConfigOverrides["model_context_window"] = session.ContextSizeTokens.Value.ToString();
+        }
+
+        if (!string.IsNullOrWhiteSpace(session.ReasoningEffortId))
+        {
+            string? cliValue = await _cliOptionCatalogService.ResolveCliValueAsync(
+                session.AgentId,
+                AgentCliOptionKinds.ModelReasoningEffort,
+                session.ReasoningEffortId,
+                cancellationToken);
+
+            if (!string.IsNullOrWhiteSpace(cliValue))
+            {
+                session.CliConfigOverrides[AgentCliOptionKinds.ModelReasoningEffort] = cliValue;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(session.ApprovalPolicyId))
+        {
+            string? cliValue = await _cliOptionCatalogService.ResolveCliValueAsync(
+                session.AgentId,
+                AgentCliOptionKinds.ApprovalPolicy,
+                session.ApprovalPolicyId,
+                cancellationToken);
+
+            if (!string.IsNullOrWhiteSpace(cliValue))
+            {
+                session.CliConfigOverrides[AgentCliOptionKinds.ApprovalPolicy] = cliValue;
+            }
+        }
     }
 
     private async Task PersistExternalSessionIdAsync(

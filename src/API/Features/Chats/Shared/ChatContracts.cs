@@ -21,6 +21,9 @@ public static partial class ChatMapper
             session.WorkspacePath,
             session.Mode,
             session.ModelId,
+            session.ContextSizeId,
+            session.ReasoningEffortId,
+            session.ApprovalPolicyId,
             session.ParentChatId,
             session.PlanFilePath,
             session.Status,
@@ -37,6 +40,9 @@ public static partial class ChatMapper
             session.WorkspacePath,
             session.Mode,
             session.ModelId,
+            session.ContextSizeId,
+            session.ReasoningEffortId,
+            session.ApprovalPolicyId,
             session.ParentChatId,
             session.PlanFilePath,
             session.Status,
@@ -117,6 +123,9 @@ public sealed record ChatSummaryResponse(
     string WorkspacePath,
     string Mode,
     string? ModelId,
+    string? ContextSizeId,
+    string? ReasoningEffortId,
+    string? ApprovalPolicyId,
     Guid? ParentChatId,
     string? PlanFilePath,
     ChatStatus Status,
@@ -131,6 +140,9 @@ public sealed record ChatDetailResponse(
     string WorkspacePath,
     string Mode,
     string? ModelId,
+    string? ContextSizeId,
+    string? ReasoningEffortId,
+    string? ApprovalPolicyId,
     Guid? ParentChatId,
     string? PlanFilePath,
     ChatStatus Status,
@@ -145,18 +157,40 @@ public sealed record ChatMessageResponse(
     string Status);
 
 public sealed record CreateChatRequest(
-    string Agent,
     Guid WorkspaceId,
+    string? Agent = null,
     string? Mode = null,
-    string? ModelId = null);
+    string? ModelId = null,
+    string? ContextSizeId = null,
+    string? ReasoningEffortId = null,
+    string? ApprovalPolicyId = null);
 
 public sealed record UpdateChatModeRequest(string Mode);
 
-public sealed record UpdateChatModeResponse(Guid Id, string Mode);
+public sealed record UpdateChatModeResponse(
+    Guid Id,
+    string Mode,
+    string AgentId,
+    string? ModelId,
+    string? ContextSizeId,
+    string? ReasoningEffortId,
+    string? ApprovalPolicyId);
 
 public sealed record UpdateChatModelRequest(string? ModelId);
 
 public sealed record UpdateChatModelResponse(Guid Id, string? ModelId);
+
+public sealed record UpdateChatContextSizeRequest(string? ContextSizeId);
+
+public sealed record UpdateChatContextSizeResponse(Guid Id, string? ContextSizeId);
+
+public sealed record UpdateChatReasoningEffortRequest(string? ReasoningEffortId);
+
+public sealed record UpdateChatReasoningEffortResponse(Guid Id, string? ReasoningEffortId);
+
+public sealed record UpdateChatApprovalPolicyRequest(string? ApprovalPolicyId);
+
+public sealed record UpdateChatApprovalPolicyResponse(Guid Id, string? ApprovalPolicyId);
 
 public sealed record SendMessageRequest(string Content);
 
@@ -168,6 +202,9 @@ public sealed record CreateChatResponse(
     string WorkspacePath,
     string Mode,
     string? ModelId,
+    string? ContextSizeId,
+    string? ReasoningEffortId,
+    string? ApprovalPolicyId,
     Guid? ParentChatId,
     string? PlanFilePath);
 

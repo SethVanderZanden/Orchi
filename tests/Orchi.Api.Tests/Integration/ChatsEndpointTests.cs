@@ -46,7 +46,7 @@ public class ChatsEndpointTests : IClassFixture<TestWebApplicationFactory>, IAsy
 
         HttpResponseMessage createResponse = await _client.PostAsJsonAsync(
             "/chats",
-            new CreateChatRequest("cursor", workspaceId));
+            new CreateChatRequest(workspaceId, "cursor"));
 
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 
@@ -74,7 +74,7 @@ public class ChatsEndpointTests : IClassFixture<TestWebApplicationFactory>, IAsy
 
         HttpResponseMessage createResponse = await _client.PostAsJsonAsync(
             "/chats",
-            new CreateChatRequest("cursor", workspaceId));
+            new CreateChatRequest(workspaceId, "cursor"));
 
         CreateChatResponse? created = await createResponse.Content.ReadFromJsonAsync<CreateChatResponse>();
         Assert.NotNull(created);
@@ -97,7 +97,7 @@ public class ChatsEndpointTests : IClassFixture<TestWebApplicationFactory>, IAsy
 
         HttpResponseMessage createResponse = await _client.PostAsJsonAsync(
             "/chats",
-            new CreateChatRequest("cursor", workspaceId));
+            new CreateChatRequest(workspaceId, "cursor"));
 
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 

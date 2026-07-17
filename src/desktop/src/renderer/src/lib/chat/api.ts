@@ -12,7 +12,13 @@ import type {
   UpdateChatModeRequest,
   UpdateChatModeResponse,
   UpdateChatModelRequest,
-  UpdateChatModelResponse
+  UpdateChatModelResponse,
+  UpdateChatContextSizeRequest,
+  UpdateChatContextSizeResponse,
+  UpdateChatReasoningEffortRequest,
+  UpdateChatReasoningEffortResponse,
+  UpdateChatApprovalPolicyRequest,
+  UpdateChatApprovalPolicyResponse
 } from '@/lib/chat/types'
 import { getApiBaseUrl } from '@/lib/api'
 import {
@@ -37,6 +43,9 @@ function mapSummary(summary: ChatSummaryResponse): ChatThread {
     workspacePath: summary.workspacePath,
     mode: summary.mode ?? 'default',
     modelId: summary.modelId ?? null,
+    contextSizeId: summary.contextSizeId ?? null,
+    reasoningEffortId: summary.reasoningEffortId ?? null,
+    approvalPolicyId: summary.approvalPolicyId ?? null,
     parentChatId: summary.parentChatId,
     planFilePath: summary.planFilePath,
     status: summary.status ?? 'read',
@@ -57,6 +66,9 @@ function mapDetail(detail: ChatDetailResponse): ChatThread {
     workspacePath: detail.workspacePath,
     mode: detail.mode ?? 'default',
     modelId: detail.modelId ?? null,
+    contextSizeId: detail.contextSizeId ?? null,
+    reasoningEffortId: detail.reasoningEffortId ?? null,
+    approvalPolicyId: detail.approvalPolicyId ?? null,
     parentChatId: detail.parentChatId,
     planFilePath: detail.planFilePath,
     status: detail.status ?? 'read',
@@ -89,10 +101,13 @@ export async function createChat(request: CreateChatRequest): Promise<ChatThread
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      agent: request.agent,
       workspaceId: request.workspaceId,
+      agent: request.agent ?? null,
       mode: request.mode ?? 'default',
-      modelId: request.modelId ?? null
+      modelId: request.modelId ?? null,
+      contextSizeId: request.contextSizeId ?? null,
+      reasoningEffortId: request.reasoningEffortId ?? null,
+      approvalPolicyId: request.approvalPolicyId ?? null
     })
   })
 
@@ -112,6 +127,9 @@ export async function createChat(request: CreateChatRequest): Promise<ChatThread
     workspacePath: created.workspacePath,
     mode: created.mode ?? 'default',
     modelId: created.modelId ?? null,
+    contextSizeId: created.contextSizeId ?? null,
+    reasoningEffortId: created.reasoningEffortId ?? null,
+    approvalPolicyId: created.approvalPolicyId ?? null,
     parentChatId: created.parentChatId,
     planFilePath: created.planFilePath,
     status: 'read',
@@ -239,6 +257,57 @@ export async function updateChatModel(
   }
 
   return (await response.json()) as UpdateChatModelResponse
+}
+
+export async function updateChatContextSize(
+  chatId: string,
+  request: UpdateChatContextSizeRequest
+): Promise<UpdateChatContextSizeResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/chats/${chatId}/context-size`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request)
+  })
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, chatModelErrorOptions))
+  }
+
+  return (await response.json()) as UpdateChatContextSizeResponse
+}
+
+export async function updateChatReasoningEffort(
+  chatId: string,
+  request: UpdateChatReasoningEffortRequest
+): Promise<UpdateChatReasoningEffortResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/chats/${chatId}/reasoning-effort`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request)
+  })
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, chatModelErrorOptions))
+  }
+
+  return (await response.json()) as UpdateChatReasoningEffortResponse
+}
+
+export async function updateChatApprovalPolicy(
+  chatId: string,
+  request: UpdateChatApprovalPolicyRequest
+): Promise<UpdateChatApprovalPolicyResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/chats/${chatId}/approval-policy`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request)
+  })
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, chatModelErrorOptions))
+  }
+
+  return (await response.json()) as UpdateChatApprovalPolicyResponse
 }
 
 export async function closeChat(chatId: string): Promise<void> {

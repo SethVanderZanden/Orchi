@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 
 import { MarkdownContent } from '@/components/markdown-content'
+import { ShortcutHint } from '@/components/app-header/shortcut-hint'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useLiveRef } from '@/hooks/use-live-ref'
@@ -175,7 +176,7 @@ export function PlanReviewPanel({
             {showingReview ? null : (
               <div className="shrink-0 border-t px-4 py-3">
                 <Button
-                  className="w-full"
+                  className="w-full gap-2"
                   disabled={activePlanKickingOff || activePlanHasChild}
                   onClick={() => onKickOff(activePlan)}
                 >
@@ -184,6 +185,9 @@ export function PlanReviewPanel({
                     : activePlanHasChild
                       ? 'Already kicked off'
                       : 'Kick off'}
+                  {!activePlanKickingOff && !activePlanHasChild ? (
+                    <ShortcutHint>Shift+Enter</ShortcutHint>
+                  ) : null}
                 </Button>
               </div>
             )}

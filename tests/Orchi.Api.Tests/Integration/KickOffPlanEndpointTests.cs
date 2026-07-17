@@ -48,7 +48,7 @@ public class KickOffPlanEndpointTests : IClassFixture<TestWebApplicationFactory>
     {
         HttpResponseMessage createResponse = await _client.PostAsJsonAsync(
             "/chats",
-            new CreateChatRequest("cursor", _workspaceId, OrchestrationAgentModeStrategy.Mode));
+            new CreateChatRequest(_workspaceId, "cursor", OrchestrationAgentModeStrategy.Mode));
 
         CreateChatResponse? parent = await createResponse.Content.ReadFromJsonAsync<CreateChatResponse>();
         Assert.NotNull(parent);
@@ -75,7 +75,8 @@ public class KickOffPlanEndpointTests : IClassFixture<TestWebApplicationFactory>
         HttpResponseMessage childResponse = await _client.GetAsync($"/chats/{kickedOff.ChildChatId}");
         Assert.Equal(HttpStatusCode.OK, childResponse.StatusCode);
 
-        ChatDetailResponse? child = await childResponse.Content.ReadFromJsonAsync<ChatDetailResponse>();
+        ChatDetailResponse? child = await childResponse.Content.ReadFromJsonAsync<ChatDetailResponse>(
+            HttpResponseExtensions.JsonOptions);
         Assert.NotNull(child);
         Assert.Equal(ImplementationAgentModeStrategy.Mode, child.Mode);
         Assert.Equal(parent.Id, child.ParentChatId);
@@ -101,7 +102,7 @@ public class KickOffPlanEndpointTests : IClassFixture<TestWebApplicationFactory>
     {
         HttpResponseMessage createResponse = await _client.PostAsJsonAsync(
             "/chats",
-            new CreateChatRequest("cursor", _workspaceId));
+            new CreateChatRequest(_workspaceId, "cursor"));
 
         CreateChatResponse? parent = await createResponse.Content.ReadFromJsonAsync<CreateChatResponse>();
         Assert.NotNull(parent);

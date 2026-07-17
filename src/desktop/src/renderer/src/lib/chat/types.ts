@@ -31,21 +31,61 @@ export type AgentModelSyncResponse = {
   syncedAt: string
 }
 
-export type AgentModeModelDefault = {
+export type AgentInfo = {
+  id: string
+  label: string
+}
+
+export type AgentContextSize = {
+  id: string
+  label: string
+  tokenCount: number
+  isEnabled: boolean
+  source: string
+}
+
+export type AgentContextSizeListResponse = {
+  contextSizes: AgentContextSize[]
+}
+
+export type AgentCliOptionKind = 'model_reasoning_effort' | 'approval_policy'
+
+export type AgentCliOption = {
+  kind: string
+  id: string
+  label: string
+  cliValue: string
+  isEnabled: boolean
+  source: string
+}
+
+export type AgentCliOptionListResponse = {
+  options: AgentCliOption[]
+}
+
+export type ModeRuntimeDefault = {
   mode: string
   label: string
+  agentId: string
   modelId: string | null
+  contextSizeId: string | null
+  reasoningEffortId: string | null
+  approvalPolicyId: string | null
 }
 
-export type AgentModeModelDefaultsListResponse = {
-  defaults: AgentModeModelDefault[]
+export type ModeRuntimeDefaultsListResponse = {
+  defaults: ModeRuntimeDefault[]
 }
 
-export type UpdateAgentModeModelDefaultRequest = {
+export type UpdateModeRuntimeDefaultRequest = {
+  agentId: string
   modelId: string | null
+  contextSizeId: string | null
+  reasoningEffortId: string | null
+  approvalPolicyId: string | null
 }
 
-export type UpdateAgentModeModelDefaultResponse = AgentModeModelDefault
+export type UpdateModeRuntimeDefaultResponse = ModeRuntimeDefault
 
 export type ChatMessage = {
   id: string
@@ -66,6 +106,9 @@ export type ChatThread = {
   workspacePath: string
   mode: AgentMode
   modelId: string | null
+  contextSizeId: string | null
+  reasoningEffortId: string | null
+  approvalPolicyId: string | null
   parentChatId: string | null
   planFilePath: string | null
   status: ChatStatus
@@ -83,13 +126,23 @@ export type CreateChatOptions = {
   workspaceId: string
   workspacePath: string
   projectId?: string
+  /** When false, create the draft without navigating to it (e.g. open in split). */
+  navigate?: boolean
+}
+
+export type SendMessageOptions = {
+  /** When true, skip the user's post-message navigation preference. */
+  skipPostMessageBehavior?: boolean
 }
 
 export type CreateChatRequest = {
-  agent: string
   workspaceId: string
+  agent?: string | null
   mode?: AgentMode
   modelId?: string | null
+  contextSizeId?: string | null
+  reasoningEffortId?: string | null
+  approvalPolicyId?: string | null
 }
 
 export type CreateChatResponse = {
@@ -100,6 +153,9 @@ export type CreateChatResponse = {
   workspacePath: string
   mode: AgentMode
   modelId: string | null
+  contextSizeId: string | null
+  reasoningEffortId: string | null
+  approvalPolicyId: string | null
   parentChatId: string | null
   planFilePath: string | null
 }
@@ -111,6 +167,11 @@ export type UpdateChatModeRequest = {
 export type UpdateChatModeResponse = {
   id: string
   mode: AgentMode
+  agentId: string
+  modelId: string | null
+  contextSizeId: string | null
+  reasoningEffortId: string | null
+  approvalPolicyId: string | null
 }
 
 export type UpdateChatModelRequest = {
@@ -120,6 +181,33 @@ export type UpdateChatModelRequest = {
 export type UpdateChatModelResponse = {
   id: string
   modelId: string | null
+}
+
+export type UpdateChatContextSizeRequest = {
+  contextSizeId: string | null
+}
+
+export type UpdateChatContextSizeResponse = {
+  id: string
+  contextSizeId: string | null
+}
+
+export type UpdateChatReasoningEffortRequest = {
+  reasoningEffortId: string | null
+}
+
+export type UpdateChatReasoningEffortResponse = {
+  id: string
+  reasoningEffortId: string | null
+}
+
+export type UpdateChatApprovalPolicyRequest = {
+  approvalPolicyId: string | null
+}
+
+export type UpdateChatApprovalPolicyResponse = {
+  id: string
+  approvalPolicyId: string | null
 }
 
 export type ChatSummaryResponse = {
@@ -133,6 +221,9 @@ export type ChatSummaryResponse = {
   workspacePath: string
   mode: AgentMode
   modelId: string | null
+  contextSizeId: string | null
+  reasoningEffortId: string | null
+  approvalPolicyId: string | null
   parentChatId: string | null
   planFilePath: string | null
   status: ChatStatus
@@ -148,6 +239,9 @@ export type ChatDetailResponse = {
   workspacePath: string
   mode: AgentMode
   modelId: string | null
+  contextSizeId: string | null
+  reasoningEffortId: string | null
+  approvalPolicyId: string | null
   parentChatId: string | null
   planFilePath: string | null
   status: ChatStatus

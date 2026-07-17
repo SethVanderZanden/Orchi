@@ -2,10 +2,6 @@ import type { AgentModel, AgentModelListResponse, AgentModelSyncResponse } from 
 import { getApiBaseUrl } from '@/lib/api'
 import { readErrorMessage } from '@/lib/http/read-error-message'
 
-function encodeModelId(modelId: string): string {
-  return encodeURIComponent(modelId)
-}
-
 export async function listAgentModels(
   agentId: string,
   includeDisabled = false
@@ -58,14 +54,11 @@ export async function updateAgentModelEnabled(
   modelId: string,
   enabled: boolean
 ): Promise<AgentModel> {
-  const response = await fetch(
-    `${getApiBaseUrl()}/agents/${encodeURIComponent(agentId)}/models/${encodeModelId(modelId)}`,
-    {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled })
-    }
-  )
+  const response = await fetch(`${getApiBaseUrl()}/agents/${encodeURIComponent(agentId)}/models`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ modelId, enabled })
+  })
 
   if (!response.ok) {
     throw new Error(await readErrorMessage(response))
@@ -76,8 +69,12 @@ export async function updateAgentModelEnabled(
 
 export async function removeAgentModel(agentId: string, modelId: string): Promise<void> {
   const response = await fetch(
-    `${getApiBaseUrl()}/agents/${encodeURIComponent(agentId)}/models/${encodeModelId(modelId)}`,
-    { method: 'DELETE' }
+    `${getApiBaseUrl()}/agents/${encodeURIComponent(agentId)}/models/remove`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ modelId })
+    }
   )
 
   if (!response.ok) {

@@ -1,21 +1,34 @@
+import { PencilLine } from 'lucide-react'
+
 import { cn } from '@/lib/utils'
-import type { ChatSidebarStatusVariant } from '@/lib/chat/chat-sidebar-status'
-import { getChatSidebarStatusLabel } from '@/lib/chat/chat-sidebar-status'
+import type { ChatStatusVariant } from '@/lib/chat/chat-status-variant'
+import { getChatStatusVariantLabel } from '@/lib/chat/chat-status-variant'
 
 type ChatStatusDotProps = {
-  variant: ChatSidebarStatusVariant
+  variant: ChatStatusVariant
   className?: string
 }
 
 export function ChatStatusDot({ variant, className }: ChatStatusDotProps): React.JSX.Element {
-  const label = getChatSidebarStatusLabel(variant)
+  const label = getChatStatusVariantLabel(variant)
+
+  if (variant === 'draft') {
+    return (
+      <PencilLine
+        className={cn('size-3 shrink-0 text-sky-500', className)}
+        aria-hidden={false}
+        role="status"
+        aria-label={label}
+      />
+    )
+  }
 
   return (
     <span
       className={cn(
         'size-1.5 shrink-0 rounded-full',
         variant === 'standard' && 'bg-muted-foreground/50',
-        variant === 'active' && 'bg-amber-500 [animation:sidebar-pulse_1.4s_ease-in-out_infinite]',
+        variant === 'active' && 'bg-amber-500 [animation:status-pulse_1.4s_ease-in-out_infinite]',
         variant === 'attention' && 'bg-primary',
         className
       )}

@@ -17,26 +17,88 @@ namespace Orchi.Api.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.9");
 
-            modelBuilder.Entity("Orchi.Api.Entities.AgentModeModelDefault", b =>
+            modelBuilder.Entity("Orchi.Api.Entities.AgentContextSize", b =>
                 {
                     b.Property<string>("AgentId")
                         .HasMaxLength(64)
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("Mode")
-                        .HasMaxLength(32)
+                    b.Property<string>("SizeId")
+                        .HasMaxLength(64)
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("ModelId")
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
                         .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("TokenCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("AgentId", "SizeId");
+
+                    b.HasIndex("AgentId", "IsEnabled");
+
+                    b.ToTable("AgentContextSizes");
+                });
+
+            modelBuilder.Entity("Orchi.Api.Entities.AgentCliOption", b =>
+                {
+                    b.Property<string>("AgentId")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Kind")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OptionId")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CliValue")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(16)
                         .HasColumnType("TEXT");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("TEXT");
 
-                    b.HasKey("AgentId", "Mode");
+                    b.HasKey("AgentId", "Kind", "OptionId");
 
-                    b.ToTable("AgentModeModelDefaults");
+                    b.HasIndex("AgentId", "Kind", "IsEnabled");
+
+                    b.ToTable("AgentCliOptions");
                 });
 
             modelBuilder.Entity("Orchi.Api.Entities.AgentModel", b =>
@@ -81,6 +143,41 @@ namespace Orchi.Api.Migrations
                     b.ToTable("AgentModels");
                 });
 
+            modelBuilder.Entity("Orchi.Api.Entities.ModeRuntimeDefault", b =>
+                {
+                    b.Property<string>("Mode")
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AgentId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ApprovalPolicyId")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ContextSizeId")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ModelId")
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ReasoningEffortId")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Mode");
+
+                    b.ToTable("ModeRuntimeDefaults");
+                });
+
             modelBuilder.Entity("Orchi.Api.Entities.Chat", b =>
                 {
                     b.Property<Guid>("Id")
@@ -92,7 +189,15 @@ namespace Orchi.Api.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("ApprovalPolicyId")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ContextSizeId")
+                        .HasMaxLength(64)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("ExternalSessionId")
@@ -115,6 +220,10 @@ namespace Orchi.Api.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<Guid?>("ParentChatId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ReasoningEffortId")
+                        .HasMaxLength(64)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("PlanFilePath")
@@ -271,6 +380,60 @@ namespace Orchi.Api.Migrations
                     b.HasIndex("UpdatedAt");
 
                     b.ToTable("Projects");
+                });
+
+            modelBuilder.Entity("Orchi.Api.Entities.SelectionAction", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Template")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SortOrder");
+
+                    b.ToTable("SelectionActions");
+                });
+
+            modelBuilder.Entity("Orchi.Api.Entities.UserPreference", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("EnabledAgentIdsJson")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("PostMessageBehavior")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("UserPreferences");
                 });
 
             modelBuilder.Entity("Orchi.Api.Entities.Workspace", b =>

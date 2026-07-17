@@ -58,7 +58,7 @@ public class ChatPersistenceEndpointTests : IAsyncLifetime
 
         HttpResponseMessage createResponse = await _firstClient!.PostAsJsonAsync(
             "/chats",
-            new CreateChatRequest("cursor", workspaceId));
+            new CreateChatRequest(workspaceId, "cursor"));
 
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 

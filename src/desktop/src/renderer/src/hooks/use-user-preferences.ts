@@ -1,0 +1,52 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+
+import { agentKeys, userPreferenceKeys } from '@/lib/query-keys'
+import {
+  DEFAULT_POST_MESSAGE_BEHAVIOR,
+  getUserPreferences,
+  updateUserPreferences
+} from '@/lib/user-preferences/api'
+import { needsAgentSetup } from '@/lib/user-preferences/enabled-agents'
+import type { PostMessageBehavior, UserPreferences } from '@/lib/user-preferences/types'
+
+export function useUserPreferences(): {
+  preferences: UserPreferences | undefined
+  postMessageBehavior: PostMessageBehavior
+  enabledAgentIds: string[]
+  needsAgentSetup: boolean
+  isLoading: boolean
+  setPostMessageBehavior: (behavior: PostMessageBehavior) => void
+  setEnabledAgentIds: (agentIds: string[]) => Promise<UserPreferences>
+  isUpdating: boolean
+} {
+  const queryClient = useQueryClient()
+
+  const query = useQuery({
+    queryKey: userPreferenceKeys.detail(),
+    queryFn: getUserPreferences,
+    staleTime: 5 * 60 * 1000
+  })
+
+  const mutation = useMutation({
+    mutationFn: updateUserPreferences,
+    onSuccess: async (updated) => {
+      queryClient.setQueryData(userPreferenceKeys.detail(), updated)
+      await queryClient.invalidateQueries({ queryKey: agentKeys.modeDefaults() })
+    }
+  })
+
+  const enabledAgentIds = query.data?.enabledAgentIds ?? []
+
+  return {
+    preferences: query.data,
+    postMessageBehavior: query.data?.postMessageBehavior ?? DEFAULT_POST_MESSAGE_BEHAVIOR,
+    enabledAgentIds,
+    needsAgentSetup: needsAgentSetup(query.data?.enabledAgentIds),
+    isLoading: query.isLoading,
+    setPostMessageBehavior: (behavior) => {
+      mutation.mutate({ postMessageBehavior: behavior })
+    },
+    setEnabledAgentIds: (agentIds) => mutation.mutateAsync({ enabledAgentIds: agentIds }),
+    isUpdating: mutation.isPending
+  }
+}

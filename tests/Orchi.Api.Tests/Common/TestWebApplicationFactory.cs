@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
@@ -185,9 +187,14 @@ internal static class TestDatabaseCleaner
 
 public static class HttpResponseExtensions
 {
+    public static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+    };
+
     public static async Task<T?> ReadJsonAsync<T>(this HttpResponseMessage response)
     {
-        return await response.Content.ReadFromJsonAsync<T>();
+        return await response.Content.ReadFromJsonAsync<T>(JsonOptions);
     }
 
     public static async Task<HttpStatusCode> GetStatusCodeAsync(this Task<HttpResponseMessage> responseTask)

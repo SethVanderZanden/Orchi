@@ -114,12 +114,14 @@ public static class KickOffReview
             }
 
             Result<ChatSession> reviewChildResult = await sessionManager.CreateSessionAsync(
-                parent.AgentId,
                 parent.WorkspaceId.Value,
-                ReviewAgentModeStrategy.Mode,
+                mode: ReviewAgentModeStrategy.Mode,
                 parentChatId: parent.Id,
                 planFilePath: reviewFilePath,
                 modelId: parent.ModelId,
+                contextSizeId: parent.ContextSizeId,
+                reasoningEffortId: parent.ReasoningEffortId,
+                approvalPolicyId: parent.ApprovalPolicyId,
                 cancellationToken: cancellationToken);
 
             if (reviewChildResult.IsFailure)

@@ -4,15 +4,15 @@ Project-specific guidance for AI coding agents working on the Orchi desktop app.
 
 ## Stack
 
-| Layer | Technology |
-|-------|------------|
-| Shell | Electron + electron-vite |
-| UI | React 19, TypeScript |
-| Routing | TanStack Router (file routes in `src/renderer/src/routes/`) |
-| Server state | TanStack Query |
-| Components | shadcn/ui (Radix + Tailwind) — `components/ui/` |
-| Icons | lucide-react |
-| Styling | Tailwind CSS 4, CSS variables in `assets/main.css` |
+| Layer        | Technology                                                  |
+| ------------ | ----------------------------------------------------------- |
+| Shell        | Electron + electron-vite                                    |
+| UI           | React 19, TypeScript                                        |
+| Routing      | TanStack Router (file routes in `src/renderer/src/routes/`) |
+| Server state | TanStack Query                                              |
+| Components   | shadcn/ui (Radix + Tailwind) — `components/ui/`             |
+| Icons        | lucide-react                                                |
+| Styling      | Tailwind CSS 4, CSS variables in `assets/main.css`          |
 
 ## Before writing UI
 
@@ -23,14 +23,14 @@ Project-specific guidance for AI coding agents working on the Orchi desktop app.
 
 ## Directory conventions
 
-| Path | Purpose |
-|------|---------|
-| `src/renderer/src/routes/` | TanStack file routes — keep thin |
-| `src/renderer/src/providers/` | React context providers only |
-| `src/renderer/src/hooks/` | Custom hooks (`useX`) — no providers |
-| `src/renderer/src/components/ui/` | shadcn primitives |
-| `src/renderer/src/components/{feature}/` | Feature UI |
-| `src/renderer/src/lib/{domain}/` | API clients, types, pure logic |
+| Path                                     | Purpose                              |
+| ---------------------------------------- | ------------------------------------ |
+| `src/renderer/src/routes/`               | TanStack file routes — keep thin     |
+| `src/renderer/src/providers/`            | React context providers only         |
+| `src/renderer/src/hooks/`                | Custom hooks (`useX`) — no providers |
+| `src/renderer/src/components/ui/`        | shadcn primitives                    |
+| `src/renderer/src/components/{feature}/` | Feature UI                           |
+| `src/renderer/src/lib/{domain}/`         | API clients, types, pure logic       |
 
 ## Query keys
 

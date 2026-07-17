@@ -90,7 +90,7 @@ import { chatKeys } from '@/lib/query-keys'
 
 - **Files:** kebab-case matching export — `chat-mode-dropdown.tsx` → `ChatModeDropdown`
 - **Components:** PascalCase
-- **Feature prefix** when helpful: `Chat*`, `Plan*`, `Project*` (e.g. `ChatComposer`, `PlanCards`, `ProjectNavigator`)
+- **Feature prefix** when helpful: `Chat*`, `Plan*`, `Project*` (e.g. `ChatComposer`, `PlanCards`, `AppHeader`)
 - **Hooks:** camelCase with `use` prefix — `use-plan-review.ts` → `usePlanReview`
 
 ## State ownership
@@ -98,7 +98,7 @@ import { chatKeys } from '@/lib/query-keys'
 | Data kind | Where it lives | Example |
 |-----------|----------------|---------|
 | Server / API data | TanStack Query + `lib/query-keys.ts` | Chat list, agent modes, projects |
-| Cross-route UI | Context provider | `ChatProvider` streaming flags, `ProjectLayoutProvider` sidebar |
+| Cross-route UI | Context provider | `ChatProvider` streaming flags, `ChatTabsProvider` open tabs |
 | Ephemeral UI | Local `useState` | Draft message, dialog open, search filter |
 | Complex local UI | `useReducer` | Review panel tabs — see `hooks/use-plan-review.ts` |
 
@@ -129,11 +129,11 @@ Vitest config: `src/desktop/vitest.config.ts`.
 
 | Term | Meaning in Orchi |
 |------|------------------|
-| **Project** | Top-level sidebar group — repo/folder on disk (`ProjectProvider`, `projectKeys`) |
+| **Project** | Registered repo/folder on disk (`ProjectProvider`, `projectKeys`) |
 | **Workspace** | Sub-path within a project — API still exposes `/workspaces` routes |
 | **Chat** | Belongs to a project (+ optional workspace id from API) |
 
-UI code should say **project** for sidebar grouping. Reserve **workspace** for API types and sub-path features only.
+UI code should say **project** for grouping chats (finder, tabs). Reserve **workspace** for API types and sub-path features only.
 
 See [Plan 05 — Projects / workspaces naming](plans/05-projects-workspaces-naming.md).
 

@@ -14,6 +14,12 @@ public static class OrchiCacheKeys
     public static string AgentModels(string agentId, bool includeDisabled) =>
         $"agent-models:{agentId}:{includeDisabled}";
 
+    public static string AgentContextSizes(string agentId, bool includeDisabled) =>
+        $"agent-context-sizes:{agentId}:{includeDisabled}";
+
+    public static string AgentCliOptions(string agentId, string kind, bool includeDisabled) =>
+        $"agent-cli-options:{agentId}:{kind}:{includeDisabled}";
+
     private static string NormalizePath(string path) =>
         Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 }

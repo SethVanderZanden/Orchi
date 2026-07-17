@@ -83,7 +83,7 @@ public class OrchestrationReviewKickoffTests : IClassFixture<TestWebApplicationF
     {
         HttpResponseMessage createResponse = await _client.PostAsJsonAsync(
             "/chats",
-            new CreateChatRequest("cursor", _workspaceId, OrchestrationAgentModeStrategy.Mode));
+            new CreateChatRequest(_workspaceId, "cursor", OrchestrationAgentModeStrategy.Mode));
 
         CreateChatResponse? parent = await createResponse.Content.ReadFromJsonAsync<CreateChatResponse>();
         Assert.NotNull(parent);

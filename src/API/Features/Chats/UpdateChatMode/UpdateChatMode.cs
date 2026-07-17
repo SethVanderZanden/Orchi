@@ -27,7 +27,14 @@ public static class UpdateChatMode
             }
 
             ChatSession session = result.Value;
-            return Result.Success(new UpdateChatModeResponse(session.Id, session.Mode));
+            return Result.Success(new UpdateChatModeResponse(
+                session.Id,
+                session.Mode,
+                session.AgentId,
+                session.ModelId,
+                session.ContextSizeId,
+                session.ReasoningEffortId,
+                session.ApprovalPolicyId));
         }
     }
 

@@ -1,4 +1,5 @@
 import type { AgentMode, ChatThread } from '@/lib/chat/types'
+import { getDefaultChatMode } from '@/lib/preferences/default-chat-mode'
 
 export type CreateLocalDraftOptions = {
   workspaceId: string
@@ -6,6 +7,10 @@ export type CreateLocalDraftOptions = {
   projectId: string | null
   agentId?: string
   mode?: AgentMode
+  modelId?: string | null
+  contextSizeId?: string | null
+  reasoningEffortId?: string | null
+  approvalPolicyId?: string | null
 }
 
 export function createLocalDraftChat(options: CreateLocalDraftOptions): ChatThread {
@@ -18,8 +23,11 @@ export function createLocalDraftChat(options: CreateLocalDraftOptions): ChatThre
     projectId: options.projectId,
     workspaceId: options.workspaceId,
     workspacePath: options.workspacePath,
-    mode: options.mode ?? 'default',
-    modelId: null,
+    mode: options.mode ?? getDefaultChatMode(),
+    modelId: options.modelId ?? null,
+    contextSizeId: options.contextSizeId ?? null,
+    reasoningEffortId: options.reasoningEffortId ?? null,
+    approvalPolicyId: options.approvalPolicyId ?? null,
     parentChatId: null,
     planFilePath: null,
     status: 'read',

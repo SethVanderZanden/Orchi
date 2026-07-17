@@ -14,6 +14,7 @@ import { useDeleteChat } from '@/hooks/use-delete-chat'
 import { useOrchestration } from '@/hooks/use-orchestration'
 import { useOrchestrationParentEvents } from '@/hooks/use-orchestration-parent-events'
 import { useChat } from '@/providers/chat-context'
+import { useChatTabs } from '@/providers/chat-tabs-provider'
 import { useProjects } from '@/providers/project-provider'
 
 type ChatWorkspacePanelProps = {
@@ -36,6 +37,12 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
     getModeUpdateError,
     updateChatModel,
     getModelUpdateError,
+    updateChatContextSize,
+    getContextSizeUpdateError,
+    updateChatReasoningEffort,
+    getReasoningEffortUpdateError,
+    updateChatApprovalPolicy,
+    getApprovalPolicyUpdateError,
     updateChatProject,
     isChatSending,
     isPlanKickingOff,
@@ -188,11 +195,28 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
         canChangeModel={canChangeModel}
         modelUpdateError={getModelUpdateError(chat.id)}
         onModelChange={(modelId) => void updateChatModel(chat.id, modelId)}
+        contextSizeId={chat.contextSizeId}
+        canChangeContextSize={canChangeModel}
+        contextSizeUpdateError={getContextSizeUpdateError(chat.id)}
+        onContextSizeChange={(contextSizeId) => void updateChatContextSize(chat.id, contextSizeId)}
+        reasoningEffortId={chat.reasoningEffortId}
+        canChangeReasoningEffort={canChangeModel}
+        reasoningEffortUpdateError={getReasoningEffortUpdateError(chat.id)}
+        onReasoningEffortChange={(reasoningEffortId) =>
+          void updateChatReasoningEffort(chat.id, reasoningEffortId)
+        }
+        approvalPolicyId={chat.approvalPolicyId}
+        canChangeApprovalPolicy={canChangeModel}
+        approvalPolicyUpdateError={getApprovalPolicyUpdateError(chat.id)}
+        onApprovalPolicyChange={(approvalPolicyId) =>
+          void updateChatApprovalPolicy(chat.id, approvalPolicyId)
+        }
         projectId={chat.projectId}
         projectName={projectName}
         projects={projects}
         canChangeProject={canChangeProject}
         onProjectChange={(projectId) => updateChatProject(chat.id, projectId)}
+        chatId={chat.id}
         plans={plans}
         parentChatId={chat.id}
         isSending={isChatSending(chat.id)}

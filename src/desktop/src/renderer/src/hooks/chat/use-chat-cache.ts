@@ -28,7 +28,15 @@ export function useChatCache({ chats }: UseChatCacheOptions): UseChatCacheResult
       const summary = chats.find((chat) => chat.id === chatId)
 
       if (detail && summary) {
-        return { ...summary, ...detail, messages: detail.messages }
+        // Detail owns messages; list owns status (SSE / mark-read). Message
+        // stream writes bump detail.updatedAt and must not clobber status.
+        return {
+          ...summary,
+          ...detail,
+          messages: detail.messages,
+          status: summary.status,
+          lastReadAt: summary.lastReadAt
+        }
       }
 
       return detail ?? summary

@@ -11,7 +11,7 @@ internal sealed class CursorAgentAdapter(
     OrchiHybridCacheService cache,
     ILogger<CursorAgentAdapter> logger) : IAgentAdapter
 {
-    public string AgentId => "cursor";
+    public string AgentId => AgentIds.Cursor;
 
     public async IAsyncEnumerable<AgentEvent> SendMessageAsync(
         ChatSession session,
@@ -141,6 +141,12 @@ internal sealed class CursorAgentAdapter(
         arguments.Add("--stream-partial-output");
         arguments.Add("--workspace");
         arguments.Add(session.WorkspacePath);
+
+        if (!string.IsNullOrWhiteSpace(session.ModelId))
+        {
+            arguments.Add("--model");
+            arguments.Add(session.ModelId);
+        }
 
         if (extraCliArgs is not null)
         {

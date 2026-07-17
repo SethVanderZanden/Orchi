@@ -7,7 +7,8 @@ npm-debug.log*
 
 # .NET
 .tmp-test-out/
-artifacts/
+_testbuild*
+/artifacts/
 bin/
 obj/
 *.user

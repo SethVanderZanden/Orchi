@@ -13,6 +13,12 @@ public interface IChatStatusService
 
     Task<Result<ChatSession>> MarkReadAsync(Guid chatId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Updates <see cref="ChatSession.LastReadAt"/> without clearing <see cref="ChatStatus.InProgress"/>.
+    /// Used while an agent turn is still running.
+    /// </summary>
+    Task<Result<ChatSession>> TouchLastReadAsync(Guid chatId, CancellationToken cancellationToken);
+
     Task<IReadOnlyList<ChatStatusSnapshotItem>> ListStatusesAsync(CancellationToken cancellationToken);
 }
 
@@ -26,23 +32,15 @@ public sealed class ChatStatusService(
     public Task SetReadyForReviewAsync(Guid chatId, CancellationToken cancellationToken) =>
         SetStatusAsync(chatId, ChatStatus.ReadyForReview, cancellationToken);
 
-    public async Task<Result<ChatSession>> MarkReadAsync(
+    public Task<Result<ChatSession>> MarkReadAsync(
         Guid chatId,
-        CancellationToken cancellationToken)
-    {
-        ChatSession? session = await chatStore.MarkReadAsync(chatId, cancellationToken);
-        if (session is null)
-        {
-            return Result.Failure<ChatSession>(
-                Error.NotFound($"Chat '{chatId}' was not found."));
-        }
+        CancellationToken cancellationToken) =>
+        ApplyReadAsync(chatId, clearInProgress: true, cancellationToken);
 
-        await eventHub.PublishAsync(
-            new ChatStatusChangedEvent(session.Id, session.Status),
-            cancellationToken);
-
-        return Result.Success(session);
-    }
+    public Task<Result<ChatSession>> TouchLastReadAsync(
+        Guid chatId,
+        CancellationToken cancellationToken) =>
+        ApplyReadAsync(chatId, clearInProgress: false, cancellationToken);
 
     public async Task<IReadOnlyList<ChatStatusSnapshotItem>> ListStatusesAsync(
         CancellationToken cancellationToken)
@@ -51,6 +49,38 @@ public sealed class ChatStatusService(
         return sessions
             .Select(session => new ChatStatusSnapshotItem(session.Id, session.Status))
             .ToArray();
+    }
+
+    private async Task<Result<ChatSession>> ApplyReadAsync(
+        Guid chatId,
+        bool clearInProgress,
+        CancellationToken cancellationToken)
+    {
+        ChatSession? before = await chatStore.GetAsync(chatId, cancellationToken);
+        if (before is null)
+        {
+            return Result.Failure<ChatSession>(
+                Error.NotFound($"Chat '{chatId}' was not found."));
+        }
+
+        ChatStatus previousStatus = before.Status;
+        ChatSession? session = await chatStore.MarkReadAsync(chatId, clearInProgress, cancellationToken);
+        if (session is null)
+        {
+            return Result.Failure<ChatSession>(
+                Error.NotFound($"Chat '{chatId}' was not found."));
+        }
+
+        // Avoid re-broadcasting InProgress from touch-while-running; that can
+        // clobber a concurrent ReadyForReview event on the client.
+        if (session.Status != previousStatus)
+        {
+            await eventHub.PublishAsync(
+                new ChatStatusChangedEvent(session.Id, session.Status),
+                cancellationToken);
+        }
+
+        return Result.Success(session);
     }
 
     private async Task SetStatusAsync(

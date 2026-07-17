@@ -159,7 +159,7 @@ public class ProjectWorkspaceChatMigrationTests : IAsyncLifetime
 
         HttpResponseMessage createResponse = await _client!.PostAsJsonAsync(
             "/chats",
-            new CreateChatRequest("cursor", workspaceId));
+            new CreateChatRequest(workspaceId, "cursor"));
 
         CreateChatResponse? created = await createResponse.Content.ReadFromJsonAsync<CreateChatResponse>();
         Assert.NotNull(created);

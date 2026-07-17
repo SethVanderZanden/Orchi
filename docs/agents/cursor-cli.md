@@ -96,6 +96,8 @@ When the CLI emits a `session_id`, Orchi stores it on `ChatSession.ExternalSessi
 
 When a chat has a selected model (`ModelId`), Orchi passes `--model {slug}` on every turn. A null `ModelId` uses the Cursor CLI default.
 
+Model sync uses `agent --list-models` (see [CLI parameters](https://cursor.com/docs/cli/reference/parameters)). Tip/help lines and ANSI coloring are ignored so they never enter the catalog.
+
 Capture happens in two places:
 
 1. **Early** — the first `system` / `subtype: init` NDJSON line (persisted immediately via `UpdateExternalSessionIdAsync`)
@@ -119,7 +121,7 @@ When reading the CLI process, stdout and stderr must be consumed **concurrently*
 Unit tests:
 
 - `CursorNdjsonParserTests.cs` — NDJSON → `AgentEvent` mapping (partial-output filtering)
-- `CursorModelListParserTests.cs` — `--list-models` output parsing (`(default)` / `(current)` suffixes)
+- `CursorModelListParserTests.cs` — `--list-models` output parsing (`(default)` / `(current)`, ANSI tip rejection, parameterized slugs)
 - `CursorAgentExecutableResolverTests.cs` — PATH search, Windows fallback, argument deduplication
 
 ## Further reading
