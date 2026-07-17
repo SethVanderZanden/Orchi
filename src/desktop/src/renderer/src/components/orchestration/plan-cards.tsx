@@ -8,7 +8,7 @@ import type { ChatThread } from '@/lib/chat/types'
 import type { ParsedPlan } from '@/lib/orchestration/parse-plans'
 import type { ParsedReviewPlan } from '@/lib/orchestration/parse-review-plans'
 import { findChildForPlan, findReviewChildForPlan } from '@/lib/projects/chat-tree'
-import { getPlanReviewVisibility } from '@/lib/orchestration/plan-review-visibility'
+import { getPlanReviewVisibility, isChildRunning } from '@/lib/orchestration/plan-review-visibility'
 import { getSequenceStepNumber, hasSequentialKickoff } from '@/lib/orchestration/plan-sequence'
 import { cn } from '@/lib/utils'
 

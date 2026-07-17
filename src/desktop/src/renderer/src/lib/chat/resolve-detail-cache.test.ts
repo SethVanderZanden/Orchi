@@ -20,6 +20,8 @@ function createSummary(overrides: Partial<ChatThread> = {}): ChatThread {
     modelId: null,
     parentChatId: null,
     planFilePath: null,
+    status: 'read',
+    lastReadAt: null,
     messages: [],
     ...overrides
   }

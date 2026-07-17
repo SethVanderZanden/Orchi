@@ -64,10 +64,7 @@ export function ChatWorkspaceHeader({
                 Ctrl+R
               </kbd>
               {hasReviewReady && !reviewPanelOpen ? (
-                <span
-                  className="size-1.5 rounded-full bg-primary"
-                  aria-label="Review ready"
-                />
+                <span className="size-1.5 rounded-full bg-primary" aria-label="Review ready" />
               ) : null}
             </Button>
           ) : null}

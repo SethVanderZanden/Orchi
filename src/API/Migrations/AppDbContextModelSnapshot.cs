@@ -102,6 +102,9 @@ namespace Orchi.Api.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
 
+                    b.Property<DateTimeOffset?>("LastReadAt")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Mode")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -121,6 +124,9 @@ namespace Orchi.Api.Migrations
                     b.Property<Guid?>("ProjectId")
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("TEXT");
 
@@ -137,6 +143,8 @@ namespace Orchi.Api.Migrations
                     b.HasIndex("ParentChatId");
 
                     b.HasIndex("ProjectId");
+
+                    b.HasIndex("Status");
 
                     b.HasIndex("UpdatedAt");
 

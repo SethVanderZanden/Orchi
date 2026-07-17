@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  formatChatModeUpdateError,
-  readErrorMessage
-} from './read-error-message'
+import { formatChatModeUpdateError, readErrorMessage } from './read-error-message'
 
 function jsonResponse(body: unknown, status = 400): Response {
   return new Response(JSON.stringify(body), {
@@ -18,17 +15,13 @@ function textResponse(body: string, status = 500): Response {
 
 describe('readErrorMessage', () => {
   it('returns ProblemDetails detail', async () => {
-    const message = await readErrorMessage(
-      jsonResponse({ detail: 'Not found', title: '404' }, 404)
-    )
+    const message = await readErrorMessage(jsonResponse({ detail: 'Not found', title: '404' }, 404))
 
     expect(message).toBe('Not found')
   })
 
   it('returns first validation error from errors map', async () => {
-    const message = await readErrorMessage(
-      jsonResponse({ errors: { mode: ['Invalid'] } })
-    )
+    const message = await readErrorMessage(jsonResponse({ errors: { mode: ['Invalid'] } }))
 
     expect(message).toBe('Invalid')
   })

@@ -22,10 +22,12 @@ function makeChat(overrides: Partial<ChatThread> & Pick<ChatThread, 'id'>): Chat
     projectId: overrides.projectId ?? null,
     workspaceId: overrides.workspaceId ?? null,
     workspacePath: overrides.workspacePath ?? 'E:\\Projects\\Orchi',
-    mode: 'default',
+    mode: overrides.mode ?? 'default',
     modelId: overrides.modelId ?? null,
     parentChatId: overrides.parentChatId ?? null,
     planFilePath: overrides.planFilePath ?? null,
+    status: overrides.status ?? 'read',
+    lastReadAt: overrides.lastReadAt ?? null,
     messages: overrides.messages ?? []
   }
 }
@@ -262,14 +264,40 @@ describe('groupContainsChat', () => {
     const groups = groupChatsByProject([project], chats)
     expect(groupContainsChat(groups[0]!, 'c-feature')).toBe(true)
   })
+
+  it('finds review chats nested under implementation children', () => {
+    const project = makeProject({ id: 'p1', name: 'Orchi' })
+    const chats = [
+      makeChat({
+        id: 'parent',
+        projectId: 'p1',
+        workspaceId: 'ws-default'
+      }),
+      makeChat({
+        id: 'impl',
+        projectId: 'p1',
+        workspaceId: 'ws-default',
+        parentChatId: 'parent',
+        planFilePath: '.orchi/plan-auth-refactor.md'
+      }),
+      makeChat({
+        id: 'review',
+        mode: 'review',
+        projectId: 'p1',
+        workspaceId: 'ws-default',
+        parentChatId: 'parent',
+        planFilePath: '.orchi/review-auth-refactor.md'
+      })
+    ]
+
+    const groups = groupChatsByProject([project], chats)
+    expect(groupContainsChat(groups[0]!, 'review')).toBe(true)
+  })
 })
 
 describe('resolveWorkspaceIdForNewChat', () => {
   it('returns the default workspace for flat projects', () => {
-    const group = groupChatsByProject(
-      [makeProject({ id: 'p1', name: 'Orchi' })],
-      []
-    )[0]!
+    const group = groupChatsByProject([makeProject({ id: 'p1', name: 'Orchi' })], [])[0]!
 
     expect(resolveWorkspaceIdForNewChat(group)).toBe('ws-default')
   })

@@ -22,6 +22,7 @@ public sealed class AgentSessionManager
     private readonly IAgentModeModelDefaultService _modeDefaultService;
     private readonly IAgentPromptComposer _promptComposer;
     private readonly IAgentTurnCompletionNotifier _turnCompletionNotifier;
+    private readonly IChatStatusService _chatStatusService;
     private readonly ILogger<AgentSessionManager> _logger;
 
     public AgentSessionManager(
@@ -33,6 +34,7 @@ public sealed class AgentSessionManager
         IAgentModeModelDefaultService modeDefaultService,
         IAgentPromptComposer promptComposer,
         IAgentTurnCompletionNotifier turnCompletionNotifier,
+        IChatStatusService chatStatusService,
         ILogger<AgentSessionManager> logger)
     {
         _chatStore = chatStore;
@@ -43,6 +45,7 @@ public sealed class AgentSessionManager
         _modeDefaultService = modeDefaultService;
         _promptComposer = promptComposer;
         _turnCompletionNotifier = turnCompletionNotifier;
+        _chatStatusService = chatStatusService;
         _logger = logger;
     }
 
@@ -265,6 +268,21 @@ public sealed class AgentSessionManager
         return Result.Success(session);
     }
 
+    public async Task<Result<ChatSession>> MarkReadAsync(
+        Guid chatId,
+        CancellationToken cancellationToken)
+    {
+        Result<ChatSession> result = await _chatStatusService.MarkReadAsync(chatId, cancellationToken);
+        if (result.IsFailure)
+        {
+            return result;
+        }
+
+        ChatSession session = result.Value;
+        ApplyStatusToCachedSession(chatId, session.Status, session.LastReadAt);
+        return result;
+    }
+
     public async Task<Result<ChatSession>> UpdateModelAsync(
         Guid chatId,
         string? modelId,
@@ -391,6 +409,8 @@ public sealed class AgentSessionManager
         var runCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         session.RunCts = runCts;
 
+        await TransitionStatusAsync(chatId, session, ChatStatus.InProgress, cancellationToken);
+
         yield return new AgentStatusEvent("processing");
 
         var assistantMessage = new ChatMessage(
@@ -472,6 +492,12 @@ public sealed class AgentSessionManager
                         externalSessionId,
                         cancellationToken);
 
+                    await TransitionStatusAsync(
+                        chatId,
+                        session,
+                        ChatStatus.ReadyForReview,
+                        cancellationToken);
+
                     turnCompleted = true;
                     _turnCompletionNotifier.NotifyTurnCompleted(chatId, succeeded: true);
                     yield return completed;
@@ -489,6 +515,13 @@ public sealed class AgentSessionManager
                     }
 
                     await _chatStore.SaveAssistantMessageAsync(chatId, assistantMessage, null, cancellationToken);
+
+                    await TransitionStatusAsync(
+                        chatId,
+                        session,
+                        ChatStatus.ReadyForReview,
+                        cancellationToken);
+
                     turnCompleted = true;
                     _turnCompletionNotifier.NotifyTurnCompleted(chatId, succeeded: false);
                     yield return error;
@@ -537,6 +570,12 @@ public sealed class AgentSessionManager
                     externalSessionId,
                     cancellationToken);
 
+                await TransitionStatusAsync(
+                    chatId,
+                    session,
+                    ChatStatus.ReadyForReview,
+                    cancellationToken);
+
                 yield return new AgentErrorEvent(
                     "Agent.Incomplete",
                     "Agent finished without a result event.");
@@ -544,6 +583,41 @@ public sealed class AgentSessionManager
         }
 
         session.RunCts = null;
+    }
+
+    private async Task TransitionStatusAsync(
+        Guid chatId,
+        ChatSession session,
+        ChatStatus status,
+        CancellationToken cancellationToken)
+    {
+        if (status == ChatStatus.InProgress)
+        {
+            await _chatStatusService.SetInProgressAsync(chatId, cancellationToken);
+        }
+        else if (status == ChatStatus.ReadyForReview)
+        {
+            await _chatStatusService.SetReadyForReviewAsync(chatId, cancellationToken);
+        }
+
+        ApplyStatusToCachedSession(chatId, status, session.LastReadAt);
+    }
+
+    private void ApplyStatusToCachedSession(
+        Guid chatId,
+        ChatStatus status,
+        DateTimeOffset? lastReadAt)
+    {
+        if (!_sessions.TryGetValue(chatId, out ChatSession? session))
+        {
+            return;
+        }
+
+        session.Status = status;
+        if (lastReadAt.HasValue)
+        {
+            session.LastReadAt = lastReadAt;
+        }
     }
 
     private IReadOnlyList<string> BuildCliArgs(ChatSession session)

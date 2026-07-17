@@ -13,15 +13,27 @@ If the oven breaks, you get an `error` text instead.
 
 The desktop **does not** poll. It opens one HTTP response and reads events as they arrive (SSE).
 
+The **sidebar dots** are a separate mailroom light board owned by the API:
+
+| Light | Meaning | `ChatStatus` |
+|-------|---------|--------------|
+| Gray | You've seen it | `read` |
+| Pulsing | Being written | `inProgress` |
+| Solid primary | Something new to look at | `readyForReview` |
+
+**Aha:** The UI only paints what the server says; it does not keep its own "have I seen this?" sticky notes.
+
 **Orchi translation:**
 
-| Pizza tracker | Orchi |
-|---------------|-------|
+| Pizza / mailroom | Orchi |
+|------------------|-------|
 | Order app | `sendMessageStream()` in `lib/chat/api.ts` |
-| Live updates | SSE from `POST /chats/{id}/messages` (parser in `lib/http/sse.ts`) |
-| Order history | TanStack Query `chatKeys` + `ChatProvider` (composes `useChatStream`) |
-| "Still working" banner | Collapsed activity on assistant bubble |
-| Tool steps | Collapsible list under active assistant turn |
+| Live reply updates | SSE from `POST /chats/{id}/messages` |
+| Light board | `Chat.Status` + `GET /chats/status/events` |
+| "I've looked at this" stamp | `POST /chats/{id}/read` |
+| Order history | TanStack Query `chatKeys` + `ChatProvider` |
+
+Everything below is the same idea with event names and hooks.
 
 ---
 
@@ -38,6 +50,26 @@ User submits message
 ```
 
 Streaming orchestration is split: **`useChatStream`** (`hooks/chat/use-chat-stream.ts`) owns SSE handlers, markers, and abort; **`ChatProvider`** composes it with list/cache/mutation hooks.
+
+## Chat status (sidebar)
+
+Server-owned enum on each chat (`read` | `inProgress` | `readyForReview`):
+
+| Transition | Status |
+|------------|--------|
+| Agent turn starts | `inProgress` |
+| Assistant turn completes or errors | `readyForReview` |
+| `POST /chats/{id}/read` while idle | `read` (+ `LastReadAt`) |
+| Mark-read while still running | stays `inProgress`; `LastReadAt` updates |
+
+Live board: `GET /chats/status/events`
+
+| Event | Data | Client effect |
+|-------|------|---------------|
+| `snapshot` | `[{ chatId, status }, …]` | Seed list/detail caches |
+| `status` | `{ chatId, status }` | Patch sidebar dots |
+
+Desktop: `subscribeChatStatusEvents` + `useChatStatusEvents`; active chat auto-calls `markChatRead`. Dot mapping lives in `lib/chat/chat-sidebar-status.ts`.
 
 ## SSE event schema
 
@@ -80,6 +112,8 @@ Shared SSE parsing: `lib/http/sse.ts` — `parseSseBlock()` and `readSseStream()
 - Delegates body reading to `readSseStream` from `lib/http/sse.ts`
 - Invokes typed handlers; supports `AbortSignal` for cancel
 
+Also: `markChatRead(chatId)`, `subscribeChatStatusEvents(handlers, signal)`.
+
 Orchestration uses the same parser in `lib/orchestration/orchestration-events.ts` (`subscribeOrchestrationEvents`).
 
 Proxy: `/chats` → API in `electron.vite.config.ts` (dev).
@@ -94,6 +128,8 @@ Proxy: `/chats` → API in `electron.vite.config.ts` (dev).
 | `useChatCache` | Detail load, `getChat`, optimistic cache updates |
 | `useChatStream` | `sendMessage`, SSE handlers, `markersByChat`, abort |
 | `useChatMutations` | create / close / mode / model mutations |
+| `useChatStatus` | mark-read on active chat, sidebar status from server |
+| `useChatStatusEvents` | app-wide status SSE → query cache |
 
 **`useChatStream`** specifics:
 

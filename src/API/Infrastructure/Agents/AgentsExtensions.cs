@@ -36,6 +36,8 @@ public static class AgentsExtensions
         services.AddSingleton<EfOrchestrationWorkflowStore>();
         services.AddSingleton<IOrchestrationWorkflowStore, EfOrchestrationWorkflowStore>();
         services.AddSingleton<OrchestrationEventHub>();
+        services.AddSingleton<ChatStatusEventHub>();
+        services.AddSingleton<IChatStatusService, ChatStatusService>();
         services.AddSingleton<IOrchestrationStepHandler, ReviewKickoffStepHandler>();
         services.AddSingleton<IOrchestrationStepHandler, SequentialAdvanceStepHandler>();
         services.AddSingleton<OrchestrationStepPipeline>();

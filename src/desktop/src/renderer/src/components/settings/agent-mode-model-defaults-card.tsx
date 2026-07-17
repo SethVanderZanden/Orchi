@@ -79,9 +79,7 @@ export function AgentModeModelDefaultsCard({
           }
 
           return {
-            defaults: current.defaults.map((row) =>
-              row.mode === updated.mode ? updated : row
-            )
+            defaults: current.defaults.map((row) => (row.mode === updated.mode ? updated : row))
           }
         }
       )

@@ -3,11 +3,7 @@ import { MessageSquare } from 'lucide-react'
 import { AgentModeAvatar } from '@/components/chat/agent-mode-avatar'
 import { Bubble, BubbleContent } from '@/components/ui/bubble'
 import { Marker, MarkerContent } from '@/components/ui/marker'
-import {
-  Message,
-  MessageAvatar,
-  MessageContent
-} from '@/components/ui/message'
+import { Message, MessageAvatar, MessageContent } from '@/components/ui/message'
 import { MessageScrollerItem } from '@/components/ui/message-scroller'
 import { ChatToolCalls } from '@/components/chat/chat-tool-calls'
 import { EmptyState } from '@/components/empty-state'
@@ -50,10 +46,7 @@ export function OrchiChatMessageList({
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6">
       {messages.map((message, index) => (
-        <MessageScrollerItem
-          key={message.id}
-          scrollAnchor={message.role === 'user'}
-        >
+        <MessageScrollerItem key={message.id} scrollAnchor={message.role === 'user'}>
           <ChatMessageRow
             message={message}
             markers={index === lastAssistantIndex ? activeMarkers : []}
@@ -81,7 +74,9 @@ function ChatMessageRow({ message, markers, mode }: ChatMessageRowProps): React.
       <Message align="end">
         <MessageContent>
           <Bubble>
-            <BubbleContent>{message.content}</BubbleContent>
+            <BubbleContent className="overflow-x-auto">
+              <MarkdownContent>{message.content}</MarkdownContent>
+            </BubbleContent>
           </Bubble>
         </MessageContent>
       </Message>
@@ -107,12 +102,10 @@ function ChatMessageRow({ message, markers, mode }: ChatMessageRowProps): React.
         <AgentModeAvatar mode={mode} />
       </MessageAvatar>
       <MessageContent>
-        <Bubble variant={bubbleVariant}>
-          <BubbleContent className={message.status === 'complete' ? 'max-w-none' : undefined}>
+        <Bubble variant={bubbleVariant} className="max-w-full">
+          <BubbleContent className="max-w-none overflow-x-auto">
             {showPlaceholder ? (
               <span className="text-muted-foreground">…</span>
-            ) : message.status === 'processing' || message.status === 'streaming' ? (
-              <p className="whitespace-pre-wrap text-foreground">{message.content}</p>
             ) : (
               <MarkdownContent className="prose-base">{message.content}</MarkdownContent>
             )}

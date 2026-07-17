@@ -5,7 +5,8 @@ import { useChatCache } from '@/hooks/chat/use-chat-cache'
 import { useChatList } from '@/hooks/chat/use-chat-list'
 import { useChatMutations } from '@/hooks/chat/use-chat-mutations'
 import { useChatOrchestration } from '@/hooks/chat/use-chat-orchestration'
-import { useChatReadState } from '@/hooks/chat/use-chat-read-state'
+import { useChatStatus } from '@/hooks/chat/use-chat-status'
+import { useChatStatusEvents } from '@/hooks/chat/use-chat-status-events'
 import { useChatStream } from '@/hooks/chat/use-chat-stream'
 
 import { ChatContext, type ChatContextValue } from '@/providers/chat-context'
@@ -55,7 +56,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
     navigate
   })
 
-  const readState = useChatReadState({
+  const readState = useChatStatus({
     activeChatId,
     getChat: cache.getChat,
     getChildChats: cache.getChildChats,
@@ -63,6 +64,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
     isChatSending: stream.isChatSending,
     isParentKickingOffAny: orchestration.isParentKickingOffAny
   })
+
+  useChatStatusEvents()
 
   const value = useMemo<ChatContextValue>(
     () => ({

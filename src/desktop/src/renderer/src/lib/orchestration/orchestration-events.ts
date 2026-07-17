@@ -18,11 +18,7 @@ export type OrchestrationEventHandlers = {
     planId: string | null
     planFilePath: string | null
   }) => void
-  onParentMessage?: (payload: {
-    messageId: string
-    role: string
-    content: string
-  }) => void
+  onParentMessage?: (payload: { messageId: string; role: string; content: string }) => void
   onAgentStatus?: (payload: { childChatId: string; phase: string }) => void
   onAgentToken?: (payload: { childChatId: string; text: string }) => void
   onAgentTool?: (payload: { childChatId: string; label: string }) => void
@@ -43,9 +39,12 @@ export async function getOrchestration(parentChatId: string): Promise<Orchestrat
 export async function kickOffAllOrchestration(
   parentChatId: string
 ): Promise<OrchestrationStateResponse> {
-  const response = await fetch(`${getApiBaseUrl()}/chats/${parentChatId}/orchestration/kickoff-all`, {
-    method: 'POST'
-  })
+  const response = await fetch(
+    `${getApiBaseUrl()}/chats/${parentChatId}/orchestration/kickoff-all`,
+    {
+      method: 'POST'
+    }
+  )
 
   if (!response.ok) {
     throw new Error(await readErrorMessage(response))
@@ -164,15 +163,11 @@ export function mapChatCreatedToThread(
     ? payload.mode === 'review'
       ? `${payload.planId
           .split('-')
-          .map((word, index) =>
-            index === 0 ? word.charAt(0).toUpperCase() + word.slice(1) : word
-          )
+          .map((word, index) => (index === 0 ? word.charAt(0).toUpperCase() + word.slice(1) : word))
           .join(' ')} review`
       : payload.planId
           .split('-')
-          .map((word, index) =>
-            index === 0 ? word.charAt(0).toUpperCase() + word.slice(1) : word
-          )
+          .map((word, index) => (index === 0 ? word.charAt(0).toUpperCase() + word.slice(1) : word))
           .join(' ')
     : payload.mode === 'review'
       ? 'Review'
@@ -191,6 +186,8 @@ export function mapChatCreatedToThread(
     modelId: parentChat.modelId,
     parentChatId: parentChat.id,
     planFilePath: payload.planFilePath,
+    status: 'inProgress',
+    lastReadAt: null,
     messages: []
   }
 }

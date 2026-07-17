@@ -1,64 +1,34 @@
-import { getLastReadUpdatedAt, isChatUnread } from '@/lib/chat/chat-read-state'
-import type { ChatThread } from '@/lib/chat/types'
-import { hasReviewReadyPlan } from '@/lib/orchestration/review-ready'
+import type { ChatStatus, ChatThread } from '@/lib/chat/types'
 
 export type ChatSidebarStatusVariant = 'standard' | 'active' | 'attention'
 
 type GetChatSidebarStatusOptions = {
   chat: ChatThread
-  activeChatId?: string
   isSending: boolean
   isParentKickingOff: boolean
-  getChat: (chatId: string) => ChatThread | undefined
-  getChildChats: (parentChatId: string) => ChatThread[]
 }
 
-function hasActiveMessages(chat: ChatThread | undefined): boolean {
-  if (!chat) {
-    return false
+export function mapChatStatusToSidebarVariant(status: ChatStatus): ChatSidebarStatusVariant {
+  switch (status) {
+    case 'inProgress':
+      return 'active'
+    case 'readyForReview':
+      return 'attention'
+    default:
+      return 'standard'
   }
-
-  return chat.messages.some(
-    (message) => message.status === 'processing' || message.status === 'streaming'
-  )
-}
-
-function hasErrorMessage(chat: ChatThread | undefined): boolean {
-  if (!chat || chat.messages.length === 0) {
-    return false
-  }
-
-  const lastMessage = chat.messages[chat.messages.length - 1]
-  return lastMessage.status === 'error'
 }
 
 export function getChatSidebarStatus({
   chat,
-  activeChatId,
   isSending,
-  isParentKickingOff,
-  getChat,
-  getChildChats
+  isParentKickingOff
 }: GetChatSidebarStatusOptions): ChatSidebarStatusVariant {
-  const resolvedChat = getChat(chat.id) ?? chat
-
-  if (
-    isSending ||
-    isParentKickingOff ||
-    hasActiveMessages(resolvedChat)
-  ) {
+  if (isSending || isParentKickingOff) {
     return 'active'
   }
 
-  if (
-    hasErrorMessage(resolvedChat) ||
-    hasReviewReadyPlan(resolvedChat, getChildChats(chat.id), getChat) ||
-    isChatUnread(chat, activeChatId)
-  ) {
-    return 'attention'
-  }
-
-  return 'standard'
+  return mapChatStatusToSidebarVariant(chat.status)
 }
 
 export function getChatSidebarStatusLabel(variant: ChatSidebarStatusVariant): string | undefined {
@@ -71,5 +41,3 @@ export function getChatSidebarStatusLabel(variant: ChatSidebarStatusVariant): st
       return undefined
   }
 }
-
-export { getLastReadUpdatedAt }

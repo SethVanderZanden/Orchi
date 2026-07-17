@@ -82,8 +82,8 @@ export function OrphanChatsSection({
               key={node.chat.id}
               node={node}
               actions={actions}
-              isExpanded={expandedParentChatIds.has(node.chat.id)}
-              onToggleExpand={() => onToggleParentChat(node.chat.id)}
+              expandedParentChatIds={expandedParentChatIds}
+              onToggleParentChat={onToggleParentChat}
             />
           ))}
         </div>

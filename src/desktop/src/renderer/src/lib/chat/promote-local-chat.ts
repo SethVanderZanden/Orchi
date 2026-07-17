@@ -25,6 +25,8 @@ function mapCreatedToThread(
     modelId: created.modelId ?? null,
     parentChatId: created.parentChatId,
     planFilePath: created.planFilePath,
+    status: created.status,
+    lastReadAt: created.lastReadAt,
     messages: []
   }
 }

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { ErrorBoundary } from '@/components/error-boundary'
 
-function ThrowingChild({ shouldThrow }: { shouldThrow: boolean }) {
+function ThrowingChild({ shouldThrow }: { shouldThrow: boolean }): React.JSX.Element {
   if (shouldThrow) {
     throw new Error('Test render failure')
   }
@@ -38,7 +38,7 @@ describe('ErrorBoundary', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     let shouldThrow = true
 
-    function ConditionalThrow() {
+    function ConditionalThrow(): React.JSX.Element {
       if (shouldThrow) {
         throw new Error('Recoverable failure')
       }

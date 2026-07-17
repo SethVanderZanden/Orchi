@@ -15,7 +15,7 @@ export function ChatStatusDot({ variant, className }: ChatStatusDotProps): React
       className={cn(
         'size-1.5 shrink-0 rounded-full',
         variant === 'standard' && 'bg-muted-foreground/50',
-        variant === 'active' && 'bg-primary opacity-90 [animation:sidebar-pulse_2s_ease-in-out_infinite]',
+        variant === 'active' && 'bg-amber-500 [animation:sidebar-pulse_1.4s_ease-in-out_infinite]',
         variant === 'attention' && 'bg-primary',
         className
       )}

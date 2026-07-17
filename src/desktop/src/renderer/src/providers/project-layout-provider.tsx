@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import {
   createContext,
   useCallback,
@@ -152,9 +153,7 @@ export function ProjectLayoutProvider({ children }: { children: ReactNode }): Re
     ]
   )
 
-  return (
-    <ProjectLayoutContext.Provider value={value}>{children}</ProjectLayoutContext.Provider>
-  )
+  return <ProjectLayoutContext.Provider value={value}>{children}</ProjectLayoutContext.Provider>
 }
 
 export function useProjectLayout(): ProjectLayoutContextValue {

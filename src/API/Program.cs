@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Orchi.Api.Infrastructure.Agents;
 using Orchi.Api.Infrastructure.Caching;
 using Orchi.Api.Infrastructure.Database;
@@ -6,6 +8,12 @@ using Orchi.Api.Infrastructure.OpenApi;
 using Orchi.Api.Infrastructure.Pipeline;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(
+        new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
+});
 
 builder.Host.ConfigureHostOptions(options =>
 {

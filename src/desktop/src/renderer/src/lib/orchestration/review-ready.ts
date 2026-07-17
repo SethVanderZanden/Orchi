@@ -15,11 +15,8 @@ export function buildReviewPlansByPlanId(
     plans.map((plan) => {
       const reviewChildSummary = findReviewChildForPlan(plan.planId, childChats)
       const reviewChild = reviewChildSummary ? getChat(reviewChildSummary.id) : undefined
-      const reviewPlans = reviewChild
-        ? parseReviewPlansFromMessages(reviewChild.messages)
-        : []
-      const reviewPlan =
-        reviewPlans.find((item) => item.planId === plan.planId) ?? reviewPlans[0]
+      const reviewPlans = reviewChild ? parseReviewPlansFromMessages(reviewChild.messages) : []
+      const reviewPlan = reviewPlans.find((item) => item.planId === plan.planId) ?? reviewPlans[0]
 
       return [plan.planId, reviewPlan] as const
     })

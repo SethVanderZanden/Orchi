@@ -4,6 +4,7 @@ import type { ChatThread } from '@/lib/chat/types'
 
 import {
   buildChatTree,
+  findAncestorIdsInChatTree,
   findChildForPlan,
   findReviewChildForPlan,
   formatPlanIdAsTitle,
@@ -22,10 +23,12 @@ function makeChat(overrides: Partial<ChatThread> & Pick<ChatThread, 'id'>): Chat
     projectId: overrides.projectId ?? null,
     workspaceId: overrides.workspaceId ?? null,
     workspacePath: overrides.workspacePath ?? '/workspace',
-    mode: 'default',
+    mode: overrides.mode ?? 'default',
     modelId: overrides.modelId ?? null,
     parentChatId: overrides.parentChatId ?? null,
     planFilePath: overrides.planFilePath ?? null,
+    status: overrides.status ?? 'read',
+    lastReadAt: overrides.lastReadAt ?? null,
     messages: overrides.messages ?? []
   }
 }
@@ -50,7 +53,11 @@ describe('formatPlanIdAsTitle', () => {
 
 describe('buildChatTree', () => {
   it('nests children under their parent and excludes them from roots', () => {
-    const parent = makeChat({ id: 'parent', title: 'Orchestration', updatedAt: '2026-01-03T00:00:00.000Z' })
+    const parent = makeChat({
+      id: 'parent',
+      title: 'Orchestration',
+      updatedAt: '2026-01-03T00:00:00.000Z'
+    })
     const childA = makeChat({
       id: 'child-a',
       title: 'Auth refactor',
@@ -68,10 +75,9 @@ describe('buildChatTree', () => {
     const tree = buildChatTree([parent, childA, childB, root])
 
     expect(tree.map((node) => node.chat.id)).toEqual(['root', 'parent'])
-    expect(tree.find((node) => node.chat.id === 'parent')?.children.map((child) => child.id)).toEqual([
-      'child-a',
-      'child-b'
-    ])
+    expect(
+      tree.find((node) => node.chat.id === 'parent')?.children.map((child) => child.chat.id)
+    ).toEqual(['child-a', 'child-b'])
   })
 
   it('promotes orphan children to roots when parent is missing', () => {
@@ -86,6 +92,73 @@ describe('buildChatTree', () => {
     expect(tree).toHaveLength(1)
     expect(tree[0]?.chat.id).toBe('orphan')
     expect(tree[0]?.children).toEqual([])
+  })
+
+  it('nests review chats under matching implementation children', () => {
+    const parent = makeChat({
+      id: 'parent',
+      title: 'Orchestration',
+      updatedAt: '2026-01-05T00:00:00.000Z'
+    })
+    const implAuth = makeChat({
+      id: 'impl-auth',
+      title: 'Auth agent',
+      parentChatId: 'parent',
+      planFilePath: '.orchi/plan-auth-refactor.md',
+      updatedAt: '2026-01-04T00:00:00.000Z'
+    })
+    const implUi = makeChat({
+      id: 'impl-ui',
+      title: 'UI agent',
+      parentChatId: 'parent',
+      planFilePath: '.orchi/plan-ui-polish.md',
+      updatedAt: '2026-01-03T00:00:00.000Z'
+    })
+    const reviewAuth = makeChat({
+      id: 'review-auth',
+      title: 'Auth review',
+      mode: 'review',
+      parentChatId: 'parent',
+      planFilePath: '.orchi/review-auth-refactor.md',
+      updatedAt: '2026-01-02T00:00:00.000Z'
+    })
+
+    const tree = buildChatTree([parent, implAuth, implUi, reviewAuth])
+    const parentNode = tree.find((node) => node.chat.id === 'parent')
+
+    expect(parentNode?.children.map((child) => child.chat.id)).toEqual(['impl-auth', 'impl-ui'])
+    expect(parentNode?.children.find((child) => child.chat.id === 'impl-auth')?.children).toEqual([
+      expect.objectContaining({
+        chat: expect.objectContaining({ id: 'review-auth' }),
+        children: []
+      })
+    ])
+    expect(parentNode?.children.find((child) => child.chat.id === 'impl-ui')?.children).toEqual([])
+  })
+
+  it('keeps unmatched review chats as direct children of the parent', () => {
+    const parent = makeChat({ id: 'parent', title: 'Orchestration' })
+    const impl = makeChat({
+      id: 'impl',
+      title: 'Auth agent',
+      parentChatId: 'parent',
+      planFilePath: '.orchi/plan-auth-refactor.md',
+      updatedAt: '2026-01-02T00:00:00.000Z'
+    })
+    const orphanReview = makeChat({
+      id: 'review-orphan',
+      title: 'Orphan review',
+      mode: 'review',
+      parentChatId: 'parent',
+      planFilePath: '.orchi/review-missing-plan.md',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    })
+
+    const tree = buildChatTree([parent, impl, orphanReview])
+    const parentNode = tree.find((node) => node.chat.id === 'parent')
+
+    expect(parentNode?.children.map((child) => child.chat.id)).toEqual(['impl', 'review-orphan'])
+    expect(parentNode?.children.find((child) => child.chat.id === 'impl')?.children).toEqual([])
   })
 })
 
@@ -173,6 +246,82 @@ describe('filterChatTreeNodes', () => {
 
     expect(filtered).toHaveLength(1)
     expect(filtered[0]?.chat.id).toBe('parent')
-    expect(filtered[0]?.children.map((child) => child.id)).toEqual(['child'])
+    expect(filtered[0]?.children.map((child) => child.chat.id)).toEqual(['child'])
+  })
+
+  it('includes ancestor chain when a nested review matches search', () => {
+    const nodes = buildChatTree([
+      makeChat({ id: 'parent', title: 'Orchestration' }),
+      makeChat({
+        id: 'impl',
+        title: 'Auth agent',
+        parentChatId: 'parent',
+        planFilePath: '.orchi/plan-auth-refactor.md'
+      }),
+      makeChat({
+        id: 'review',
+        title: 'Security review',
+        mode: 'review',
+        parentChatId: 'parent',
+        planFilePath: '.orchi/review-auth-refactor.md'
+      })
+    ])
+
+    const filtered = filterChatTreeNodes(nodes, 'security')
+
+    expect(filtered).toHaveLength(1)
+    expect(filtered[0]?.chat.id).toBe('parent')
+    expect(filtered[0]?.children).toHaveLength(1)
+    expect(filtered[0]?.children[0]?.chat.id).toBe('impl')
+    expect(filtered[0]?.children[0]?.children.map((child) => child.chat.id)).toEqual(['review'])
+  })
+
+  it('includes full subtree when root matches search', () => {
+    const nodes = buildChatTree([
+      makeChat({ id: 'parent', title: 'Auth orchestration' }),
+      makeChat({
+        id: 'impl',
+        title: 'Agent',
+        parentChatId: 'parent',
+        planFilePath: '.orchi/plan-auth-refactor.md'
+      }),
+      makeChat({
+        id: 'review',
+        title: 'Review',
+        mode: 'review',
+        parentChatId: 'parent',
+        planFilePath: '.orchi/review-auth-refactor.md'
+      })
+    ])
+
+    const filtered = filterChatTreeNodes(nodes, 'orchestration')
+
+    expect(filtered[0]?.children[0]?.children.map((child) => child.chat.id)).toEqual(['review'])
+  })
+})
+
+describe('findAncestorIdsInChatTree', () => {
+  it('returns orchestration and implementation ancestors for a nested review', () => {
+    const nodes = buildChatTree([
+      makeChat({ id: 'parent', title: 'Orchestration' }),
+      makeChat({
+        id: 'impl',
+        title: 'Auth agent',
+        parentChatId: 'parent',
+        planFilePath: '.orchi/plan-auth-refactor.md'
+      }),
+      makeChat({
+        id: 'review',
+        title: 'Auth review',
+        mode: 'review',
+        parentChatId: 'parent',
+        planFilePath: '.orchi/review-auth-refactor.md'
+      })
+    ])
+
+    expect(findAncestorIdsInChatTree(nodes, 'review')).toEqual(['parent', 'impl'])
+    expect(findAncestorIdsInChatTree(nodes, 'impl')).toEqual(['parent'])
+    expect(findAncestorIdsInChatTree(nodes, 'parent')).toEqual([])
+    expect(findAncestorIdsInChatTree(nodes, 'missing')).toBeNull()
   })
 })

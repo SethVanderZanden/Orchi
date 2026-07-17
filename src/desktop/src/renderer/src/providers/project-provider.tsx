@@ -1,12 +1,8 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import {
-  createProject,
-  deleteProject,
-  listProjects,
-  updateProject
-} from '@/lib/projects/api'
+import { createProject, deleteProject, listProjects, updateProject } from '@/lib/projects/api'
 import { migrateLocalWorkspacesIfNeeded } from '@/lib/projects/migrate-local-workspaces'
 import { workspaceNameFromPath } from '@/lib/projects/paths'
 import type { Project } from '@/lib/projects/types'
@@ -121,11 +117,9 @@ export function ProjectProvider({ children }: { children: React.ReactNode }): Re
     return window.api.openDirectory()
   }, [])
 
-  const projects = projectsQuery.data ?? []
-
   const value = useMemo<ProjectContextValue>(
     () => ({
-      projects,
+      projects: projectsQuery.data ?? [],
       isLoadingProjects: projectsQuery.isLoading,
       isPendingProjects: projectsQuery.isPending,
       projectsError: projectsQuery.error as Error | null,
@@ -136,7 +130,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }): Re
       pickDirectory
     }),
     [
-      projects,
+      projectsQuery.data,
       projectsQuery.isLoading,
       projectsQuery.isPending,
       projectsQuery.error,

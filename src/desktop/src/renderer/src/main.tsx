@@ -6,8 +6,7 @@ import { RouterProvider, createHashHistory, createRouter } from '@tanstack/react
 
 import { routeTree } from './routeTree.gen'
 
-const isFileProtocol =
-  typeof window !== 'undefined' && window.location.protocol === 'file:'
+const isFileProtocol = typeof window !== 'undefined' && window.location.protocol === 'file:'
 
 const router = createRouter({
   routeTree,

@@ -26,6 +26,10 @@ public class Chat
 
     public DateTimeOffset UpdatedAt { get; set; }
 
+    public ChatStatus Status { get; set; } = ChatStatus.Read;
+
+    public DateTimeOffset? LastReadAt { get; set; }
+
     public bool IsDeleted { get; set; }
 
     public List<ChatMessageEntity> Messages { get; set; } = [];

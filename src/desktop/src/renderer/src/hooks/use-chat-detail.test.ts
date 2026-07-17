@@ -25,6 +25,8 @@ describe('getChatDetailQueryOptions', () => {
       modelId: null,
       parentChatId: null,
       planFilePath: null,
+      status: 'read',
+      lastReadAt: null,
       messages: []
     }
 

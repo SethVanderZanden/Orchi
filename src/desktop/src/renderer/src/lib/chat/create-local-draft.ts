@@ -22,6 +22,8 @@ export function createLocalDraftChat(options: CreateLocalDraftOptions): ChatThre
     modelId: null,
     parentChatId: null,
     planFilePath: null,
+    status: 'read',
+    lastReadAt: null,
     messages: []
   }
 }

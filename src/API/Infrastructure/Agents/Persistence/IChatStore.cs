@@ -1,4 +1,5 @@
 using Orchi.Api.Infrastructure.Agents;
+using Orchi.Api.Entities;
 
 namespace Orchi.Api.Infrastructure.Agents.Persistence;
 
@@ -45,4 +46,8 @@ public interface IChatStore
     Task<bool> UpdateModeAsync(Guid chatId, string mode, CancellationToken cancellationToken);
 
     Task<bool> UpdateModelIdAsync(Guid chatId, string? modelId, CancellationToken cancellationToken);
+
+    Task<ChatStatus?> UpdateStatusAsync(Guid chatId, ChatStatus status, CancellationToken cancellationToken);
+
+    Task<ChatSession?> MarkReadAsync(Guid chatId, CancellationToken cancellationToken);
 }

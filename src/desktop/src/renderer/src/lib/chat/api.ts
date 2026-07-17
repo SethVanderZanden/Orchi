@@ -39,6 +39,8 @@ function mapSummary(summary: ChatSummaryResponse): ChatThread {
     modelId: summary.modelId ?? null,
     parentChatId: summary.parentChatId,
     planFilePath: summary.planFilePath,
+    status: summary.status ?? 'read',
+    lastReadAt: summary.lastReadAt ?? null,
     messages: [] as ChatDetailResponse['messages']
   }
 }
@@ -57,6 +59,8 @@ function mapDetail(detail: ChatDetailResponse): ChatThread {
     modelId: detail.modelId ?? null,
     parentChatId: detail.parentChatId,
     planFilePath: detail.planFilePath,
+    status: detail.status ?? 'read',
+    lastReadAt: detail.lastReadAt ?? null,
     messages: detail.messages
   }
 }
@@ -110,6 +114,8 @@ export async function createChat(request: CreateChatRequest): Promise<ChatThread
     modelId: created.modelId ?? null,
     parentChatId: created.parentChatId,
     planFilePath: created.planFilePath,
+    status: 'read',
+    lastReadAt: null,
     messages: []
   }
 }
@@ -122,6 +128,83 @@ export async function getChat(chatId: string): Promise<ChatThread> {
 
   const detail = (await response.json()) as ChatDetailResponse
   return mapDetail(detail)
+}
+
+export async function markChatRead(chatId: string): Promise<ChatThread> {
+  const response = await fetch(`${getApiBaseUrl()}/chats/${chatId}/read`, {
+    method: 'POST'
+  })
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, chatErrorOptions))
+  }
+
+  const summary = (await response.json()) as ChatSummaryResponse
+  return mapSummary(summary)
+}
+
+export type ChatStatusEventHandlers = {
+  onSnapshot?: (items: Array<{ chatId: string; status: ChatThread['status'] }>) => void
+  onStatus?: (payload: { chatId: string; status: ChatThread['status'] }) => void
+}
+
+export async function subscribeChatStatusEvents(
+  handlers: ChatStatusEventHandlers,
+  signal?: AbortSignal
+): Promise<void> {
+  const response = await fetch(`${getApiBaseUrl()}/chats/status/events`, {
+    headers: { Accept: 'text/event-stream' },
+    signal
+  })
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, chatErrorOptions))
+  }
+
+  await readSseStream(
+    response,
+    (parsed) => {
+      dispatchChatStatusEvent(parsed.event, parsed.data, handlers)
+    },
+    signal
+  )
+}
+
+function parseChatStatus(value: unknown): ChatThread['status'] {
+  if (value === 'inProgress' || value === 'readyForReview' || value === 'read') {
+    return value
+  }
+
+  return 'read'
+}
+
+function dispatchChatStatusEvent(
+  eventName: string,
+  data: string,
+  handlers: ChatStatusEventHandlers
+): void {
+  const payload = JSON.parse(data) as unknown
+
+  if (eventName === 'snapshot' && Array.isArray(payload)) {
+    handlers.onSnapshot?.(
+      payload.map((item) => {
+        const row = item as Record<string, unknown>
+        return {
+          chatId: String(row.chatId ?? ''),
+          status: parseChatStatus(row.status)
+        }
+      })
+    )
+    return
+  }
+
+  if (eventName === 'status' && payload && typeof payload === 'object') {
+    const row = payload as Record<string, unknown>
+    handlers.onStatus?.({
+      chatId: String(row.chatId ?? ''),
+      status: parseChatStatus(row.status)
+    })
+  }
 }
 
 export async function updateChatMode(

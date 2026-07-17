@@ -18,14 +18,7 @@ export function OrchiAiIcon({ className }: OrchiAiIconProps): React.JSX.Element 
         strokeLinecap="round"
       />
       <circle cx="12" cy="13" r="6.5" stroke="currentColor" strokeWidth="1.85" />
-      <ellipse
-        cx="12"
-        cy="15.2"
-        rx="2.6"
-        ry="1.8"
-        stroke="currentColor"
-        strokeWidth="1.85"
-      />
+      <ellipse cx="12" cy="15.2" rx="2.6" ry="1.8" stroke="currentColor" strokeWidth="1.85" />
       <circle cx="10.4" cy="15.1" r="0.55" fill="currentColor" />
       <circle cx="13.6" cy="15.1" r="0.55" fill="currentColor" />
       <circle cx="9.4" cy="11.2" r="0.9" fill="currentColor" />

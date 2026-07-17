@@ -4,6 +4,7 @@ import { useMatch } from '@tanstack/react-router'
 import { useDeleteChat } from '@/hooks/use-delete-chat'
 import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut'
 import type { SidebarChatActions } from '@/components/layout/sidebar/sidebar-utils'
+import { collectChatTreeNodes, findAncestorIdsInChatTree } from '@/lib/projects/chat-tree'
 import {
   filterProjectGroups,
   findProjectGroupForChat,
@@ -106,7 +107,7 @@ export function useProjectNavigatorState(
         ? group.chatNodes
         : group.workspaceGroups.flatMap((workspaceGroup) => workspaceGroup.chatNodes)
 
-      for (const node of nodes) {
+      for (const node of collectChatTreeNodes(nodes)) {
         const priorCount = priorChildCounts.get(node.chat.id) ?? 0
         priorChildCounts.set(node.chat.id, node.children.length)
         if (node.children.length > priorCount) {
@@ -162,11 +163,30 @@ export function useProjectNavigatorState(
     if (activeChat?.parentChatId) {
       merged.add(activeChat.parentChatId)
     }
+    if (activeChat) {
+      for (const group of projectGroups) {
+        const nodes = group.isFlat
+          ? group.chatNodes
+          : group.workspaceGroups.flatMap((workspaceGroup) => workspaceGroup.chatNodes)
+        const ancestors = findAncestorIdsInChatTree(nodes, activeChat.id)
+        if (ancestors) {
+          for (const ancestorId of ancestors) {
+            merged.add(ancestorId)
+          }
+          break
+        }
+      }
+    }
     for (const parentChatId of childExpansionSnapshot.stickyExpandedParentIds) {
       merged.add(parentChatId)
     }
     return merged
-  }, [activeChat, childExpansionSnapshot.stickyExpandedParentIds, expandedParentChatIds])
+  }, [
+    activeChat,
+    childExpansionSnapshot.stickyExpandedParentIds,
+    expandedParentChatIds,
+    projectGroups
+  ])
 
   const resolveIsProjectExpanded = useCallback(
     (projectId: string) => {

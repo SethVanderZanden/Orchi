@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { QueryClient } from '@tanstack/react-query'
 
-import { mergeOrchestrationChildren } from './orchestration-cache'
+import { createOrchestrationEventHandlers, mergeOrchestrationChildren } from './orchestration-cache'
 import type { ChatThread } from '@/lib/chat/types'
 import { chatKeys } from '@/lib/query-keys'
 
@@ -19,6 +19,28 @@ function createParentChat(): ChatThread {
     modelId: null,
     parentChatId: null,
     planFilePath: null,
+    status: 'read',
+    lastReadAt: null,
+    messages: []
+  }
+}
+
+function createChildChat(): ChatThread {
+  return {
+    id: 'child-id',
+    title: 'Review',
+    preview: 'Working',
+    updatedAt: '2026-07-04T12:00:00.000Z',
+    agentId: 'cursor',
+    projectId: 'project-1',
+    workspaceId: 'workspace-1',
+    workspacePath: '/workspace',
+    mode: 'review',
+    modelId: null,
+    parentChatId: 'parent-id',
+    planFilePath: '.orchi/review-auth-refactor.md',
+    status: 'inProgress',
+    lastReadAt: null,
     messages: []
   }
 }
@@ -92,5 +114,40 @@ describe('mergeOrchestrationChildren', () => {
 
     expect(newIds).toEqual([])
     expect(queryClient.getQueryData<ChatThread[]>(chatKeys.lists())).toHaveLength(1)
+  })
+})
+
+describe('createOrchestrationEventHandlers', () => {
+  it('marks streaming assistant complete when agent_done messageId does not match local id', () => {
+    const queryClient = new QueryClient()
+    const parentChat = createParentChat()
+    const childChat = createChildChat()
+
+    queryClient.setQueryData(chatKeys.detail(childChat.id), {
+      ...childChat,
+      messages: [
+        {
+          id: 'local-streaming-id',
+          role: 'assistant',
+          content: '# Review plan\n\n| A | B |\n|---|---|\n| 1 | 2 |',
+          createdAt: '2026-07-04T12:00:00.000Z',
+          status: 'streaming'
+        }
+      ]
+    })
+
+    const handlers = createOrchestrationEventHandlers(parentChat, queryClient, () => childChat)
+    handlers.onAgentDone?.({
+      childChatId: childChat.id,
+      messageId: 'server-message-id',
+      succeeded: true
+    })
+
+    const detail = queryClient.getQueryData<ChatThread>(chatKeys.detail(childChat.id))
+    expect(detail?.messages[0]).toMatchObject({
+      id: 'server-message-id',
+      status: 'complete',
+      content: expect.stringContaining('# Review plan')
+    })
   })
 })

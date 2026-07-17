@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Orchi.Api.Entities;
 using Orchi.Api.Infrastructure.Agents;
 
 namespace Orchi.Api.Features.Chats.Shared;
@@ -21,7 +22,9 @@ public static partial class ChatMapper
             session.Mode,
             session.ModelId,
             session.ParentChatId,
-            session.PlanFilePath);
+            session.PlanFilePath,
+            session.Status,
+            session.LastReadAt);
     }
 
     public static ChatDetailResponse ToDetail(ChatSession session) =>
@@ -36,6 +39,8 @@ public static partial class ChatMapper
             session.ModelId,
             session.ParentChatId,
             session.PlanFilePath,
+            session.Status,
+            session.LastReadAt,
             session.Messages.Select(ToMessage).ToArray());
 
     public static ChatMessageResponse ToMessage(ChatMessage message) =>
@@ -113,7 +118,9 @@ public sealed record ChatSummaryResponse(
     string Mode,
     string? ModelId,
     Guid? ParentChatId,
-    string? PlanFilePath);
+    string? PlanFilePath,
+    ChatStatus Status,
+    DateTimeOffset? LastReadAt);
 
 public sealed record ChatDetailResponse(
     Guid Id,
@@ -126,6 +133,8 @@ public sealed record ChatDetailResponse(
     string? ModelId,
     Guid? ParentChatId,
     string? PlanFilePath,
+    ChatStatus Status,
+    DateTimeOffset? LastReadAt,
     IReadOnlyList<ChatMessageResponse> Messages);
 
 public sealed record ChatMessageResponse(
@@ -187,3 +196,7 @@ public sealed record SseTokenPayload(string Text);
 public sealed record SseToolPayload(string Label);
 
 public sealed record SseErrorPayload(string Code, string Message);
+
+public sealed record ChatStatusSsePayload(Guid ChatId, ChatStatus Status);
+
+public sealed record ChatStatusSnapshotItem(Guid ChatId, ChatStatus Status);

@@ -15,19 +15,21 @@ import { cn } from '@/lib/utils'
 type ChatTreeNodeProps = {
   node: ChatTreeNodeData
   actions: SidebarChatActions
-  isExpanded: boolean
-  onToggleExpand: () => void
+  expandedParentChatIds: ReadonlySet<string>
+  onToggleParentChat: (chatId: string) => void
+  depth?: number
 }
 
 function ChatRow({
   chat,
-  isChild,
+  depth,
   actions
 }: {
   chat: ChatThread
-  isChild: boolean
+  depth: number
   actions: SidebarChatActions
 }): React.JSX.Element {
+  const isChild = depth > 0
   const isReview = isChild && isReviewChildChat(chat)
   const statusVariant = actions.getChatSidebarStatus(chat)
   const isActive = chat.id === actions.activeChatId
@@ -83,17 +85,66 @@ function ChatRow({
   )
 }
 
+function NestedChildren({
+  node,
+  actions,
+  expandedParentChatIds,
+  onToggleParentChat,
+  depth
+}: {
+  node: ChatTreeNodeData
+  actions: SidebarChatActions
+  expandedParentChatIds: ReadonlySet<string>
+  onToggleParentChat: (chatId: string) => void
+  depth: number
+}): React.JSX.Element {
+  return (
+    <div className="ml-2 space-y-0.5 pl-3">
+      {node.children.map((child) => (
+        <ChatTreeNode
+          key={child.chat.id}
+          node={child}
+          actions={actions}
+          expandedParentChatIds={expandedParentChatIds}
+          onToggleParentChat={onToggleParentChat}
+          depth={depth + 1}
+        />
+      ))}
+    </div>
+  )
+}
+
 export function ChatTreeNode({
   node,
   actions,
-  isExpanded,
-  onToggleExpand
+  expandedParentChatIds,
+  onToggleParentChat,
+  depth = 0
 }: ChatTreeNodeProps): React.JSX.Element {
   const hasChildren = node.children.length > 0
 
   if (!hasChildren) {
-    return <ChatRow chat={node.chat} isChild={false} actions={actions} />
+    return <ChatRow chat={node.chat} depth={depth} actions={actions} />
   }
+
+  // Only orchestration roots collapse. Nested reviews always stay open under their
+  // implementation sibling so agent rows stay aligned (no per-agent chevron).
+  if (depth > 0) {
+    return (
+      <div className="min-w-0">
+        <ChatRow chat={node.chat} depth={depth} actions={actions} />
+        <NestedChildren
+          node={node}
+          actions={actions}
+          expandedParentChatIds={expandedParentChatIds}
+          onToggleParentChat={onToggleParentChat}
+          depth={depth}
+        />
+      </div>
+    )
+  }
+
+  const isExpanded = expandedParentChatIds.has(node.chat.id)
 
   return (
     <div className="min-w-0">
@@ -101,22 +152,24 @@ export function ChatTreeNode({
         <button
           type="button"
           className="flex size-6 shrink-0 items-center justify-center rounded-md text-sidebar-muted transition-colors duration-150 ease-out hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-          aria-label={isExpanded ? 'Collapse child agents' : 'Expand child agents'}
-          onClick={onToggleExpand}
+          aria-label={isExpanded ? 'Collapse child chats' : 'Expand child chats'}
+          onClick={() => onToggleParentChat(node.chat.id)}
         >
           {isExpanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
         </button>
         <div className="min-w-0 flex-1">
-          <ChatRow chat={node.chat} isChild={false} actions={actions} />
+          <ChatRow chat={node.chat} depth={depth} actions={actions} />
         </div>
       </div>
 
       {isExpanded ? (
-        <div className="ml-2 space-y-0.5 pl-3">
-          {node.children.map((child) => (
-            <ChatRow key={child.id} chat={child} isChild actions={actions} />
-          ))}
-        </div>
+        <NestedChildren
+          node={node}
+          actions={actions}
+          expandedParentChatIds={expandedParentChatIds}
+          onToggleParentChat={onToggleParentChat}
+          depth={depth}
+        />
       ) : null}
     </div>
   )

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronDown } from 'lucide-react'
 
@@ -30,15 +30,17 @@ export function ChatModeDropdown({
   className
 }: ChatModeDropdownProps): React.JSX.Element {
   const [open, setOpen] = useState(false)
+  const [prevMode, setPrevMode] = useState(mode)
+  if (mode !== prevMode) {
+    setPrevMode(mode)
+    setOpen(false)
+  }
+
   const modesQuery = useQuery({
     queryKey: agentKeys.modes(),
     queryFn: listAgentModes,
     staleTime: Infinity
   })
-
-  useEffect(() => {
-    setOpen(false)
-  }, [mode])
 
   const modeOptions = resolveAgentModeOptions(modesQuery.data)
   const selectedMode =

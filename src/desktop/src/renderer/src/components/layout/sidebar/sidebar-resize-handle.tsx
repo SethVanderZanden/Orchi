@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react'
 
-import {
-  SIDEBAR_MAX_WIDTH,
-  SIDEBAR_MIN_WIDTH
-} from '@/providers/project-layout-provider'
+import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH } from '@/providers/project-layout-provider'
 
 type SidebarResizeHandleProps = {
   width: number

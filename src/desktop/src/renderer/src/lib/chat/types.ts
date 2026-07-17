@@ -2,6 +2,8 @@ export type ChatRole = 'user' | 'assistant'
 
 export type ChatMessageStatus = 'complete' | 'streaming' | 'processing' | 'error'
 
+export type ChatStatus = 'read' | 'inProgress' | 'readyForReview'
+
 export type AgentMode = string
 
 export type AgentModeOption = {
@@ -66,6 +68,8 @@ export type ChatThread = {
   modelId: string | null
   parentChatId: string | null
   planFilePath: string | null
+  status: ChatStatus
+  lastReadAt: string | null
   messages: ChatMessage[]
 }
 
@@ -131,6 +135,8 @@ export type ChatSummaryResponse = {
   modelId: string | null
   parentChatId: string | null
   planFilePath: string | null
+  status: ChatStatus
+  lastReadAt: string | null
 }
 
 export type ChatDetailResponse = {
@@ -144,6 +150,8 @@ export type ChatDetailResponse = {
   modelId: string | null
   parentChatId: string | null
   planFilePath: string | null
+  status: ChatStatus
+  lastReadAt: string | null
   messages: ChatMessage[]
 }
 

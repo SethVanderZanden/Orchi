@@ -6,15 +6,15 @@ type State = { error: Error | null; retryKey: number }
 export class ErrorBoundary extends Component<Props, State> {
   state = { error: null as Error | null, retryKey: 0 }
 
-  static getDerivedStateFromError(error: Error) {
+  static getDerivedStateFromError(error: Error): Partial<State> {
     return { error }
   }
 
-  componentDidCatch(error: Error, info: ErrorInfo) {
+  componentDidCatch(error: Error, info: ErrorInfo): void {
     console.error('Renderer error:', error, info.componentStack)
   }
 
-  render() {
+  render(): ReactNode {
     if (this.state.error) {
       return (
         this.props.fallback ?? (

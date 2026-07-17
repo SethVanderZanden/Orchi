@@ -1,6 +1,6 @@
 import type { ChatThread } from '@/lib/chat/types'
 
-function isChildRunning(childChat: ChatThread | undefined): boolean {
+export function isChildRunning(childChat: ChatThread | undefined): boolean {
   if (!childChat) {
     return false
   }

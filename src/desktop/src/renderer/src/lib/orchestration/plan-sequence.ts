@@ -82,10 +82,7 @@ export function resolveKickoffGroups(
   return { sequenced, independent }
 }
 
-export function hasSequentialKickoff(
-  sequencePlanIds: string[],
-  plans: ParsedPlan[]
-): boolean {
+export function hasSequentialKickoff(sequencePlanIds: string[], plans: ParsedPlan[]): boolean {
   if (sequencePlanIds.length === 0) {
     return false
   }

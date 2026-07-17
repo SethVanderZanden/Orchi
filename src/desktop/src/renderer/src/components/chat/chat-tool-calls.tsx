@@ -1,10 +1,6 @@
 import { ChevronDown, ChevronRight } from 'lucide-react'
 
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger
-} from '@/components/ui/collapsible'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { cn } from '@/lib/utils'
 
 export type ToolCallItem = {
@@ -38,7 +34,10 @@ export function ChatToolCalls({ calls }: ChatToolCallsProps): React.JSX.Element 
       </CollapsibleTrigger>
       <CollapsibleContent className="mt-1 space-y-0.5 pl-2">
         {calls.map((call) => (
-          <div key={call.key} className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
+          <div
+            key={call.key}
+            className="flex items-start gap-1.5 text-[11px] text-muted-foreground"
+          >
             <span
               className={cn(
                 'mt-1 size-1 shrink-0 rounded-full',

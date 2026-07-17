@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import * as React from 'react'
 import { Slot } from '@radix-ui/react-slot'
 import { cva, type VariantProps } from 'class-variance-authority'
@@ -26,7 +27,7 @@ function Marker({
 }: React.ComponentProps<'div'> &
   VariantProps<typeof markerVariants> & {
     asChild?: boolean
-  }) {
+  }): React.JSX.Element {
   const Comp = asChild ? Slot : 'div'
 
   return (
@@ -39,7 +40,7 @@ function Marker({
   )
 }
 
-function MarkerIcon({ className, ...props }: React.ComponentProps<'span'>) {
+function MarkerIcon({ className, ...props }: React.ComponentProps<'span'>): React.JSX.Element {
   return (
     <span
       data-slot="marker-icon"
@@ -50,7 +51,7 @@ function MarkerIcon({ className, ...props }: React.ComponentProps<'span'>) {
   )
 }
 
-function MarkerContent({ className, ...props }: React.ComponentProps<'span'>) {
+function MarkerContent({ className, ...props }: React.ComponentProps<'span'>): React.JSX.Element {
   return (
     <span
       data-slot="marker-content"

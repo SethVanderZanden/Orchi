@@ -128,13 +128,16 @@ export function createOrchestrationEventHandlers(
         }
 
         const messages = [...base.messages]
-        const targetIndex = messageId
-          ? messages.findIndex((message) => message.id === messageId)
-          : messages.findLastIndex(
-              (message) =>
-                message.role === 'assistant' &&
-                (message.status === 'processing' || message.status === 'streaming')
-            )
+        let targetIndex = messageId ? messages.findIndex((message) => message.id === messageId) : -1
+
+        // Token streaming may assign a local id before the server messageId arrives.
+        if (targetIndex === -1) {
+          targetIndex = messages.findLastIndex(
+            (message) =>
+              message.role === 'assistant' &&
+              (message.status === 'processing' || message.status === 'streaming')
+          )
+        }
 
         if (targetIndex === -1) {
           return base

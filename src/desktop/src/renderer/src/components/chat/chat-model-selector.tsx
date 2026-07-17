@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronDown } from 'lucide-react'
 
@@ -48,15 +48,17 @@ export function ChatModelSelector({
   compact = false
 }: ChatModelSelectorProps): React.JSX.Element {
   const [open, setOpen] = useState(false)
+  const [prevSelection, setPrevSelection] = useState({ modelId, mode })
+  if (modelId !== prevSelection.modelId || mode !== prevSelection.mode) {
+    setPrevSelection({ modelId, mode })
+    setOpen(false)
+  }
+
   const modelsQuery = useQuery({
     queryKey: agentKeys.models(agentId),
     queryFn: () => listAgentModels(agentId, false),
     staleTime: ONE_HOUR_MS
   })
-
-  useEffect(() => {
-    setOpen(false)
-  }, [modelId, mode])
 
   const enabledModels = modelsQuery.data?.models ?? []
   const selectedModel = enabledModels.find((model) => model.id === modelId)
@@ -98,9 +100,7 @@ export function ChatModelSelector({
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
       </DropdownMenu>
-      {!compact && error ? (
-        <p className="text-[11px] text-destructive">{error}</p>
-      ) : null}
+      {!compact && error ? <p className="text-[11px] text-destructive">{error}</p> : null}
       {!compact && disabled ? (
         <p className="text-[11px] text-muted-foreground">
           Model cannot be changed while the agent is running.
@@ -109,9 +109,7 @@ export function ChatModelSelector({
       {!compact && !disabled ? (
         <p className="text-[11px] text-muted-foreground">Model applies to the next message.</p>
       ) : null}
-      {compact && error ? (
-        <span className="sr-only">{error}</span>
-      ) : null}
+      {compact && error ? <span className="sr-only">{error}</span> : null}
     </div>
   )
 }

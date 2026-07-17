@@ -240,4 +240,52 @@ public sealed class EfChatStore(IDbContextFactory<AppDbContext> dbContextFactory
         await db.SaveChangesAsync(cancellationToken);
         return true;
     }
+
+    public async Task<ChatStatus?> UpdateStatusAsync(
+        Guid chatId,
+        ChatStatus status,
+        CancellationToken cancellationToken)
+    {
+        await using AppDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        Chat? chat = await db.Chats.FirstOrDefaultAsync(existing => existing.Id == chatId, cancellationToken);
+        if (chat is null)
+        {
+            return null;
+        }
+
+        if (chat.Status == status)
+        {
+            return status;
+        }
+
+        chat.Status = status;
+        chat.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(cancellationToken);
+        return status;
+    }
+
+    public async Task<ChatSession?> MarkReadAsync(Guid chatId, CancellationToken cancellationToken)
+    {
+        await using AppDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        Chat? chat = await db.Chats
+            .Include(existing => existing.Messages)
+            .FirstOrDefaultAsync(existing => existing.Id == chatId, cancellationToken);
+
+        if (chat is null)
+        {
+            return null;
+        }
+
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        chat.LastReadAt = now;
+        chat.UpdatedAt = now;
+
+        if (chat.Status != ChatStatus.InProgress)
+        {
+            chat.Status = ChatStatus.Read;
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        return ChatStoreMapper.ToSession(chat);
+    }
 }

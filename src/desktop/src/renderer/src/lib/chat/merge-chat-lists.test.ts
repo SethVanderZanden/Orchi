@@ -18,6 +18,8 @@ function makeChat(overrides: Partial<ChatThread> & Pick<ChatThread, 'id'>): Chat
     modelId: overrides.modelId ?? null,
     parentChatId: overrides.parentChatId ?? null,
     planFilePath: overrides.planFilePath ?? null,
+    status: overrides.status ?? 'read',
+    lastReadAt: overrides.lastReadAt ?? null,
     messages: overrides.messages ?? []
   }
 }
@@ -31,7 +33,9 @@ describe('mergeChatLists', () => {
   })
 
   it('lets incoming entries overwrite cached entries with the same id', () => {
-    const cached = [makeChat({ id: 'a', title: 'Old title', updatedAt: '2026-01-01T00:00:00.000Z' })]
+    const cached = [
+      makeChat({ id: 'a', title: 'Old title', updatedAt: '2026-01-01T00:00:00.000Z' })
+    ]
     const incoming = [
       makeChat({ id: 'a', title: 'New title', updatedAt: '2026-01-02T00:00:00.000Z' })
     ]

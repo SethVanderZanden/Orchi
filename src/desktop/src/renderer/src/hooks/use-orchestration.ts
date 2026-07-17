@@ -119,7 +119,17 @@ export function useOrchestration({
     return () => {
       controller.abort()
     }
-  }, [enabled, hasParentChat, isTracking, parentChatId, queryClient])
+  }, [
+    enabled,
+    getChatRef,
+    hasParentChat,
+    isTracking,
+    onChildrenHydratedRef,
+    onWorkflowProgressRef,
+    parentChatId,
+    parentChatRef,
+    queryClient
+  ])
 
   return { workflowProgress: isTracking ? workflowProgress : null, sequencePlanIds }
 }

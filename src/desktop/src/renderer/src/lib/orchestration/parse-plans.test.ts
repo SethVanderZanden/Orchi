@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { parseOrchestrationPlansFromMessages, parsePlans, parsePlansFromMessages } from './parse-plans'
+import {
+  parseOrchestrationPlansFromMessages,
+  parsePlans,
+  parsePlansFromMessages
+} from './parse-plans'
 
 describe('parsePlans', () => {
   it('extracts plan blocks with ids and titles', () => {

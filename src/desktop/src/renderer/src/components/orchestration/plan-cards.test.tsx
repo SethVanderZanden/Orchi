@@ -17,6 +17,8 @@ function createReviewChild(messages: ChatThread['messages'] = []): ChatThread {
     modelId: null,
     parentChatId: 'parent-id',
     planFilePath: '.orchi/review-auth-refactor.md',
+    status: 'read',
+    lastReadAt: null,
     messages
   }
 }

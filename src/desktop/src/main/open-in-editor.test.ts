@@ -94,7 +94,9 @@ describe('openInEditor', () => {
     const deps = createDeps({
       openExternal: vi.fn().mockRejectedValue(new Error('protocol failed')),
       spawnDetached: vi.fn().mockImplementation((command: string) => command === installPath),
-      fileExists: vi.fn().mockImplementation((path: string) => path === folderPath || path === installPath)
+      fileExists: vi
+        .fn()
+        .mockImplementation((path: string) => path === folderPath || path === installPath)
     })
 
     const result = await openInEditor(folderPath, 'vscode', deps)

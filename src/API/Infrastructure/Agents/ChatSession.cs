@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Orchi.Api.Entities;
 
 namespace Orchi.Api.Infrastructure.Agents;
 
@@ -23,6 +24,10 @@ public sealed class ChatSession
     public string? PlanFilePath { get; init; }
 
     public string? ExternalSessionId { get; set; }
+
+    public ChatStatus Status { get; set; } = ChatStatus.Read;
+
+    public DateTimeOffset? LastReadAt { get; set; }
 
     public List<ChatMessage> Messages { get; } = [];
 

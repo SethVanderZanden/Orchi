@@ -194,6 +194,8 @@ export function useChatOrchestration({
         modelId: parentChat?.modelId ?? null,
         parentChatId: chatId,
         planFilePath: response.planFilePath,
+        status: 'inProgress',
+        lastReadAt: null,
         messages: []
       }
 

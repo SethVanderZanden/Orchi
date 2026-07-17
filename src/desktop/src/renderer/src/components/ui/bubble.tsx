@@ -4,7 +4,7 @@ import { cva, type VariantProps } from 'class-variance-authority'
 
 import { cn } from '@/lib/utils'
 
-function BubbleGroup({ className, ...props }: React.ComponentProps<'div'>) {
+function BubbleGroup({ className, ...props }: React.ComponentProps<'div'>): React.JSX.Element {
   return (
     <div
       data-slot="bubble-group"
@@ -49,7 +49,7 @@ function Bubble({
 }: React.ComponentProps<'div'> &
   VariantProps<typeof bubbleVariants> & {
     align?: 'start' | 'end'
-  }) {
+  }): React.JSX.Element {
   return (
     <div
       data-slot="bubble"
@@ -67,7 +67,7 @@ function BubbleContent({
   ...props
 }: React.ComponentProps<'div'> & {
   asChild?: boolean
-}) {
+}): React.JSX.Element {
   const Comp = asChild ? Slot : 'div'
 
   return (
@@ -110,7 +110,7 @@ function BubbleReactions({
 }: React.ComponentProps<'div'> & {
   align?: 'start' | 'end'
   side?: 'top' | 'bottom'
-}) {
+}): React.JSX.Element {
   return (
     <div
       data-slot="bubble-reactions"

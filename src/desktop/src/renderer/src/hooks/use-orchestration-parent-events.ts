@@ -52,5 +52,13 @@ export function useOrchestrationParentEvents({
     return () => {
       controller.abort()
     }
-  }, [childChat?.parentChatId, isParentKickoffActive, parentChatId, parentChildCount, queryClient])
+  }, [
+    childChat?.parentChatId,
+    getChatRef,
+    isParentKickoffActive,
+    parentChatId,
+    parentChatRef,
+    parentChildCount,
+    queryClient
+  ])
 }

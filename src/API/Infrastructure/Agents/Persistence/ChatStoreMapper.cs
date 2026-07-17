@@ -18,7 +18,9 @@ internal static class ChatStoreMapper
             ModelId = entity.ModelId,
             ParentChatId = entity.ParentChatId,
             PlanFilePath = entity.PlanFilePath,
-            ExternalSessionId = entity.ExternalSessionId
+            ExternalSessionId = entity.ExternalSessionId,
+            Status = entity.Status,
+            LastReadAt = entity.LastReadAt
         };
 
         foreach (ChatMessageEntity message in entity.Messages.OrderBy(message => message.Ordinal))

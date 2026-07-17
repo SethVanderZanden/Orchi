@@ -52,7 +52,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(chat => chat.ModelId).HasMaxLength(256);
             entity.Property(chat => chat.PlanFilePath).HasMaxLength(512);
             entity.Property(chat => chat.ExternalSessionId).HasMaxLength(256);
+            entity.Property(chat => chat.Status).HasConversion<int>();
             entity.HasIndex(chat => chat.UpdatedAt);
+            entity.HasIndex(chat => chat.Status);
             entity.HasIndex(chat => chat.ParentChatId);
             entity.HasIndex(chat => chat.ProjectId);
             entity.HasIndex(chat => chat.WorkspaceId);

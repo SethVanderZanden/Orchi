@@ -1,5 +1,10 @@
 import type { ChatThread } from '@/lib/chat/types'
-import { buildChatTree, filterChatTreeNodes, type ChatTreeNode } from '@/lib/projects/chat-tree'
+import {
+  buildChatTree,
+  chatTreeContainsChat,
+  filterChatTreeNodes,
+  type ChatTreeNode
+} from '@/lib/projects/chat-tree'
 import { normalizeWorkspacePath } from './paths'
 import type { Project, Workspace } from './types'
 
@@ -202,9 +207,7 @@ export function groupContainsChat(group: ProjectChatGroup, chatId: string): bool
     ? group.chatNodes
     : group.workspaceGroups.flatMap((workspaceGroup) => workspaceGroup.chatNodes)
 
-  return nodes.some(
-    (node) => node.chat.id === chatId || node.children.some((child) => child.id === chatId)
-  )
+  return nodes.some((node) => chatTreeContainsChat(node, chatId))
 }
 
 export function findProjectGroupForChat(

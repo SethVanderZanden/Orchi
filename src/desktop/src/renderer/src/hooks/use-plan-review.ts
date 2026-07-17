@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useRef } from 'react'
+import { useCallback, useEffect, useReducer, useRef, type Dispatch } from 'react'
 
 import { useKeyboardShortcutCombo } from '@/hooks/use-keyboard-shortcut'
 import type { ParsedPlan } from '@/lib/orchestration/parse-plans'
@@ -166,7 +166,13 @@ export function usePlanReview({
   plans,
   reviewPlansByPlanId,
   showPlanReview
-}: UsePlanReviewOptions) {
+}: UsePlanReviewOptions): {
+  reviewState: ReviewState
+  dispatchReview: Dispatch<ReviewAction>
+  toggleReviewPanel: () => void
+  activeReviewTabId: string | null
+  hasReviewReady: boolean
+} {
   const [reviewState, dispatchReview] = useReducer(reviewReducer, initialReviewState)
   const highlightedReviewPlanIdsRef = useRef<Set<string>>(new Set())
 
@@ -207,9 +213,7 @@ export function usePlanReview({
   })
 
   const activeReviewTabId =
-    reviewState.activeTabId ??
-    reviewState.openTabIds[reviewState.openTabIds.length - 1] ??
-    null
+    reviewState.activeTabId ?? reviewState.openTabIds[reviewState.openTabIds.length - 1] ?? null
 
   const hasReviewReady = plans.some((plan) => Boolean(reviewPlansByPlanId[plan.planId]))
 

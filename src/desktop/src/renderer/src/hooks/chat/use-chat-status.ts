@@ -1,12 +1,15 @@
 import { useCallback, useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 
+import { markChatRead as markChatReadApi } from '@/lib/chat/api'
 import { isLocalChat } from '@/lib/chat/chat-persistence'
-import { markChatRead as markChatReadInStorage } from '@/lib/chat/chat-read-state'
 import { getChatSidebarStatus, type ChatSidebarStatusVariant } from '@/lib/chat/chat-sidebar-status'
+import { mergeChatThread } from '@/lib/chat/merge-chat-lists'
 import { needsOrchestrationHydration } from '@/lib/orchestration/needs-orchestration-hydration'
 import type { ChatThread } from '@/lib/chat/types'
+import { chatKeys } from '@/lib/query-keys'
 
-type UseChatReadStateOptions = {
+type UseChatStatusOptions = {
   activeChatId?: string
   getChat: (chatId: string) => ChatThread | undefined
   getChildChats: (parentChatId: string) => ChatThread[]
@@ -15,28 +18,77 @@ type UseChatReadStateOptions = {
   isParentKickingOffAny: (parentChatId: string) => boolean
 }
 
-type UseChatReadStateResult = {
+type UseChatStatusResult = {
   markChatRead: (chatId: string) => void
   getChatSidebarStatus: (chat: ChatThread) => ChatSidebarStatusVariant
 }
 
-export function useChatReadState({
+function applyStatusToCaches(
+  queryClient: ReturnType<typeof useQueryClient>,
+  summary: ChatThread
+): void {
+  queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) =>
+    current.map((chat) =>
+      chat.id === summary.id
+        ? mergeChatThread(chat, {
+            ...chat,
+            status: summary.status,
+            lastReadAt: summary.lastReadAt,
+            updatedAt: summary.updatedAt
+          })
+        : chat
+    )
+  )
+
+  queryClient.setQueryData<ChatThread>(chatKeys.detail(summary.id), (current) => {
+    if (!current) {
+      return current
+    }
+
+    return {
+      ...current,
+      status: summary.status,
+      lastReadAt: summary.lastReadAt,
+      updatedAt: summary.updatedAt || current.updatedAt
+    }
+  })
+}
+
+export function useChatStatus({
   activeChatId,
   getChat,
   getChildChats,
   loadChat,
   isChatSending,
   isParentKickingOffAny
-}: UseChatReadStateOptions): UseChatReadStateResult {
+}: UseChatStatusOptions): UseChatStatusResult {
+  const queryClient = useQueryClient()
   const activeChat = activeChatId ? getChat(activeChatId) : undefined
+  const activeStatus = activeChat?.status
 
   useEffect(() => {
-    if (!activeChatId || !activeChat || isLocalChat(activeChatId)) {
+    if (!activeChatId || isLocalChat(activeChatId)) {
       return
     }
 
-    markChatReadInStorage(activeChatId, activeChat.updatedAt)
-  }, [activeChatId, activeChat?.updatedAt, activeChat?.messages.length, activeChat])
+    let cancelled = false
+
+    void markChatReadApi(activeChatId)
+      .then((summary) => {
+        if (cancelled) {
+          return
+        }
+
+        applyStatusToCaches(queryClient, summary)
+      })
+      .catch(() => {
+        // ignore mark-read failures; SSE / list refetch will reconcile
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [activeChatId, activeStatus, queryClient])
 
   useEffect(() => {
     if (!activeChatId || isLocalChat(activeChatId)) {
@@ -75,27 +127,25 @@ export function useChatReadState({
         return
       }
 
-      const chat = getChat(chatId)
-      if (!chat) {
-        return
-      }
-
-      markChatReadInStorage(chatId, chat.updatedAt)
+      void markChatReadApi(chatId)
+        .then((summary) => {
+          applyStatusToCaches(queryClient, summary)
+        })
+        .catch(() => {
+          // ignore
+        })
     },
-    [getChat]
+    [queryClient]
   )
 
   const getChatSidebarStatusForChat = useCallback(
     (chat: ChatThread) =>
       getChatSidebarStatus({
-        chat,
-        activeChatId,
+        chat: getChat(chat.id) ?? chat,
         isSending: isChatSending(chat.id),
-        isParentKickingOff: isParentKickingOffAny(chat.id),
-        getChat,
-        getChildChats
+        isParentKickingOff: isParentKickingOffAny(chat.id)
       }),
-    [activeChatId, getChat, getChildChats, isChatSending, isParentKickingOffAny]
+    [getChat, isChatSending, isParentKickingOffAny]
   )
 
   return {

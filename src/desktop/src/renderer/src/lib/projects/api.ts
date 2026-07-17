@@ -5,14 +5,16 @@ import type {
   CreateProjectRequest,
   CreateProjectResponse,
   CreateWorkspaceRequest,
+  Project,
   ProjectDetailResponse,
   ProjectSummaryResponse,
   UpdateProjectRequest,
   UpdateWorkspaceRequest,
+  Workspace,
   WorkspaceResponse
 } from './types'
 
-function mapWorkspace(workspace: WorkspaceResponse) {
+function mapWorkspace(workspace: WorkspaceResponse): Workspace {
   return {
     id: workspace.id,
     projectId: workspace.projectId,
@@ -26,7 +28,7 @@ function mapWorkspace(workspace: WorkspaceResponse) {
   }
 }
 
-function mapProjectSummary(summary: ProjectSummaryResponse) {
+function mapProjectSummary(summary: ProjectSummaryResponse): Project {
   return {
     id: summary.id,
     name: summary.name,
@@ -36,7 +38,7 @@ function mapProjectSummary(summary: ProjectSummaryResponse) {
   }
 }
 
-function mapProjectDetail(detail: ProjectDetailResponse) {
+function mapProjectDetail(detail: ProjectDetailResponse): Project {
   return {
     id: detail.id,
     name: detail.name,
@@ -46,7 +48,7 @@ function mapProjectDetail(detail: ProjectDetailResponse) {
   }
 }
 
-export async function listProjects() {
+export async function listProjects(): Promise<Project[]> {
   const response = await fetch(`${getApiBaseUrl()}/projects`)
   if (!response.ok) {
     throw new Error(await readErrorMessage(response))
@@ -56,7 +58,7 @@ export async function listProjects() {
   return summaries.map(mapProjectSummary)
 }
 
-export async function getProject(projectId: string) {
+export async function getProject(projectId: string): Promise<Project> {
   const response = await fetch(`${getApiBaseUrl()}/projects/${projectId}`)
   if (!response.ok) {
     throw new Error(await readErrorMessage(response))
@@ -66,7 +68,7 @@ export async function getProject(projectId: string) {
   return mapProjectDetail(detail)
 }
 
-export async function createProject(request: CreateProjectRequest) {
+export async function createProject(request: CreateProjectRequest): Promise<Project> {
   const response = await fetch(`${getApiBaseUrl()}/projects`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -87,7 +89,10 @@ export async function createProject(request: CreateProjectRequest) {
   }
 }
 
-export async function updateProject(projectId: string, request: UpdateProjectRequest) {
+export async function updateProject(
+  projectId: string,
+  request: UpdateProjectRequest
+): Promise<Project> {
   const response = await fetch(`${getApiBaseUrl()}/projects/${projectId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -102,7 +107,7 @@ export async function updateProject(projectId: string, request: UpdateProjectReq
   return mapProjectDetail(updated)
 }
 
-export async function deleteProject(projectId: string) {
+export async function deleteProject(projectId: string): Promise<void> {
   const response = await fetch(`${getApiBaseUrl()}/projects/${projectId}`, {
     method: 'DELETE'
   })
@@ -112,7 +117,10 @@ export async function deleteProject(projectId: string) {
   }
 }
 
-export async function createWorkspace(projectId: string, request: CreateWorkspaceRequest) {
+export async function createWorkspace(
+  projectId: string,
+  request: CreateWorkspaceRequest
+): Promise<Workspace> {
   const response = await fetch(`${getApiBaseUrl()}/projects/${projectId}/workspaces`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -127,7 +135,10 @@ export async function createWorkspace(projectId: string, request: CreateWorkspac
   return mapWorkspace(created)
 }
 
-export async function updateWorkspace(workspaceId: string, request: UpdateWorkspaceRequest) {
+export async function updateWorkspace(
+  workspaceId: string,
+  request: UpdateWorkspaceRequest
+): Promise<Workspace> {
   const response = await fetch(`${getApiBaseUrl()}/workspaces/${workspaceId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -142,7 +153,7 @@ export async function updateWorkspace(workspaceId: string, request: UpdateWorksp
   return mapWorkspace(updated)
 }
 
-export async function deleteWorkspace(workspaceId: string) {
+export async function deleteWorkspace(workspaceId: string): Promise<void> {
   const response = await fetch(`${getApiBaseUrl()}/workspaces/${workspaceId}`, {
     method: 'DELETE'
   })

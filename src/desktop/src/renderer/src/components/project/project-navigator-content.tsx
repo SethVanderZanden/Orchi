@@ -2,7 +2,10 @@ import { FolderPlus } from 'lucide-react'
 
 import { SidebarNavItem } from '@/components/layout/sidebar/sidebar-nav-item'
 import { SidebarSectionHeader } from '@/components/layout/sidebar/sidebar-section-header'
-import { sidebarIconClass, type SidebarChatActions } from '@/components/layout/sidebar/sidebar-utils'
+import {
+  sidebarIconClass,
+  type SidebarChatActions
+} from '@/components/layout/sidebar/sidebar-utils'
 import { OrphanChatsSection } from '@/components/project/orphan-chats-section'
 import { ProjectGroupRow } from '@/components/project/project-group-row'
 import { Button } from '@/components/ui/button'

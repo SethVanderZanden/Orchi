@@ -17,6 +17,8 @@ function createChat(overrides: Partial<ChatThread> = {}): ChatThread {
     modelId: null,
     parentChatId: null,
     planFilePath: null,
+    status: 'read',
+    lastReadAt: null,
     messages: [],
     ...overrides
   }
@@ -72,9 +74,11 @@ Review complete.
       planId: 'auth-refactor',
       title: 'Auth Refactor Review'
     })
-    expect(hasReviewReadyPlan(parent, [reviewChild], (chatId) =>
-      chatId === reviewChild.id ? reviewChild : undefined
-    )).toBe(true)
+    expect(
+      hasReviewReadyPlan(parent, [reviewChild], (chatId) =>
+        chatId === reviewChild.id ? reviewChild : undefined
+      )
+    ).toBe(true)
   })
 
   it('returns false for non-orchestration chats', () => {
