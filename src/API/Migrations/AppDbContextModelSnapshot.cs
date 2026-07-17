@@ -420,6 +420,11 @@ namespace Orchi.Api.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("AutoKickOffReview")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true);
+
                     b.Property<string>("EnabledAgentIdsJson")
                         .IsRequired()
                         .HasMaxLength(512)

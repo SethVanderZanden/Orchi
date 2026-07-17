@@ -6,6 +6,7 @@ public sealed record StoredUserPreference(
     string Id,
     PostMessageBehavior PostMessageBehavior,
     IReadOnlyList<string> EnabledAgentIds,
+    bool AutoKickOffReview,
     DateTimeOffset UpdatedAt);
 
 public interface IUserPreferenceStore
@@ -15,5 +16,6 @@ public interface IUserPreferenceStore
     Task<StoredUserPreference> UpdateAsync(
         PostMessageBehavior? postMessageBehavior,
         IReadOnlyList<string>? enabledAgentIds,
+        bool? autoKickOffReview,
         CancellationToken cancellationToken);
 }

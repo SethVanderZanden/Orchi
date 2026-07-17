@@ -17,9 +17,12 @@ export function useFinderCommands(onComplete: () => void): AppFinderCommand[] {
   const {
     activeTabId,
     openTabIds,
+    splitTabId,
     createAndOpenTab,
     createAndOpenSplitTab,
     closeTab,
+    openChat,
+    openChatInSplit,
     activateAdjacentTab,
     activateTabAtIndex,
     isCreatingTab
@@ -34,6 +37,7 @@ export function useFinderCommands(onComplete: () => void): AppFinderCommand[] {
 
   const activeChat = activeTabId ? getChat(activeTabId) : null
   const activeWorkspacePath = activeChat?.workspacePath?.trim() ?? ''
+  const parentChatId = activeChat?.parentChatId ?? null
 
   return useMemo(() => {
     const commands: AppFinderCommand[] = [
@@ -52,6 +56,26 @@ export function useFinderCommands(onComplete: () => void): AppFinderCommand[] {
         shortcut: 'Ctrl+→',
         disabled: isCreatingTab,
         onSelect: () => complete(() => createAndOpenSplitTab())
+      },
+      {
+        id: 'open-parent-beside',
+        label: 'Open parent chat beside',
+        keywords: ['parent', 'split', 'beside', 'orchestration'],
+        shortcut: 'Ctrl+↑',
+        disabled: !parentChatId,
+        onSelect: () =>
+          complete(() => {
+            if (!parentChatId || !activeTabId) {
+              return
+            }
+
+            if (splitTabId === activeTabId) {
+              openChat(parentChatId)
+              return
+            }
+
+            openChatInSplit(parentChatId)
+          })
       },
       {
         id: 'open-in-editor',
@@ -141,8 +165,12 @@ export function useFinderCommands(onComplete: () => void): AppFinderCommand[] {
     isCreatingTab,
     isPendingProjects,
     navigate,
+    openChat,
+    openChatInSplit,
     openTabIds.length,
+    parentChatId,
     pickDirectory,
-    preferredEditor
+    preferredEditor,
+    splitTabId
   ])
 }

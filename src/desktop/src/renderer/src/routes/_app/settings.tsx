@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { AgentModelsCard } from '@/components/settings/agent-models-card'
 import { AgentContextSizesCard } from '@/components/settings/agent-context-sizes-card'
 import { AgentCliOptionsCard } from '@/components/settings/agent-cli-options-card'
+import { AutoKickOffReviewCard } from '@/components/settings/auto-kick-off-review-card'
 import { EnabledAgentsCard } from '@/components/settings/enabled-agents-card'
 import { ModeRuntimeDefaultsCard } from '@/components/settings/mode-runtime-defaults-card'
 import { DefaultChatModeCard } from '@/components/settings/default-chat-mode-card'
@@ -57,6 +58,7 @@ function SettingsPage(): React.JSX.Element {
               <PreferredEditorCard />
               <DefaultChatModeCard />
               <PostMessageBehaviorCard />
+              <AutoKickOffReviewCard />
               <Card>
                 <CardContent className="space-y-3 p-4">
                   <p className="text-sm text-muted-foreground">

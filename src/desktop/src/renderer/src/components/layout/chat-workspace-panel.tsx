@@ -49,6 +49,7 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
     isParentKickingOffAny
   } = useChat()
   const { requestDelete, isDeletingChat } = useDeleteChat()
+  const { openChat, openChatInSplit, splitTabId } = useChatTabs()
   const { projects } = useProjects()
   const projectName =
     projects.find((project) => project.id === chat.projectId)?.name ??
@@ -166,6 +167,21 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
       showPlanReview
     })
 
+  const openParentBeside = useCallback(() => {
+    if (!chat.parentChatId) {
+      return
+    }
+
+    // Keep child + parent side by side: if this chat is already in the split,
+    // open the parent as the primary tab instead of replacing the split.
+    if (splitTabId === chat.id) {
+      openChat(chat.parentChatId)
+      return
+    }
+
+    openChatInSplit(chat.parentChatId)
+  }, [chat.id, chat.parentChatId, openChat, openChatInSplit, splitTabId])
+
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <ChatWorkspaceHeader
@@ -173,10 +189,13 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
         projectName={projectName}
         childChatCount={childChats.length}
         workspacePath={chat.workspacePath}
+        parentChatId={chat.parentChatId}
+        parentTitle={parentChat?.title ?? null}
         showPlanReview={showPlanReview}
         reviewPanelOpen={reviewState.panelOpen}
         hasReviewReady={hasReviewReady}
         onToggleReviewPanel={toggleReviewPanel}
+        onOpenParentBeside={openParentBeside}
         onDelete={() => requestDelete(chat)}
         deleteDisabled={isChatSending(chat.id) || isDeletingChat(chat.id)}
       />

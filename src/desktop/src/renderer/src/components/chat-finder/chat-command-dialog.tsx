@@ -122,7 +122,7 @@ export function ChatCommandDialog({
               handleOpenChange(false)
             }}
           >
-            <ChatStatusDot variant={getChatStatusVariant(chat)} />
+            <ChatStatusDot variant={getChatStatusVariant(chat)} mode={chat.mode} />
             <span className="truncate">{chat.title}</span>
           </CommandItem>
         ))}

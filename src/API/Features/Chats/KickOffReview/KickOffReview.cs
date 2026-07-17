@@ -131,11 +131,13 @@ public static class KickOffReview
 
             ChatSession reviewChild = reviewChildResult.Value;
             string initialPrompt = ReviewPlanTask.Build(reviewFilePath);
+            const string kickoffMessage = "Begin review.";
 
             return Result.Success(new KickOffReviewResponse(
                 reviewChild.Id,
                 reviewFilePath,
-                initialPrompt));
+                initialPrompt,
+                kickoffMessage));
         }
     }
 

@@ -111,7 +111,7 @@ export function AppHeader(): React.JSX.Element {
                 ) : (
                   recentChats.map((chat) => (
                     <DropdownMenuItem key={chat.id} onClick={() => openChat(chat.id)}>
-                      <ChatStatusDot variant={getChatStatusVariant(chat)} />
+                      <ChatStatusDot variant={getChatStatusVariant(chat)} mode={chat.mode} />
                       <span className="truncate">{chat.title}</span>
                     </DropdownMenuItem>
                   ))

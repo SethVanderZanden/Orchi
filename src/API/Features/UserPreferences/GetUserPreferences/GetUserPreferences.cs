@@ -13,6 +13,7 @@ public static class GetUserPreferences
     public sealed record Response(
         PostMessageBehavior PostMessageBehavior,
         IReadOnlyList<string> EnabledAgentIds,
+        bool AutoKickOffReview,
         DateTimeOffset UpdatedAt);
 
     internal sealed class Handler(IUserPreferenceService preferenceService)
@@ -21,7 +22,11 @@ public static class GetUserPreferences
         public async Task<Result<Response>> Handle(Query query, CancellationToken cancellationToken)
         {
             UserPreferenceDto dto = await preferenceService.GetAsync(cancellationToken);
-            return Result.Success(new Response(dto.PostMessageBehavior, dto.EnabledAgentIds, dto.UpdatedAt));
+            return Result.Success(new Response(
+                dto.PostMessageBehavior,
+                dto.EnabledAgentIds,
+                dto.AutoKickOffReview,
+                dto.UpdatedAt));
         }
     }
 

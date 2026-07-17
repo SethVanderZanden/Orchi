@@ -1,10 +1,10 @@
 import { createFileRoute, Navigate } from '@tanstack/react-router'
 import { FolderPlus, MessageSquare, Plus } from 'lucide-react'
 
+import { ShortcutHint } from '@/components/app-header/shortcut-hint'
 import { ChatStatusDot } from '@/components/chat/chat-status-dot'
 import { EmptyState } from '@/components/empty-state'
 import { Button } from '@/components/ui/button'
-import { CommandShortcut } from '@/components/ui/command'
 import type { ChatStatusVariant } from '@/lib/chat/chat-status-variant'
 import type { ChatThread } from '@/lib/chat/types'
 import { getRecentChats } from '@/lib/chat-finder/build-chat-finder-groups'
@@ -71,6 +71,12 @@ function AppIndexPage(): React.JSX.Element {
         <Plus className="size-4" />
         New chat
       </Button>
+      <div className="flex w-full max-w-xs flex-col gap-1.5 text-left text-sm">
+        <ShortcutRow label="New chat tab" shortcut="Ctrl+N" />
+        <ShortcutRow label="Agents board" shortcut="Ctrl+B" />
+        <ShortcutRow label="Open chat beside" shortcut="Ctrl+ArrowRight" />
+        <ShortcutRow label="Find chat" shortcut="Ctrl+K" />
+      </div>
       {recentChats.length > 0 ? (
         <div className="mt-1 flex w-full max-w-sm flex-col gap-1 text-left">
           <p className="px-2 text-xs font-medium text-muted-foreground">Recent</p>
@@ -87,12 +93,6 @@ function AppIndexPage(): React.JSX.Element {
           </ul>
         </div>
       ) : null}
-      <div className="flex w-full max-w-xs flex-col gap-1.5 text-left text-sm">
-        <ShortcutRow label="New chat tab" shortcut="Ctrl+N" />
-        <ShortcutRow label="Agents board" shortcut="Ctrl+B" />
-        <ShortcutRow label="Open chat beside" shortcut="Ctrl+ArrowRight" />
-        <ShortcutRow label="Find chat" shortcut="Ctrl+K" />
-      </div>
     </EmptyState>
   )
 }
@@ -115,7 +115,7 @@ function RecentChatRow({
         onClick={onOpen}
         className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
       >
-        <ChatStatusDot variant={statusVariant} />
+        <ChatStatusDot variant={statusVariant} mode={chat.mode} />
         <span className="min-w-0 flex-1 truncate font-medium">{chat.title}</span>
         {projectName ? (
           <span className="max-w-[40%] shrink-0 truncate text-xs text-muted-foreground">
@@ -131,7 +131,7 @@ function ShortcutRow({ label, shortcut }: { label: string; shortcut: string }): 
   return (
     <div className="flex items-center justify-between gap-6">
       <span className="text-muted-foreground">{label}</span>
-      <CommandShortcut className="ml-0">{shortcut}</CommandShortcut>
+      <ShortcutHint>{shortcut}</ShortcutHint>
     </div>
   )
 }

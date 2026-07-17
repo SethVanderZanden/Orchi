@@ -266,6 +266,7 @@ export type KickOffReviewResponse = {
   reviewChildChatId: string
   reviewFilePath: string
   initialPrompt: string
+  kickoffMessage: string
 }
 
 export type SseHandlers = {

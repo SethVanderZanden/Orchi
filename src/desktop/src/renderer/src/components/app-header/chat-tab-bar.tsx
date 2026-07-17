@@ -86,6 +86,7 @@ export function ChatTabBar(): React.JSX.Element {
             title={title}
             projectName={projectName}
             statusVariant={statusVariant}
+            mode={chat?.mode ?? 'default'}
             isActive={!isNavTabActive && chatId === activeTabId}
             isSplit={chatId === splitTabId}
             onSelect={() => openChat(chatId)}

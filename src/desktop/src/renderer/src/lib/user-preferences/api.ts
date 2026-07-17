@@ -16,7 +16,8 @@ export async function getUserPreferences(): Promise<UserPreferences> {
   const payload = (await response.json()) as UserPreferences
   return {
     ...payload,
-    enabledAgentIds: payload.enabledAgentIds ?? []
+    enabledAgentIds: payload.enabledAgentIds ?? [],
+    autoKickOffReview: payload.autoKickOffReview ?? true
   }
 }
 
@@ -36,8 +37,10 @@ export async function updateUserPreferences(
   const payload = (await response.json()) as UserPreferences
   return {
     ...payload,
-    enabledAgentIds: payload.enabledAgentIds ?? []
+    enabledAgentIds: payload.enabledAgentIds ?? [],
+    autoKickOffReview: payload.autoKickOffReview ?? true
   }
 }
 
 export const DEFAULT_POST_MESSAGE_BEHAVIOR: PostMessageBehavior = 'stayOnChat'
+export const DEFAULT_AUTO_KICK_OFF_REVIEW = true

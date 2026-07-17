@@ -222,7 +222,8 @@ public sealed record KickOffPlanResponse(
 public sealed record KickOffReviewResponse(
     Guid ReviewChildChatId,
     string ReviewFilePath,
-    string InitialPrompt);
+    string InitialPrompt,
+    string KickoffMessage);
 
 public sealed record SendMessageDoneResponse(Guid MessageId);
 

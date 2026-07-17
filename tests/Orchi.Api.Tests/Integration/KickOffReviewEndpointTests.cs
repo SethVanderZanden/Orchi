@@ -60,6 +60,7 @@ public class KickOffReviewEndpointTests : IClassFixture<TestWebApplicationFactor
         Assert.Equal(".orchi/review-auth-refactor.md", kickedOff.ReviewFilePath);
         Assert.Contains(".orchi/review-auth-refactor.md", kickedOff.InitialPrompt);
         Assert.Contains("delete `.orchi/review-auth-refactor.md`", kickedOff.InitialPrompt);
+        Assert.Equal("Begin review.", kickedOff.KickoffMessage);
 
         string reviewFile = Path.Combine(_workspacePath, ".orchi", "review-auth-refactor.md");
         Assert.True(File.Exists(reviewFile));

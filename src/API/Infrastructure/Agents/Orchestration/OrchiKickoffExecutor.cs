@@ -101,7 +101,7 @@ public sealed class OrchiKickoffExecutor(
                 : $"Started review for plan `{planId}`.",
             cancellationToken);
 
-        RunAgentTurnInBackground(parentChatId, response.ReviewChildChatId, response.InitialPrompt);
+        RunAgentTurnInBackground(parentChatId, response.ReviewChildChatId, response.KickoffMessage);
     }
 
     public void RunAgentTurnInBackground(Guid parentChatId, Guid childChatId, string content)
@@ -160,7 +160,7 @@ public sealed class OrchiKickoffExecutor(
     private sealed record ReviewKickoffResult(
         Guid ReviewChildChatId,
         string ReviewFilePath,
-        string InitialPrompt);
+        string KickoffMessage);
 
     private static class KickoffHandlerInvoker
     {
@@ -249,7 +249,7 @@ public sealed class OrchiKickoffExecutor(
             return Result.Success(new ReviewKickoffResult(
                 (Guid)ReviewResponseType.GetProperty(nameof(ReviewKickoffResult.ReviewChildChatId))!.GetValue(response)!,
                 (string)ReviewResponseType.GetProperty(nameof(ReviewKickoffResult.ReviewFilePath))!.GetValue(response)!,
-                (string)ReviewResponseType.GetProperty(nameof(ReviewKickoffResult.InitialPrompt))!.GetValue(response)!));
+                (string)ReviewResponseType.GetProperty(nameof(ReviewKickoffResult.KickoffMessage))!.GetValue(response)!));
         }
 
         private static async Task<Result<object?>> InvokeHandlerAsync(

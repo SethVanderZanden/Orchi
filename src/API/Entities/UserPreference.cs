@@ -21,5 +21,10 @@ public class UserPreference
     /// </summary>
     public string EnabledAgentIdsJson { get; set; } = "[]";
 
+    /// <summary>
+    /// When true, completing an implementation child automatically kicks off a review child.
+    /// </summary>
+    public bool AutoKickOffReview { get; set; } = true;
+
     public DateTimeOffset UpdatedAt { get; set; }
 }

@@ -11,7 +11,8 @@ type ChatWorkspaceHeaderProps = {
   projectName: string | null
   childChatCount: number
   workspacePath: string
-  parentChat: ChatThread | null
+  parentChatId: string | null
+  parentTitle: string | null
   showPlanReview: boolean
   reviewPanelOpen: boolean
   hasReviewReady: boolean
@@ -26,7 +27,8 @@ export function ChatWorkspaceHeader({
   projectName,
   childChatCount,
   workspacePath,
-  parentChat,
+  parentChatId,
+  parentTitle,
   showPlanReview,
   reviewPanelOpen,
   hasReviewReady,
@@ -47,10 +49,10 @@ export function ChatWorkspaceHeader({
               ? ` · ${childChatCount} child agent${childChatCount === 1 ? '' : 's'}`
               : ''}
           </p>
-          {parentChat ? (
+          {parentChatId ? (
             <div className="flex min-w-0 items-center gap-2">
               <p className="min-w-0 truncate text-xs text-muted-foreground">
-                Parent: <span className="text-foreground/80">{parentChat.title}</span>
+                Parent: <span className="text-foreground/80">{parentTitle ?? 'Parent chat'}</span>
               </p>
               <Button
                 type="button"
@@ -59,7 +61,7 @@ export function ChatWorkspaceHeader({
                 className="h-6 shrink-0 gap-1.5 px-2 text-[11px] font-normal"
                 onClick={onOpenParentBeside}
                 title="Open parent beside"
-                aria-label={`Open parent ${parentChat.title} beside`}
+                aria-label={`Open parent ${parentTitle ?? 'chat'} beside`}
               >
                 <Columns2 className="size-3" />
                 Open beside

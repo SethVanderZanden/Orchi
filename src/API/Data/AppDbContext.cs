@@ -173,6 +173,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(preference => preference.Id).HasMaxLength(32);
             entity.Property(preference => preference.PostMessageBehavior).HasConversion<int>();
             entity.Property(preference => preference.EnabledAgentIdsJson).HasMaxLength(512);
+            entity.Property(preference => preference.AutoKickOffReview).HasDefaultValue(true);
         });
     }
 }

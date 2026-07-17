@@ -8,6 +8,7 @@ namespace Orchi.Api.Infrastructure.UserPreferences;
 public sealed record UserPreferenceDto(
     PostMessageBehavior PostMessageBehavior,
     IReadOnlyList<string> EnabledAgentIds,
+    bool AutoKickOffReview,
     DateTimeOffset UpdatedAt);
 
 public interface IUserPreferenceService
@@ -17,6 +18,7 @@ public interface IUserPreferenceService
     Task<Result<UserPreferenceDto>> UpdateAsync(
         PostMessageBehavior? postMessageBehavior,
         IReadOnlyList<string>? enabledAgentIds,
+        bool? autoKickOffReview,
         CancellationToken cancellationToken);
 }
 
@@ -34,14 +36,15 @@ public sealed class UserPreferenceService(
     public async Task<Result<UserPreferenceDto>> UpdateAsync(
         PostMessageBehavior? postMessageBehavior,
         IReadOnlyList<string>? enabledAgentIds,
+        bool? autoKickOffReview,
         CancellationToken cancellationToken)
     {
-        if (postMessageBehavior is null && enabledAgentIds is null)
+        if (postMessageBehavior is null && enabledAgentIds is null && autoKickOffReview is null)
         {
             return Result.Failure<UserPreferenceDto>(
                 Error.Validation(
                     "UserPreferences.EmptyPatch",
-                    "Provide postMessageBehavior and/or enabledAgentIds."));
+                    "Provide postMessageBehavior, enabledAgentIds, and/or autoKickOffReview."));
         }
 
         if (postMessageBehavior is not null && !Enum.IsDefined(postMessageBehavior.Value))
@@ -68,6 +71,7 @@ public sealed class UserPreferenceService(
         StoredUserPreference stored = await store.UpdateAsync(
             postMessageBehavior,
             normalizedAgents,
+            autoKickOffReview,
             cancellationToken);
 
         if (normalizedAgents is not null)
@@ -113,5 +117,5 @@ public sealed class UserPreferenceService(
     }
 
     private static UserPreferenceDto ToDto(StoredUserPreference stored) =>
-        new(stored.PostMessageBehavior, stored.EnabledAgentIds, stored.UpdatedAt);
+        new(stored.PostMessageBehavior, stored.EnabledAgentIds, stored.AutoKickOffReview, stored.UpdatedAt);
 }

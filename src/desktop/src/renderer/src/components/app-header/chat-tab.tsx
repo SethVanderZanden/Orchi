@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 import { ChatStatusDot } from '@/components/chat/chat-status-dot'
 import { Button } from '@/components/ui/button'
 import type { ChatStatusVariant } from '@/lib/chat/chat-status-variant'
+import type { AgentMode } from '@/lib/chat/types'
 import { cn } from '@/lib/utils'
 
 const CHAT_TAB_MIME = 'application/x-orchi-chat-tab'
@@ -12,6 +13,7 @@ type ChatTabProps = {
   title: string
   projectName: string | null
   statusVariant: ChatStatusVariant
+  mode: AgentMode
   isActive: boolean
   isSplit: boolean
   onSelect: () => void
@@ -23,6 +25,7 @@ export function ChatTab({
   title,
   projectName,
   statusVariant,
+  mode,
   isActive,
   isSplit,
   onSelect,
@@ -61,7 +64,7 @@ export function ChatTab({
         aria-current={isActive ? 'page' : undefined}
         title={`${label}${isSplit ? ' (split)' : ''}`}
       >
-        <ChatStatusDot variant={statusVariant} />
+        <ChatStatusDot variant={statusVariant} mode={mode} />
         <span className="min-w-0 truncate">
           {projectName ? (
             <>

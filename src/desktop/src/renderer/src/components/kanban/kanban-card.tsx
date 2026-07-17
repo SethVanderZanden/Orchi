@@ -9,6 +9,7 @@ import {
   ContextMenuTrigger
 } from '@/components/ui/context-menu'
 import type { ChatStatusVariant } from '@/lib/chat/chat-status-variant'
+import type { AgentMode } from '@/lib/chat/types'
 import { cn } from '@/lib/utils'
 
 type KanbanCardProps = {
@@ -16,6 +17,7 @@ type KanbanCardProps = {
   projectName: string | null
   parentTitle: string | null
   statusVariant: ChatStatusVariant
+  mode: AgentMode
   onOpen: () => void
   onOpenBeside: () => void
 }
@@ -25,6 +27,7 @@ export function KanbanCard({
   projectName,
   parentTitle,
   statusVariant,
+  mode,
   onOpen,
   onOpenBeside
 }: KanbanCardProps): React.JSX.Element {
@@ -41,17 +44,17 @@ export function KanbanCard({
             )}
           >
             <div className="flex min-w-0 items-start gap-2 pr-7">
-              <ChatStatusDot variant={statusVariant} className="mt-1.5" />
+              <ChatStatusDot variant={statusVariant} mode={mode} className="mt-1" />
               <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
                 {title}
               </span>
             </div>
-            <span className="truncate pl-3.5 text-xs text-muted-foreground">
+            <span className="truncate pl-5.5 text-xs text-muted-foreground">
               {projectName ?? 'No project'}
             </span>
             {parentTitle ? (
               <span
-                className="truncate pl-3.5 text-xs text-muted-foreground"
+                className="truncate pl-5.5 text-xs text-muted-foreground"
                 title={`Parent: ${parentTitle}`}
               >
                 Parent: {parentTitle}

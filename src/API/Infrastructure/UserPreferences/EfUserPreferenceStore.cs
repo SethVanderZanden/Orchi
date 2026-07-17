@@ -19,14 +19,7 @@ public sealed class EfUserPreferenceStore(IDbContextFactory<AppDbContext> dbCont
             return ToStored(entity);
         }
 
-        var created = new UserPreference
-        {
-            Id = UserPreference.DefaultId,
-            PostMessageBehavior = PostMessageBehavior.StayOnChat,
-            EnabledAgentIdsJson = EnabledAgentIdsSerializer.Serialize([]),
-            UpdatedAt = DateTimeOffset.UtcNow
-        };
-
+        UserPreference created = CreateDefaultEntity();
         db.UserPreferences.Add(created);
         await db.SaveChangesAsync(cancellationToken);
 
@@ -36,6 +29,7 @@ public sealed class EfUserPreferenceStore(IDbContextFactory<AppDbContext> dbCont
     public async Task<StoredUserPreference> UpdateAsync(
         PostMessageBehavior? postMessageBehavior,
         IReadOnlyList<string>? enabledAgentIds,
+        bool? autoKickOffReview,
         CancellationToken cancellationToken)
     {
         await using AppDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -59,6 +53,11 @@ public sealed class EfUserPreferenceStore(IDbContextFactory<AppDbContext> dbCont
             entity.EnabledAgentIdsJson = EnabledAgentIdsSerializer.Serialize(enabledAgentIds);
         }
 
+        if (autoKickOffReview is not null)
+        {
+            entity.AutoKickOffReview = autoKickOffReview.Value;
+        }
+
         entity.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
 
@@ -71,6 +70,7 @@ public sealed class EfUserPreferenceStore(IDbContextFactory<AppDbContext> dbCont
             Id = UserPreference.DefaultId,
             PostMessageBehavior = PostMessageBehavior.StayOnChat,
             EnabledAgentIdsJson = EnabledAgentIdsSerializer.Serialize([]),
+            AutoKickOffReview = true,
             UpdatedAt = DateTimeOffset.UtcNow
         };
 
@@ -79,5 +79,6 @@ public sealed class EfUserPreferenceStore(IDbContextFactory<AppDbContext> dbCont
             entity.Id,
             entity.PostMessageBehavior,
             EnabledAgentIdsSerializer.Parse(entity.EnabledAgentIdsJson),
+            entity.AutoKickOffReview,
             entity.UpdatedAt);
 }

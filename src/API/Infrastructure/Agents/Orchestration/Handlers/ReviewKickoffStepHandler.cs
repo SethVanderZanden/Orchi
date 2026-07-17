@@ -1,29 +1,40 @@
 using Orchi.Api.Infrastructure.Agents.Modes;
-using Orchi.Api.Infrastructure.Agents.Plans;
 using Orchi.Api.Infrastructure.Agents.Plans.Artifacts;
+using Orchi.Api.Infrastructure.UserPreferences;
 
 namespace Orchi.Api.Infrastructure.Agents.Orchestration.Handlers;
 
-public sealed class ReviewKickoffStepHandler(IOrchiArtifactWriterFactory artifactWriterFactory)
+public sealed class ReviewKickoffStepHandler(
+    IOrchiArtifactWriterFactory artifactWriterFactory,
+    IUserPreferenceService preferenceService)
     : IOrchestrationStepHandler
 {
-    public Task<OrchestrationStepResult?> HandleAsync(
+    public async Task<OrchestrationStepResult?> HandleAsync(
         OrchestrationStepContext context,
         CancellationToken cancellationToken)
     {
         if (!context.Succeeded)
         {
-            return Task.FromResult<OrchestrationStepResult?>(null);
+            return null;
         }
 
-        if (!string.Equals(context.CompletedChat.Mode, ImplementationAgentModeStrategy.Mode, StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(
+                context.CompletedChat.Mode,
+                ImplementationAgentModeStrategy.Mode,
+                StringComparison.OrdinalIgnoreCase))
         {
-            return Task.FromResult<OrchestrationStepResult?>(null);
+            return null;
         }
 
         if (context.CompletedPlanId is null)
         {
-            return Task.FromResult<OrchestrationStepResult?>(null);
+            return null;
+        }
+
+        UserPreferenceDto preferences = await preferenceService.GetAsync(cancellationToken);
+        if (!preferences.AutoKickOffReview)
+        {
+            return null;
         }
 
         string expectedReviewPath = artifactWriterFactory
@@ -36,14 +47,13 @@ public sealed class ReviewKickoffStepHandler(IOrchiArtifactWriterFactory artifac
 
         if (reviewExists)
         {
-            return Task.FromResult<OrchestrationStepResult?>(null);
+            return null;
         }
 
-        return Task.FromResult<OrchestrationStepResult?>(
-            new OrchestrationStepResult([
-                new OrchestrationStepAction(
-                    OrchestrationStepActionKind.KickOffReview,
-                    ImplementationChildChatId: context.CompletedChat.Id)
-            ]));
+        return new OrchestrationStepResult([
+            new OrchestrationStepAction(
+                OrchestrationStepActionKind.KickOffReview,
+                ImplementationChildChatId: context.CompletedChat.Id)
+        ]);
     }
 }

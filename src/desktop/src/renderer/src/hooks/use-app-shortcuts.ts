@@ -14,7 +14,10 @@ export function useAppShortcuts(): void {
     createAndOpenSplitTab,
     closeTab,
     activeTabId,
+    splitTabId,
     openTabIds,
+    openChat,
+    openChatInSplit,
     activateTabAtIndex,
     activateAdjacentTab,
     setFinderOpen,
@@ -61,6 +64,26 @@ export function useAppShortcuts(): void {
     void openWorkspaceInPreferredEditor(chat.workspacePath)
   }, [activeTabId, getChat])
 
+  const openParentBeside = useCallback((): boolean => {
+    const chatId = activeTabId
+    if (!chatId) {
+      return false
+    }
+
+    const chat = getChat(chatId)
+    if (!chat?.parentChatId) {
+      return false
+    }
+
+    if (splitTabId === chat.id) {
+      openChat(chat.parentChatId)
+      return true
+    }
+
+    openChatInSplit(chat.parentChatId)
+    return true
+  }, [activeTabId, getChat, openChat, openChatInSplit, splitTabId])
+
   useKeyboardShortcut('n', createTab, { enabled: !isCreatingTab })
 
   useKeyboardShortcutCombo({ key: 'k', ctrl: true }, openFinder, {
@@ -74,6 +97,11 @@ export function useAppShortcuts(): void {
 
   useKeyboardShortcutCombo({ key: 'ArrowRight', ctrl: true }, createSplitTab, {
     enabled: !isCreatingTab
+  })
+
+  useKeyboardShortcutCombo({ key: 'ArrowUp', ctrl: true }, openParentBeside, {
+    allowInTextarea: true,
+    enabled: Boolean(activeTabId && getChat(activeTabId)?.parentChatId)
   })
 
   useKeyboardShortcutCombo({ key: 'e', ctrl: true }, openInEditor, {

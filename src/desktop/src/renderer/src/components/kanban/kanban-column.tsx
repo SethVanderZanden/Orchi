@@ -46,6 +46,7 @@ export function KanbanColumn({
                 projectName={getProjectName(chat)}
                 parentTitle={getParentTitle(chat)}
                 statusVariant={getStatusVariant(chat)}
+                mode={chat.mode}
                 onOpen={() => onOpenChat(chat.id)}
                 onOpenBeside={() => onOpenChatBeside(chat.id)}
               />
