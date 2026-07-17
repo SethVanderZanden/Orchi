@@ -11,8 +11,10 @@ Guides for the Orchi Electron desktop app — React, TanStack Router, TanStack Q
 | [TanStack Router](tanstack-router.md) | Routes, layouts, `<Outlet />`, navigation — start with the [Dummy section](tanstack-router.md#dummy-section-start-here) |
 | [TanStack Query](tanstack-query.md) | Fetching API data, caching, loading/error states — start with the [Dummy section](tanstack-query.md#dummy-section-start-here) |
 | [Chat streaming](chat-streaming.md) | SSE message flow, markers, ChatProvider — start with the [Dummy section](chat-streaming.md#dummy-section-start-here) |
-| [Coding standards](coding-standards.md) | Folder layout, naming, state ownership — start with the [Dummy section](coding-standards.md#dummy-section-start-here) |
+| [Coding standards](coding-standards.md) | Folder layout, naming, state ownership, **theme / styling** — start with the [Dummy section](coding-standards.md#dummy-section-start-here) |
 | [API conventions](api-conventions.md) | HTTP modules, query keys, error handling — start with the [Dummy section](api-conventions.md#dummy-section-start-here) |
+
+Agent skill for visual consistency: [`.cursor/skills/orchi-ui-theme/SKILL.md`](../../.cursor/skills/orchi-ui-theme/SKILL.md).
 
 ## Improvement plans
 

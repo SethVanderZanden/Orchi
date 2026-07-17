@@ -37,7 +37,7 @@ export function DeleteChatDialog({
             Cancel
           </Button>
           <Button variant="destructive" onClick={onConfirm} disabled={isDeleting}>
-            {isDeleting ? 'Deleting…' : 'Delete'}
+            {isDeleting ? 'Deleting…' : 'Delete Chat'}
           </Button>
         </DialogFooter>
       </DialogContent>

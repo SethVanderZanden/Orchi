@@ -9,7 +9,7 @@ export function ShortcutHint({ children, className }: ShortcutHintProps): React.
   return (
     <kbd
       className={cn(
-        'pointer-events-none rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px] text-muted-foreground',
+        'pointer-events-none rounded border border-border bg-muted px-1 py-0.5 font-mono text-[11px] text-muted-foreground',
         className
       )}
     >

@@ -13,13 +13,17 @@ Project-specific guidance for AI coding agents working on the Orchi desktop app.
 | Components   | shadcn/ui (Radix + Tailwind) — `components/ui/`             |
 | Icons        | lucide-react                                                |
 | Styling      | Tailwind CSS 4, CSS variables in `assets/main.css`          |
+| Fonts        | DM Sans Variable + JetBrains Mono (self-hosted fontsource)  |
 
 ## Before writing UI
 
 1. Check existing components in `components/ui/` and feature folders
 2. Use shadcn CLI from `src/desktop/`: `npx shadcn@latest add <component>`
-3. Follow patterns in `docs/frontend/coding-standards.md`
-4. Do NOT use `@astryxdesign/*` — migrated to shadcn (see `plans/ui-migration/`)
+3. Follow patterns in `docs/frontend/coding-standards.md` (Styling section = theme tokens)
+4. Theme changes go in `src/renderer/src/assets/main.css` — do not hardcode hex in TSX
+5. For visual/theme consistency, follow `../../.cursor/skills/orchi-ui-theme/SKILL.md`
+6. Do NOT use `@astryxdesign/*` — migrated to shadcn (see `plans/ui-migration/`)
+7. Do NOT load fonts from a CDN (Electron CSP); use the existing fontsource packages
 
 ## Directory conventions
 
@@ -56,4 +60,6 @@ npm run format       # Prettier
 ## Related docs
 
 - `docs/frontend/README.md`
+- `docs/frontend/coding-standards.md` — includes Styling / theme rules
 - `docs/frontend/plans/README.md` — improvement plans
+- `../../.cursor/skills/orchi-ui-theme/SKILL.md` — visual consistency for agents

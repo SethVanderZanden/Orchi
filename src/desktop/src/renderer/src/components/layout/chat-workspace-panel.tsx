@@ -49,7 +49,7 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
     isParentKickingOffAny
   } = useChat()
   const { requestDelete, isDeletingChat } = useDeleteChat()
-  const { openChat, openChatInSplit, splitTabId } = useChatTabs()
+  const { openChat, openChatInSplit, closeTab, splitTabId } = useChatTabs()
   const { projects } = useProjects()
   const projectName =
     projects.find((project) => project.id === chat.projectId)?.name ??
@@ -196,6 +196,7 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
         hasReviewReady={hasReviewReady}
         onToggleReviewPanel={toggleReviewPanel}
         onOpenParentBeside={openParentBeside}
+        onClose={() => closeTab(chat.id)}
         onDelete={() => requestDelete(chat)}
         deleteDisabled={isChatSending(chat.id) || isDeletingChat(chat.id)}
       />

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Columns2, ExternalLink, FolderPlus, MessageSquare, Settings, X } from 'lucide-react'
+import { Columns2, ExternalLink, FolderPlus, MessageSquare, Pin, Settings, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 import { ChatStatusDot } from '@/components/chat/chat-status-dot'
@@ -14,7 +14,7 @@ import {
   CommandShortcut
 } from '@/components/ui/command'
 import { useFinderCommands } from '@/hooks/use-finder-commands'
-import { filterFinderCommands } from '@/lib/app-commands/finder-commands'
+import { filterFinderCommands, isFinderCommandMode } from '@/lib/app-commands/finder-commands'
 import { buildChatFinderGroups } from '@/lib/chat-finder/build-chat-finder-groups'
 import { isLocalChat } from '@/lib/chat/chat-persistence'
 import { searchChats } from '@/lib/chat/search-chats'
@@ -29,6 +29,9 @@ const COMMAND_ICONS: Record<string, LucideIcon> = {
   'open-beside': Columns2,
   'open-in-editor': ExternalLink,
   'close-tab': X,
+  'close-all-chats': X,
+  'close-all-but-pinned': X,
+  'pin-chat': Pin,
   settings: Settings,
   'add-project': FolderPlus
 }
@@ -88,10 +91,12 @@ export function ChatCommandDialog({
     return () => window.clearTimeout(handle)
   }, [query])
 
+  const commandMode = isFinderCommandMode(debouncedQuery)
+
   const searchQuery = useQuery({
     queryKey: chatKeys.search(debouncedQuery),
     queryFn: () => searchChats({ q: debouncedQuery || undefined }),
-    enabled: open,
+    enabled: open && !commandMode,
     placeholderData: (previous) => previous
   })
 
@@ -108,7 +113,7 @@ export function ChatCommandDialog({
     () => filterFinderCommands(commands, debouncedQuery),
     [commands, debouncedQuery]
   )
-  const hasResults = filteredCommands.length > 0 || groups.length > 0
+  const hasResults = filteredCommands.length > 0 || (!commandMode && groups.length > 0)
 
   function renderChatGroup(group: (typeof groups)[number]): React.JSX.Element {
     return (
@@ -140,12 +145,12 @@ export function ChatCommandDialog({
       compact
     >
       <CommandInput
-        placeholder="Search chats and commands…"
+        placeholder="Search chats… (type > for commands)"
         value={query}
         onValueChange={setQuery}
       />
       <CommandList>
-        {searchQuery.isError ? (
+        {!commandMode && searchQuery.isError ? (
           <div className="px-3 py-4 text-center text-xs text-destructive">
             {searchQuery.error instanceof Error
               ? searchQuery.error.message
@@ -155,10 +160,14 @@ export function ChatCommandDialog({
           <>
             {!hasResults ? (
               <CommandEmpty className="py-4 text-xs">
-                {searchQuery.isFetching ? 'Searching…' : 'No results found.'}
+                {commandMode
+                  ? 'No matching commands.'
+                  : searchQuery.isFetching
+                    ? 'Searching…'
+                    : 'No results found.'}
               </CommandEmpty>
             ) : null}
-            {recentGroup ? renderChatGroup(recentGroup) : null}
+            {!commandMode && recentGroup ? renderChatGroup(recentGroup) : null}
             {filteredCommands.length > 0 ? (
               <CommandGroup heading="Commands">
                 {filteredCommands.map((command) => {
@@ -183,7 +192,7 @@ export function ChatCommandDialog({
                 })}
               </CommandGroup>
             ) : null}
-            {otherGroups.map((group) => renderChatGroup(group))}
+            {!commandMode ? otherGroups.map((group) => renderChatGroup(group)) : null}
           </>
         )}
       </CommandList>

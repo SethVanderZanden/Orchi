@@ -16,15 +16,19 @@ export function useFinderCommands(onComplete: () => void): AppFinderCommand[] {
   const { addProject, pickDirectory, isPendingProjects } = useProjects()
   const {
     activeTabId,
+    pinnedTabIds,
     openTabIds,
     splitTabId,
     createAndOpenTab,
     createAndOpenSplitTab,
     closeTab,
+    closeAllTabs,
     openChat,
     openChatInSplit,
     activateAdjacentTab,
     activateTabAtIndex,
+    togglePin,
+    canPinTab,
     isCreatingTab
   } = useChatTabs()
 
@@ -38,6 +42,7 @@ export function useFinderCommands(onComplete: () => void): AppFinderCommand[] {
   const activeChat = activeTabId ? getChat(activeTabId) : null
   const activeWorkspacePath = activeChat?.workspacePath?.trim() ?? ''
   const parentChatId = activeChat?.parentChatId ?? null
+  const unpinnedOpenTabCount = openTabIds.filter((chatId) => !pinnedTabIds.includes(chatId)).length
 
   return useMemo(() => {
     const commands: AppFinderCommand[] = [
@@ -137,6 +142,34 @@ export function useFinderCommands(onComplete: () => void): AppFinderCommand[] {
             }
             await addProject(path)
           })
+      },
+      {
+        id: 'close-all-chats',
+        label: '> Close All Chats',
+        keywords: ['close', 'all', 'tabs', 'clear'],
+        disabled: openTabIds.length === 0,
+        onSelect: () => complete(() => closeAllTabs())
+      },
+      {
+        id: 'close-all-but-pinned',
+        label: '> Close All but Pinned Chats',
+        keywords: ['close', 'pinned', 'tabs', 'clear'],
+        disabled: unpinnedOpenTabCount === 0,
+        onSelect: () => complete(() => closeAllTabs({ keepPinned: true }))
+      },
+      {
+        id: 'pin-chat',
+        label: '> Pin Chat',
+        keywords: ['pin', 'tab', 'chat'],
+        disabled: !activeTabId || !canPinTab(activeTabId),
+        onSelect: () =>
+          complete(() => {
+            if (!activeTabId || !canPinTab(activeTabId)) {
+              return
+            }
+
+            togglePin(activeTabId)
+          })
       }
     ]
 
@@ -158,6 +191,8 @@ export function useFinderCommands(onComplete: () => void): AppFinderCommand[] {
     activeTabId,
     activeWorkspacePath,
     addProject,
+    canPinTab,
+    closeAllTabs,
     closeTab,
     complete,
     createAndOpenSplitTab,
@@ -171,6 +206,8 @@ export function useFinderCommands(onComplete: () => void): AppFinderCommand[] {
     parentChatId,
     pickDirectory,
     preferredEditor,
-    splitTabId
+    splitTabId,
+    togglePin,
+    unpinnedOpenTabCount
   ])
 }

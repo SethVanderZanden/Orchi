@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowUp } from 'lucide-react'
 
 import { ChatModeBadge } from '@/components/chat/chat-mode-badge'
@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils'
 
 type ChatComposerProps = {
   chatId: string
+  autoFocus?: boolean
   disabled?: boolean
   onSend: (content: string) => void
   expanded?: boolean
@@ -45,6 +46,7 @@ type ChatComposerProps = {
 
 export function OrchiChatComposer({
   chatId,
+  autoFocus = false,
   disabled = false,
   onSend,
   expanded = false,
@@ -72,11 +74,24 @@ export function OrchiChatComposer({
   approvalPolicyUpdateError = null,
   onApprovalPolicyChange
 }: ChatComposerProps): React.JSX.Element {
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [draft, setDraft] = useState(() => initialDraft ?? getComposerDraft(chatId) ?? '')
 
   useEffect(() => {
     setComposerDraft(chatId, draft)
   }, [chatId, draft])
+
+  useEffect(() => {
+    if (!autoFocus || disabled) {
+      return
+    }
+
+    const frameId = requestAnimationFrame(() => {
+      textareaRef.current?.focus()
+    })
+
+    return () => cancelAnimationFrame(frameId)
+  }, [autoFocus, chatId, disabled])
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>): void {
     event.preventDefault()
@@ -101,6 +116,7 @@ export function OrchiChatComposer({
     <form onSubmit={handleSubmit} className="w-full">
       <div className="rounded-xl border bg-muted/40 shadow-sm">
         <Textarea
+          ref={textareaRef}
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={handleKeyDown}
@@ -108,12 +124,12 @@ export function OrchiChatComposer({
           disabled={disabled}
           rows={expanded ? 4 : 3}
           className={cn(
-            'min-h-[88px] max-h-52 resize-none border-0 bg-transparent px-4 py-3 leading-relaxed shadow-none',
+            'min-h-[96px] max-h-52 resize-none border-0 bg-transparent px-4 py-3.5 text-sm leading-relaxed shadow-none',
             'focus-visible:ring-0 focus-visible:ring-offset-0',
-            expanded && 'min-h-[120px]'
+            expanded && 'min-h-[128px]'
           )}
         />
-        <div className="flex items-center justify-between gap-2 px-3 pb-3 pt-1">
+        <div className="flex items-center justify-between gap-2 px-3.5 pb-3.5 pt-1">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             {showModeControls ? (
               <>

@@ -112,10 +112,26 @@ See [TanStack Query](tanstack-query.md) for cache vs context boundaries.
 
 ## Styling
 
-- Use the `cn()` helper from `@/lib/utils` to merge Tailwind classes
-- Prefer shadcn design tokens (`bg-background`, `text-muted-foreground`, `border-border`) — **no raw hex colors**
-- Add new shadcn components from `src/desktop/`: `npx shadcn@latest add <component>`
+Orchi’s look is a **neutral zinc** shadcn theme (T3 Code–inspired): readable DM Sans UI type, JetBrains Mono for code, soft borders, and slightly spacious chrome. Changing the theme means editing CSS variables — not hardcoding colors in components.
+
+| Concern | Where / how |
+|---------|-------------|
+| Theme tokens (colors, radius) | [`src/desktop/src/renderer/src/assets/main.css`](../../src/desktop/src/renderer/src/assets/main.css) — `:root` / `.dark` |
+| Fonts | Self-hosted via `@fontsource-variable/dm-sans` + `@fontsource/jetbrains-mono` (imported in `main.tsx`). **Do not** add Google Fonts CDN — Electron CSP blocks it |
+| Tailwind bridge | `@theme inline` in `main.css` maps tokens to `bg-background`, `font-sans`, etc. |
+| Components | Prefer semantic tokens; add new shadcn pieces with `npx shadcn@latest add <component>` from `src/desktop/` |
+
+**Rules:**
+
+- Use `cn()` from `@/lib/utils` to merge Tailwind classes
+- Prefer shadcn design tokens (`bg-background`, `text-muted-foreground`, `border-border`, `bg-primary`, …) — **no raw hex / rgb / oklch in TSX**
+- Keep light + dark in sync when changing tokens; system theme is driven by `ThemeProvider`
+- Primary accent is a modest blue for focus/CTAs; surfaces stay neutral (no purple gradients, no second design system)
+- Density: desktop-compact but readable — avoid ultra-tiny primary UI (`text-[10px]` for chrome labels); prefer `text-sm` / `text-base` for titles and body
+- Status accents (`text-sky-500`, `text-amber-500`, etc.) are allowed sparingly for draft/running indicators — not for general theming
 - Do **not** use `@astryxdesign/*` — migrated to shadcn (see archived [ui-migration tracker](../../src/desktop/plans/ui-migration/README.md))
+
+For agent-oriented theme guidance, see [`.cursor/skills/orchi-ui-theme/SKILL.md`](../../.cursor/skills/orchi-ui-theme/SKILL.md).
 
 ## Testing
 
@@ -153,6 +169,7 @@ Before opening a PR that touches the desktop renderer:
 - [ ] Manual smoke: navigate, send a message or open settings if relevant
 - [ ] New API surface documented in [api-conventions.md](api-conventions.md) if added
 - [ ] No new `@astryxdesign` or inline query keys
+- [ ] UI changes use semantic tokens / existing type scale (no one-off hex or CDN fonts)
 
 ## Related docs
 
@@ -161,3 +178,4 @@ Before opening a PR that touches the desktop renderer:
 - [TanStack Query](tanstack-query.md)
 - [Chat streaming](chat-streaming.md)
 - [Improvement plans](plans/README.md)
+- [Orchi UI theme skill](../../.cursor/skills/orchi-ui-theme/SKILL.md)

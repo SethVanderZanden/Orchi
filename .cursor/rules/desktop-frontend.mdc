@@ -10,3 +10,12 @@ alwaysApply: false
 - Providers in `providers/`, hooks in `hooks/` — do not mix
 - API fetch in `lib/{domain}/api.ts` with `getApiBaseUrl()` and `readErrorMessage()`
 - See `docs/frontend/coding-standards.md` and `docs/frontend/api-conventions.md`
+
+## Visual / theme
+
+- Theme = CSS variables in `assets/main.css` (`:root` / `.dark`) — that is the shadcn theme
+- Fonts: DM Sans Variable (UI) + JetBrains Mono (code), self-hosted only — no Google Fonts CDN
+- Prefer semantic tokens (`bg-background`, `text-muted-foreground`, `border-border`) — no raw hex in TSX
+- Neutral zinc surfaces; modest blue primary for focus/CTAs only
+- Readable density: prefer `text-sm`/`text-base` for titles and body; avoid ultra-tiny primary chrome
+- For UI polish / new screens, follow `.cursor/skills/orchi-ui-theme/SKILL.md`

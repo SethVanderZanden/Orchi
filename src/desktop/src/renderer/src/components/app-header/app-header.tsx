@@ -62,14 +62,14 @@ export function AppHeader(): React.JSX.Element {
 
   return (
     <>
-      <header className="flex h-10 shrink-0 items-center gap-1 border-b border-border bg-background px-1.5">
+      <header className="flex h-11 shrink-0 items-center gap-1.5 border-b border-border bg-background px-2">
         <ChatTabBar />
-        <div className="flex shrink-0 items-center gap-0.5">
+        <div className="flex shrink-0 items-center gap-1">
           <Button
             type="button"
             variant="default"
             size="sm"
-            className="h-8 gap-1.5 px-2 text-xs font-normal"
+            className="h-8 gap-1.5 px-2.5 text-sm font-normal"
             aria-label="New chat"
             disabled={isCreatingTab}
             onClick={() => void createAndOpenTab()}
@@ -83,7 +83,7 @@ export function AppHeader(): React.JSX.Element {
               type="button"
               variant="outline"
               size="sm"
-              className="h-8 gap-1.5 px-2 text-xs font-normal"
+              className="h-8 gap-1.5 px-2.5 text-sm font-normal"
               aria-label="Find chat"
               onClick={() => setFinderOpen(true)}
             >

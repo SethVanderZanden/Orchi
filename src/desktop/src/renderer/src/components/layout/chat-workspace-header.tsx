@@ -1,9 +1,16 @@
-import { Columns2, FileText, Trash2 } from 'lucide-react'
+import { ChevronDown, Columns2, FileText, Trash2, X } from 'lucide-react'
 
 import { ShortcutHint } from '@/components/app-header/shortcut-hint'
 import { OpenInEditorMenu } from '@/components/layout/open-in-editor-menu'
-import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
+import { ButtonGroup } from '@/components/ui/button-group'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
+import { PageHeader } from '@/components/ui/page-header'
 import type { ChatThread } from '@/lib/chat/types'
 
 type ChatWorkspaceHeaderProps = {
@@ -18,6 +25,7 @@ type ChatWorkspaceHeaderProps = {
   hasReviewReady: boolean
   onToggleReviewPanel: () => void
   onOpenParentBeside: () => void
+  onClose: () => void
   onDelete: () => void
   deleteDisabled: boolean
 }
@@ -34,14 +42,15 @@ export function ChatWorkspaceHeader({
   hasReviewReady,
   onToggleReviewPanel,
   onOpenParentBeside,
+  onClose,
   onDelete,
   deleteDisabled
 }: ChatWorkspaceHeaderProps): React.JSX.Element {
   return (
     <PageHeader
       startContent={
-        <div className="min-w-0 space-y-0.5">
-          <p className="truncate text-xs text-muted-foreground">
+        <div className="min-w-0 space-y-1">
+          <p className="truncate text-sm text-muted-foreground">
             {projectName ? `${projectName} · ` : ''}
             {chat.workspacePath} · {chat.messages.length} message
             {chat.messages.length === 1 ? '' : 's'}
@@ -51,14 +60,14 @@ export function ChatWorkspaceHeader({
           </p>
           {parentChatId ? (
             <div className="flex min-w-0 items-center gap-2">
-              <p className="min-w-0 truncate text-xs text-muted-foreground">
+              <p className="min-w-0 truncate text-sm text-muted-foreground">
                 Parent: <span className="text-foreground/80">{parentTitle ?? 'Parent chat'}</span>
               </p>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-6 shrink-0 gap-1.5 px-2 text-[11px] font-normal"
+                className="h-7 shrink-0 gap-1.5 px-2 text-xs font-normal"
                 onClick={onOpenParentBeside}
                 title="Open parent beside"
                 aria-label={`Open parent ${parentTitle ?? 'chat'} beside`}
@@ -70,7 +79,7 @@ export function ChatWorkspaceHeader({
             </div>
           ) : null}
           {chat.planFilePath ? (
-            <p className="truncate text-xs text-muted-foreground">Plan: {chat.planFilePath}</p>
+            <p className="truncate text-sm text-muted-foreground">Plan: {chat.planFilePath}</p>
           ) : null}
         </div>
       }
@@ -81,7 +90,7 @@ export function ChatWorkspaceHeader({
             <Button
               variant={reviewPanelOpen ? 'default' : 'outline'}
               size="sm"
-              className="h-8 gap-1.5 px-3 text-xs font-normal"
+              className="h-8 gap-1.5 px-3 text-sm font-normal"
               onClick={onToggleReviewPanel}
             >
               <FileText className="size-3.5" />
@@ -92,16 +101,42 @@ export function ChatWorkspaceHeader({
               ) : null}
             </Button>
           ) : null}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-8"
-            aria-label={`Delete ${chat.title}`}
-            disabled={deleteDisabled}
-            onClick={onDelete}
-          >
-            <Trash2 className="size-4" />
-          </Button>
+          <ButtonGroup aria-label="Chat actions">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 px-2.5 text-sm font-normal"
+              aria-label={`Close ${chat.title}`}
+              onClick={onClose}
+            >
+              <X className="size-4" />
+              Close
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="size-8"
+                  aria-label="More chat actions"
+                >
+                  <ChevronDown className="size-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  className="font-medium text-destructive focus:bg-destructive/10 focus:text-destructive dark:focus:bg-destructive/20 [&_svg]:text-destructive!"
+                  disabled={deleteDisabled}
+                  onClick={onDelete}
+                >
+                  <Trash2 className="size-4" />
+                  Delete Chat
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </ButtonGroup>
         </>
       }
     />

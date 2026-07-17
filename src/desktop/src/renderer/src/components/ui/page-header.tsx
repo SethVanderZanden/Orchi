@@ -20,21 +20,23 @@ export function PageHeader({
   return (
     <header
       className={cn(
-        'flex min-h-12 shrink-0 items-center justify-between gap-3 border-b px-4 py-2',
+        'flex min-h-14 shrink-0 items-center justify-between gap-3 border-b px-5 py-3',
         className
       )}
     >
       <div className="flex min-w-0 flex-1 items-center gap-3">
         {startContent ?? (
-          <div className="min-w-0">
-            {title ? <div className="truncate text-sm font-semibold">{title}</div> : null}
+          <div className="min-w-0 space-y-0.5">
+            {title ? (
+              <div className="truncate text-base font-medium tracking-tight">{title}</div>
+            ) : null}
             {description ? (
-              <div className="truncate text-xs text-muted-foreground">{description}</div>
+              <div className="truncate text-sm text-muted-foreground">{description}</div>
             ) : null}
           </div>
         )}
       </div>
-      {endContent ? <div className="flex shrink-0 items-center gap-1">{endContent}</div> : null}
+      {endContent ? <div className="flex shrink-0 items-center gap-1.5">{endContent}</div> : null}
     </header>
   )
 }

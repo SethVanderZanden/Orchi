@@ -44,24 +44,24 @@ function SettingsPage(): React.JSX.Element {
     <div className="flex h-full min-h-0 flex-col">
       <PageHeader title="Settings" description="Projects and app preferences" />
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-8">
         <div className="mx-auto w-full max-w-2xl">
-          <Tabs defaultValue="general" className="gap-6">
+          <Tabs defaultValue="general" className="gap-8">
             <TabsList variant="line" className="w-full justify-start">
               <TabsTrigger value="general">General</TabsTrigger>
               <TabsTrigger value="agents">Agents</TabsTrigger>
               <TabsTrigger value="selection">Selection</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="general" className="flex flex-col gap-6">
+            <TabsContent value="general" className="flex flex-col gap-8">
               <ProjectsSettingsCard />
               <PreferredEditorCard />
               <DefaultChatModeCard />
               <PostMessageBehaviorCard />
               <AutoKickOffReviewCard />
               <Card>
-                <CardContent className="space-y-3 p-4">
-                  <p className="text-sm text-muted-foreground">
+                <CardContent className="space-y-3">
+                  <p className="text-sm leading-relaxed text-muted-foreground">
                     Jump back to a conversation without losing navigator state.
                   </p>
                   <Button variant="secondary" onClick={() => navigate({ to: '/' })}>
@@ -71,11 +71,11 @@ function SettingsPage(): React.JSX.Element {
               </Card>
             </TabsContent>
 
-            <TabsContent value="agents" className="flex flex-col gap-6">
+            <TabsContent value="agents" className="flex flex-col gap-8">
               <EnabledAgentsCard />
               <ModeRuntimeDefaultsCard />
               {agents.map((agent) => (
-                <div key={agent.id} className="flex flex-col gap-6">
+                <div key={agent.id} className="flex flex-col gap-8">
                   <AgentModelsCard agentId={agent.id} agentLabel={agent.label} />
                   <AgentContextSizesCard agentId={agent.id} agentLabel={agent.label} />
                   <AgentCliOptionsCard
@@ -92,7 +92,7 @@ function SettingsPage(): React.JSX.Element {
               ))}
             </TabsContent>
 
-            <TabsContent value="selection" className="flex flex-col gap-6">
+            <TabsContent value="selection" className="flex flex-col gap-8">
               <SelectionActionsCard />
             </TabsContent>
           </Tabs>

@@ -1,6 +1,7 @@
 import type { AgentActivityDetail } from '@/lib/chat/types'
 import type { ChatMarker, ChatMessage, SseHandlers } from '@/lib/chat/types'
 import { applyToken } from '@/lib/chat/message-updates'
+import { createTokenBatcher } from '@/lib/chat/token-batcher'
 
 type CreateMessageStreamHandlersOptions = {
   isActiveTurn: () => boolean
@@ -25,18 +26,28 @@ export function createMessageStreamHandlers({
   clearMarkers,
   notifyAgentActivity
 }: CreateMessageStreamHandlersOptions): SseHandlers {
+  const tokens = createTokenBatcher((text) => {
+    if (!isActiveTurn()) {
+      return
+    }
+
+    updateAssistantMessage(chatId, assistantMessageId, (message) => applyToken(message, text))
+  })
+
   return {
     onToken: (text) => {
       if (!isActiveTurn()) {
         return
       }
 
-      updateAssistantMessage(chatId, assistantMessageId, (message) => applyToken(message, text))
+      tokens.push(text)
     },
     onTool: (label) => {
       if (!isActiveTurn()) {
         return
       }
+
+      tokens.flush()
 
       appendMarker(chatId, {
         id: crypto.randomUUID(),
@@ -50,8 +61,11 @@ export function createMessageStreamHandlers({
     },
     onDone: () => {
       if (!isActiveTurn()) {
+        tokens.cancel()
         return
       }
+
+      tokens.flush()
 
       updateAssistantMessage(chatId, assistantMessageId, (message) => ({
         ...message,
@@ -62,8 +76,11 @@ export function createMessageStreamHandlers({
     },
     onError: (code, message) => {
       if (!isActiveTurn()) {
+        tokens.cancel()
         return
       }
+
+      tokens.flush()
 
       updateAssistantMessage(chatId, assistantMessageId, (currentMessage) => ({
         ...currentMessage,

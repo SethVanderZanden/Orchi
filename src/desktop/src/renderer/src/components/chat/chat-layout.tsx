@@ -20,8 +20,8 @@ export function ChatLayout({
   if (variant === 'centered') {
     return (
       <div className={cn('flex min-h-0 flex-1 flex-col overflow-hidden bg-background', className)}>
-        <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-4">
-          <div className="w-full max-w-3xl space-y-2">
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-6">
+          <div className="w-full max-w-3xl space-y-4">
             {projectContext}
             {composer}
           </div>
@@ -33,7 +33,7 @@ export function ChatLayout({
   return (
     <div className={cn('flex min-h-0 flex-1 flex-col overflow-hidden bg-background', className)}>
       <div className="flex min-h-0 flex-1 flex-col bg-background">{children}</div>
-      <div className="shrink-0 bg-background px-4 py-5">
+      <div className="shrink-0 bg-background px-6 py-6">
         <div className="mx-auto w-full max-w-3xl">{composer}</div>
       </div>
     </div>

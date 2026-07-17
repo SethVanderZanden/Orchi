@@ -70,13 +70,22 @@ export function updateMessageInThread(
     return chat
   }
 
-  messages[index] = updater(messages[index])
+  const previous = messages[index]
+  messages[index] = updater(previous)
+  const next = messages[index]
+  // Streaming token appends should not bump updatedAt — that churn re-renders
+  // chat lists/tabs on every fragment. Status/content replacements still do.
+  const isStreamingAppend =
+    previous.role === 'assistant' &&
+    next.status === 'streaming' &&
+    next.content.startsWith(previous.content) &&
+    next.content.length > previous.content.length
 
   return {
     ...chat,
     messages,
-    preview: messages[index].content || chat.preview,
-    updatedAt: new Date().toISOString()
+    preview: next.content || chat.preview,
+    updatedAt: isStreamingAppend ? chat.updatedAt : new Date().toISOString()
   }
 }
 

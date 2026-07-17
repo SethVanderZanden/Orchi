@@ -120,6 +120,18 @@ describe('updateMessageInThread', () => {
     expect(result.preview).toBe('Hello')
   })
 
+  it('does not bump updatedAt when appending a streaming token', () => {
+    const chat = makeChat({
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      messages: [makeMessage({ id: 'a', content: 'Hel', status: 'streaming' })]
+    })
+
+    const result = updateMessageInThread(chat, 'a', (message) => applyToken(message, 'lo'))
+
+    expect(result.messages[0].content).toBe('Hello')
+    expect(result.updatedAt).toBe(chat.updatedAt)
+  })
+
   it('returns the original chat when the message id is missing', () => {
     const chat = makeChat()
 

@@ -27,8 +27,10 @@ import {
   moveChatTabToSplit,
   openChatInSplit as applyOpenChatInSplit,
   openChatTab,
+  toggleChatTabPin,
   type ChatTabsState
 } from '@/lib/chat-tabs/tab-state'
+import { MAX_PINNED_TABS } from '@/lib/chat-tabs/tab-visibility'
 import {
   clearComposerDraft,
   hasComposerDraft,
@@ -52,10 +54,14 @@ type ChatTabsContextValue = {
   openTabIds: string[]
   activeTabId: string | null
   splitTabId: string | null
+  pinnedTabIds: string[]
   openChat: (chatId: string) => void
   /** Opens a chat in the resizable split pane beside the active tab. */
   openChatInSplit: (chatId: string) => void
   closeTab: (chatId: string) => void
+  closeAllTabs: (options?: { keepPinned?: boolean }) => void
+  togglePin: (chatId: string) => void
+  canPinTab: (chatId: string) => boolean
   activateTabAtIndex: (index: number) => void
   activateAdjacentTab: (direction: 'next' | 'previous') => void
   moveTabToSplit: (chatId: string) => void
@@ -201,6 +207,30 @@ export function ChatTabsProvider({ children }: { children: ReactNode }): React.J
     [deleteChat, getChat, navigateToTab]
   )
 
+  const closeAllTabs = useCallback(
+    (options?: { keepPinned?: boolean }) => {
+      const idsToClose = state.openTabIds.filter(
+        (chatId) => !options?.keepPinned || !state.pinnedTabIds.includes(chatId)
+      )
+
+      if (idsToClose.length === 0) {
+        return
+      }
+
+      const activeId = state.activeTabId
+      const inactiveIds = idsToClose.filter((chatId) => chatId !== activeId)
+
+      for (const chatId of inactiveIds) {
+        closeTab(chatId)
+      }
+
+      if (activeId && idsToClose.includes(activeId)) {
+        closeTab(activeId)
+      }
+    },
+    [closeTab, state.activeTabId, state.openTabIds, state.pinnedTabIds]
+  )
+
   const activateTabAtIndex = useCallback(
     (index: number) => {
       setState((current) => {
@@ -230,6 +260,21 @@ export function ChatTabsProvider({ children }: { children: ReactNode }): React.J
   const moveTabToSplit = useCallback((chatId: string) => {
     setState((current) => moveChatTabToSplit(current, chatId))
   }, [])
+
+  const togglePin = useCallback((chatId: string) => {
+    setState((current) => toggleChatTabPin(current, chatId))
+  }, [])
+
+  const canPinTab = useCallback(
+    (chatId: string) => {
+      if (!state.openTabIds.includes(chatId)) {
+        return false
+      }
+
+      return state.pinnedTabIds.includes(chatId) || state.pinnedTabIds.length < MAX_PINNED_TABS
+    },
+    [state.openTabIds, state.pinnedTabIds]
+  )
 
   const clearSplit = useCallback(() => {
     setState((current) => clearChatSplit(current))
@@ -367,9 +412,13 @@ export function ChatTabsProvider({ children }: { children: ReactNode }): React.J
       openTabIds: state.openTabIds,
       activeTabId: state.activeTabId,
       splitTabId: state.splitTabId,
+      pinnedTabIds: state.pinnedTabIds,
       openChat,
       openChatInSplit: openChatInSplitPane,
       closeTab,
+      closeAllTabs,
+      togglePin,
+      canPinTab,
       activateTabAtIndex,
       activateAdjacentTab,
       moveTabToSplit,
@@ -384,7 +433,9 @@ export function ChatTabsProvider({ children }: { children: ReactNode }): React.J
     [
       activateAdjacentTab,
       activateTabAtIndex,
+      canPinTab,
       clearSplit,
+      closeAllTabs,
       closeTab,
       createAndOpenSplitTab,
       createAndOpenTab,
@@ -396,7 +447,9 @@ export function ChatTabsProvider({ children }: { children: ReactNode }): React.J
       registerProjectAndOpenTab,
       state.activeTabId,
       state.openTabIds,
-      state.splitTabId
+      state.pinnedTabIds,
+      state.splitTabId,
+      togglePin
     ]
   )
 

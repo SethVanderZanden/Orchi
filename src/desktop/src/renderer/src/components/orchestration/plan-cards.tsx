@@ -1,10 +1,17 @@
-import { ExternalLink, FileText } from 'lucide-react'
+import { ChevronDown, ExternalLink, FileText } from 'lucide-react'
 import { useNavigate } from '@tanstack/react-router'
 
 import { ShortcutHint } from '@/components/app-header/shortcut-hint'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { ButtonGroup } from '@/components/ui/button-group'
 import { Card, CardContent } from '@/components/ui/card'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
 import type { ChatThread } from '@/lib/chat/types'
 import type { ParsedPlan } from '@/lib/orchestration/parse-plans'
 import type { ParsedReviewPlan } from '@/lib/orchestration/parse-review-plans'
@@ -73,6 +80,8 @@ export function PlanCards({
         const implementing = isChildRunning(childChat)
         const { reviewing, reviewStarted } = getPlanReviewVisibility(reviewChild, reviewReady)
         const sequenceStep = getSequenceStepNumber(plan.planId, sequencePlanIds)
+        const reviewVariant = isTabOpen ? 'default' : 'outline'
+        const hasOpenActions = Boolean(childChat || reviewChild)
 
         return (
           <Card
@@ -115,46 +124,54 @@ export function PlanCards({
                 </div>
                 <p className="truncate text-xs text-muted-foreground">{plan.planId}</p>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
-                {childChat ? (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() =>
-                      navigate({
-                        to: '/chat/$chatId',
-                        params: { chatId: childChat.id }
-                      })
-                    }
-                  >
-                    <ExternalLink className="size-3.5" />
-                    Open agent
-                  </Button>
-                ) : null}
-                {reviewChild ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() =>
-                      navigate({
-                        to: '/chat/$chatId',
-                        params: { chatId: reviewChild.id }
-                      })
-                    }
-                  >
-                    <ExternalLink className="size-3.5" />
-                    Open review
-                  </Button>
-                ) : null}
-                <Button
-                  size="sm"
-                  variant={isTabOpen ? 'default' : 'outline'}
-                  onClick={() => onToggleReview(plan)}
-                >
+              <ButtonGroup className="shrink-0" aria-label="Plan actions">
+                <Button size="sm" variant={reviewVariant} onClick={() => onToggleReview(plan)}>
                   <FileText className="size-3.5" />
                   {reviewReady ? 'View review' : 'Review'}
                 </Button>
-              </div>
+                {hasOpenActions ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant={reviewVariant}
+                        className="px-2"
+                        aria-label="More plan actions"
+                      >
+                        <ChevronDown className="size-3.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {childChat ? (
+                        <DropdownMenuItem
+                          onClick={() =>
+                            navigate({
+                              to: '/chat/$chatId',
+                              params: { chatId: childChat.id }
+                            })
+                          }
+                        >
+                          <ExternalLink className="size-3.5" />
+                          Open agent
+                        </DropdownMenuItem>
+                      ) : null}
+                      {reviewChild ? (
+                        <DropdownMenuItem
+                          onClick={() =>
+                            navigate({
+                              to: '/chat/$chatId',
+                              params: { chatId: reviewChild.id }
+                            })
+                          }
+                        >
+                          <ExternalLink className="size-3.5" />
+                          Open review
+                        </DropdownMenuItem>
+                      ) : null}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : null}
+              </ButtonGroup>
             </CardContent>
           </Card>
         )

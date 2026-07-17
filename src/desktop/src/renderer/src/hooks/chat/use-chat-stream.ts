@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import type { NavigateOptions } from '@tanstack/react-router'
 
@@ -19,6 +19,8 @@ import type { ChatMarker, ChatThread, SendMessageOptions } from '@/lib/chat/type
 import { chatKeys } from '@/lib/query-keys'
 
 import type { AgentActivityDetail } from '@/lib/chat/types'
+
+const EMPTY_MARKERS: ChatMarker[] = []
 
 type UseChatStreamOptions = {
   getChat: (chatId: string) => ChatThread | undefined
@@ -376,14 +378,20 @@ export function useChatStream({
     ]
   )
 
-  const getMarkers = useCallback((chatId: string) => markersByChat[chatId] ?? [], [markersByChat])
+  const getMarkers = useCallback(
+    (chatId: string) => markersByChat[chatId] ?? EMPTY_MARKERS,
+    [markersByChat]
+  )
 
-  return {
-    sendMessage,
-    isChatSending,
-    getMarkers,
-    subscribeAgentActivity,
-    abortStream,
-    purgeStreamState
-  }
+  return useMemo(
+    () => ({
+      sendMessage,
+      isChatSending,
+      getMarkers,
+      subscribeAgentActivity,
+      abortStream,
+      purgeStreamState
+    }),
+    [abortStream, getMarkers, isChatSending, purgeStreamState, sendMessage, subscribeAgentActivity]
+  )
 }

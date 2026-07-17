@@ -1,12 +1,16 @@
+import { MAX_PINNED_TABS } from '@/lib/chat-tabs/tab-visibility'
+
 export type ChatTabsState = {
   openTabIds: string[]
   activeTabId: string | null
   /** Chat shown in the secondary resizable pane; null when not split. */
   splitTabId: string | null
+  /** Up to three chats kept visible when the tab bar overflows. */
+  pinnedTabIds: string[]
 }
 
 export function createEmptyChatTabsState(): ChatTabsState {
-  return { openTabIds: [], activeTabId: null, splitTabId: null }
+  return { openTabIds: [], activeTabId: null, splitTabId: null, pinnedTabIds: [] }
 }
 
 export function openChatTab(state: ChatTabsState, chatId: string): ChatTabsState {
@@ -17,6 +21,7 @@ export function openChatTab(state: ChatTabsState, chatId: string): ChatTabsState
   }
 
   return {
+    ...state,
     openTabIds: [...state.openTabIds, chatId],
     activeTabId: chatId,
     splitTabId
@@ -44,6 +49,7 @@ export function deactivateChatTab(state: ChatTabsState, chatId: string): ChatTab
     null
 
   return {
+    ...state,
     openTabIds,
     activeTabId: neighbor,
     splitTabId: neighbor && splitTabId === neighbor ? null : splitTabId
@@ -58,9 +64,10 @@ export function closeChatTab(state: ChatTabsState, chatId: string): ChatTabsStat
 
   const openTabIds = state.openTabIds.filter((id) => id !== chatId)
   const splitTabId = state.splitTabId === chatId ? null : state.splitTabId
+  const pinnedTabIds = state.pinnedTabIds.filter((id) => id !== chatId)
 
   if (state.activeTabId !== chatId) {
-    return { ...state, openTabIds, splitTabId }
+    return { ...state, openTabIds, splitTabId, pinnedTabIds }
   }
 
   const neighbor =
@@ -69,7 +76,8 @@ export function closeChatTab(state: ChatTabsState, chatId: string): ChatTabsStat
   return {
     openTabIds,
     activeTabId: neighbor,
-    splitTabId: neighbor && splitTabId === neighbor ? null : splitTabId
+    splitTabId: neighbor && splitTabId === neighbor ? null : splitTabId,
+    pinnedTabIds
   }
 }
 
@@ -128,7 +136,8 @@ export function migrateChatTabId(
   const openTabIds = state.openTabIds.map((id) => (id === fromId ? toId : id))
   const activeTabId = state.activeTabId === fromId ? toId : state.activeTabId
   const splitTabId = state.splitTabId === fromId ? toId : state.splitTabId
-  return { openTabIds, activeTabId, splitTabId }
+  const pinnedTabIds = state.pinnedTabIds.map((id) => (id === fromId ? toId : id))
+  return { openTabIds, activeTabId, splitTabId, pinnedTabIds }
 }
 
 /** Place `chatId` in the secondary pane beside the active (primary) tab. */
@@ -161,10 +170,10 @@ export function openChatInSplit(state: ChatTabsState, chatId: string): ChatTabsS
   }
 
   if (activeTabId === chatId) {
-    return { openTabIds, activeTabId, splitTabId: null }
+    return { ...state, openTabIds, activeTabId, splitTabId: null }
   }
 
-  return { openTabIds, activeTabId, splitTabId: chatId }
+  return { ...state, openTabIds, activeTabId, splitTabId: chatId }
 }
 
 export function clearChatSplit(state: ChatTabsState): ChatTabsState {
@@ -173,4 +182,26 @@ export function clearChatSplit(state: ChatTabsState): ChatTabsState {
   }
 
   return { ...state, splitTabId: null }
+}
+
+export function toggleChatTabPin(state: ChatTabsState, chatId: string): ChatTabsState {
+  if (!state.openTabIds.includes(chatId)) {
+    return state
+  }
+
+  if (state.pinnedTabIds.includes(chatId)) {
+    return {
+      ...state,
+      pinnedTabIds: state.pinnedTabIds.filter((id) => id !== chatId)
+    }
+  }
+
+  if (state.pinnedTabIds.length >= MAX_PINNED_TABS) {
+    return state
+  }
+
+  return {
+    ...state,
+    pinnedTabIds: [...state.pinnedTabIds, chatId]
+  }
 }

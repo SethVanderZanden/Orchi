@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { MessageSquare } from 'lucide-react'
 
 import { AgentModeAvatar } from '@/components/chat/agent-mode-avatar'
@@ -10,6 +11,8 @@ import { Marker, MarkerContent } from '@/components/ui/marker'
 import { Message, MessageAvatar, MessageContent } from '@/components/ui/message'
 import { MessageScrollerItem } from '@/components/ui/message-scroller'
 import type { AgentMode, ChatMarker, ChatMessage as OrchiChatMessage } from '@/lib/chat/types'
+
+const EMPTY_MARKERS: ChatMarker[] = []
 
 type ChatMessageListProps = {
   messages: OrchiChatMessage[]
@@ -42,15 +45,15 @@ export function OrchiChatMessageList({
   const lastAssistant = lastAssistantIndex >= 0 ? messages[lastAssistantIndex] : null
   const isActiveTurn =
     lastAssistant?.status === 'processing' || lastAssistant?.status === 'streaming'
-  const activeMarkers = isActiveTurn ? markers : []
+  const activeMarkers = isActiveTurn && markers.length > 0 ? markers : EMPTY_MARKERS
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-7 px-6 py-8">
       {messages.map((message, index) => (
         <MessageScrollerItem key={message.id} scrollAnchor={message.role === 'user'}>
           <ChatMessageRow
             message={message}
-            markers={index === lastAssistantIndex ? activeMarkers : []}
+            markers={index === lastAssistantIndex ? activeMarkers : EMPTY_MARKERS}
             mode={mode}
           />
         </MessageScrollerItem>
@@ -65,10 +68,15 @@ type ChatMessageRowProps = {
   mode: AgentMode
 }
 
-function ChatMessageRow({ message, markers, mode }: ChatMessageRowProps): React.JSX.Element {
+const ChatMessageRow = memo(function ChatMessageRow({
+  message,
+  markers,
+  mode
+}: ChatMessageRowProps): React.JSX.Element {
   const isUser = message.role === 'user'
-  const showPlaceholder = !isUser && message.status === 'processing' && message.content.length === 0
   const showActivity = !isUser && markers.length > 0
+  const showPlaceholder =
+    !isUser && message.status === 'processing' && message.content.length === 0 && !showActivity
 
   if (isUser) {
     return (
@@ -124,4 +132,4 @@ function ChatMessageRow({ message, markers, mode }: ChatMessageRowProps): React.
       </MessageContent>
     </Message>
   )
-}
+})
