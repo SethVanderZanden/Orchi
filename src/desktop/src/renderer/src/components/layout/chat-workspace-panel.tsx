@@ -9,6 +9,8 @@ import type { ParsedReviewPlan } from '@/lib/orchestration/parse-review-plans'
 import { needsOrchestrationHydration } from '@/lib/orchestration/needs-orchestration-hydration'
 import { isLocalChat } from '@/lib/chat/chat-persistence'
 import type { ChatThread } from '@/lib/chat/types'
+import type { GitHostProvider } from '@/lib/git/types'
+import type { Project, Workspace } from '@/lib/projects/types'
 import { findReviewChildForPlan } from '@/lib/projects/chat-tree'
 import { useDeleteChat } from '@/hooks/use-delete-chat'
 import { useOrchestration } from '@/hooks/use-orchestration'
@@ -19,6 +21,31 @@ import { useProjects } from '@/providers/project-provider'
 
 type ChatWorkspacePanelProps = {
   chat: ChatThread
+}
+
+type ProjectGitSettings = {
+  defaultBaseBranch?: string
+  gitHostProvider?: GitHostProvider
+}
+
+type WorkspaceBranchInfo = {
+  branch?: string | null
+}
+
+function readProjectGitSettings(project: Project | undefined): {
+  defaultBaseBranch: string
+  gitHostProvider: GitHostProvider
+} {
+  const settings = project as (Project & ProjectGitSettings) | undefined
+
+  return {
+    defaultBaseBranch: settings?.defaultBaseBranch ?? 'main',
+    gitHostProvider: settings?.gitHostProvider ?? 'github'
+  }
+}
+
+function readWorkspaceBranch(workspace: Workspace | undefined): string | null {
+  return (workspace as (Workspace & WorkspaceBranchInfo) | undefined)?.branch ?? null
 }
 
 export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX.Element {
@@ -51,6 +78,10 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
   const { requestDelete, isDeletingChat } = useDeleteChat()
   const { openChat, openChatInSplit, closeTab, splitTabId } = useChatTabs()
   const { projects } = useProjects()
+  const project = projects.find((entry) => entry.id === chat.projectId)
+  const workspace = project?.workspaces.find((entry) => entry.id === chat.workspaceId)
+  const { defaultBaseBranch, gitHostProvider } = readProjectGitSettings(project)
+  const workspaceBranch = readWorkspaceBranch(workspace)
   const projectName =
     projects.find((project) => project.id === chat.projectId)?.name ??
     (chat.projectId ? 'Unknown project' : null)
@@ -189,6 +220,11 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
         projectName={projectName}
         childChatCount={childChats.length}
         workspacePath={chat.workspacePath}
+        chatId={chat.id}
+        projectId={chat.projectId}
+        defaultBaseBranch={defaultBaseBranch}
+        gitHostProvider={gitHostProvider}
+        workspaceBranch={workspaceBranch}
         parentChatId={chat.parentChatId}
         parentTitle={parentChat?.title ?? null}
         showPlanReview={showPlanReview}

@@ -54,3 +54,11 @@ export const userPreferenceKeys = {
   all: ['user-preferences'] as const,
   detail: () => [...userPreferenceKeys.all, 'detail'] as const
 }
+
+export const gitActionKeys = {
+  all: ['git-actions'] as const,
+  suggestedCommitMessage: (chatId: string) =>
+    [...gitActionKeys.all, 'suggested-commit-message', chatId] as const,
+  readiness: (projectId: string | null, workspacePath: string, provider: string) =>
+    [...gitActionKeys.all, 'readiness', { projectId, workspacePath, provider }] as const
+}
