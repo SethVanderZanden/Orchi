@@ -1,6 +1,7 @@
 import { ChevronDown, Columns2, FileText, Trash2, X } from 'lucide-react'
 
 import { ShortcutHint } from '@/components/app-header/shortcut-hint'
+import { ChatGitActionsMenu } from '@/components/layout/chat-git-actions-menu'
 import { OpenInEditorMenu } from '@/components/layout/open-in-editor-menu'
 import { Button } from '@/components/ui/button'
 import { ButtonGroup } from '@/components/ui/button-group'
@@ -12,12 +13,18 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { PageHeader } from '@/components/ui/page-header'
 import type { ChatThread } from '@/lib/chat/types'
+import type { GitHostProvider } from '@/lib/git/types'
 
 type ChatWorkspaceHeaderProps = {
   chat: ChatThread
   projectName: string | null
   childChatCount: number
   workspacePath: string
+  chatId: string
+  projectId: string | null
+  defaultBaseBranch: string
+  gitHostProvider: GitHostProvider
+  workspaceBranch: string | null
   parentChatId: string | null
   parentTitle: string | null
   showPlanReview: boolean
@@ -35,6 +42,11 @@ export function ChatWorkspaceHeader({
   projectName,
   childChatCount,
   workspacePath,
+  chatId,
+  projectId,
+  defaultBaseBranch,
+  gitHostProvider,
+  workspaceBranch,
   parentChatId,
   parentTitle,
   showPlanReview,
@@ -86,6 +98,14 @@ export function ChatWorkspaceHeader({
       endContent={
         <>
           <OpenInEditorMenu workspacePath={workspacePath} />
+          <ChatGitActionsMenu
+            chatId={chatId}
+            projectId={projectId}
+            workspacePath={workspacePath}
+            defaultBaseBranch={defaultBaseBranch}
+            gitHostProvider={gitHostProvider}
+            workspaceBranch={workspaceBranch}
+          />
           {showPlanReview ? (
             <Button
               variant={reviewPanelOpen ? 'default' : 'outline'}
