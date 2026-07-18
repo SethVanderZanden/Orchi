@@ -35,6 +35,10 @@ function project(overrides: Partial<Project> = {}): Project {
   return {
     id: 'project-1',
     name: 'Orchi',
+    defaultBaseBranch: 'main',
+    defaultWorktreeBranchPattern: 'orchi/{date}-{shortId}',
+    gitHostProvider: 'github',
+    useWorktreeOnKickoff: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     workspaces: [
@@ -45,6 +49,8 @@ function project(overrides: Partial<Project> = {}): Project {
         name: 'main',
         isDefault: true,
         kind: 'primary',
+        branch: null,
+        baseBranch: null,
         createdAt: new Date().toISOString()
       }
     ],

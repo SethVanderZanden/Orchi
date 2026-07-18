@@ -21,7 +21,14 @@ public interface IProjectStore
         string defaultWorkspacePath,
         CancellationToken cancellationToken);
 
-    Task<Project?> UpdateProjectAsync(Guid projectId, string name, CancellationToken cancellationToken);
+    Task<Project?> UpdateProjectAsync(
+        Guid projectId,
+        string? name,
+        string? defaultBaseBranch,
+        string? defaultWorktreeBranchPattern,
+        GitHostProvider? gitHostProvider,
+        bool? useWorktreeOnKickoff,
+        CancellationToken cancellationToken);
 
     Task<ProjectDeleteResult?> DeleteProjectAsync(Guid projectId, CancellationToken cancellationToken);
 
@@ -29,6 +36,9 @@ public interface IProjectStore
         Guid projectId,
         string path,
         string? name,
+        WorkspaceKind kind,
+        string? branch,
+        string? baseBranch,
         CancellationToken cancellationToken);
 
     Task<Workspace?> UpdateWorkspaceAsync(

@@ -33,6 +33,18 @@ public static class ProjectTestHelper
             throw new InvalidOperationException("Failed to create project for test setup.");
         }
 
+        // Integration tests share non-worktree folders; disable automatic worktree kickoff.
+        HttpResponseMessage patch = await client.PatchAsJsonAsync(
+            $"/projects/{created.Id}",
+            new UpdateProjectRequest(UseWorktreeOnKickoff: false));
+
+        if (!patch.IsSuccessStatusCode)
+        {
+            string body = await patch.Content.ReadAsStringAsync();
+            throw new InvalidOperationException(
+                $"Failed to disable worktree kickoff ({patch.StatusCode}): {body}");
+        }
+
         return created.DefaultWorkspace.Id;
     }
 }

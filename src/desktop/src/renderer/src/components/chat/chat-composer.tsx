@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowUp } from 'lucide-react'
 
-import { ChatModeBadge } from '@/components/chat/chat-mode-badge'
 import { ChatModeDropdown } from '@/components/chat/chat-mode-dropdown'
 import { ChatModelSelector } from '@/components/chat/chat-model-selector'
 import { ChatContextSizeSelector } from '@/components/chat/chat-context-size-selector'
 import { ChatCliOptionSelector } from '@/components/chat/chat-cli-option-selector'
+import { ChatWorktreeToggle } from '@/components/chat/chat-worktree-toggle'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { getComposerDraft, setComposerDraft } from '@/lib/chat/composer-drafts'
 import type { AgentMode } from '@/lib/chat/types'
+import type { Project } from '@/lib/projects/types'
 import { cn } from '@/lib/utils'
 
 type ChatComposerProps = {
@@ -42,6 +43,10 @@ type ChatComposerProps = {
   canChangeApprovalPolicy?: boolean
   approvalPolicyUpdateError?: string | null
   onApprovalPolicyChange: (approvalPolicyId: string | null) => void
+  projectId?: string | null
+  projects?: Project[]
+  /** When 0, worktree toggle is available (new chat). */
+  messageCount?: number
 }
 
 export function OrchiChatComposer({
@@ -72,7 +77,10 @@ export function OrchiChatComposer({
   approvalPolicyId,
   canChangeApprovalPolicy = true,
   approvalPolicyUpdateError = null,
-  onApprovalPolicyChange
+  onApprovalPolicyChange,
+  projectId = null,
+  projects = [],
+  messageCount = 0
 }: ChatComposerProps): React.JSX.Element {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [draft, setDraft] = useState(() => initialDraft ?? getComposerDraft(chatId) ?? '')
@@ -132,18 +140,12 @@ export function OrchiChatComposer({
         <div className="flex items-center justify-between gap-2 px-3.5 pb-3.5 pt-1">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             {showModeControls ? (
-              <>
-                <ChatModeBadge
-                  mode={mode}
-                  disabled={!canChangeMode}
-                  onClear={() => onModeChange('default')}
-                />
-                <ChatModeDropdown
-                  mode={mode}
-                  disabled={!canChangeMode}
-                  onModeChange={onModeChange}
-                />
-              </>
+              <ChatModeDropdown
+                mode={mode}
+                disabled={!canChangeMode}
+                onModeChange={onModeChange}
+                onClear={() => onModeChange('default')}
+              />
             ) : null}
             <ChatModelSelector
               agentId={agentId}
@@ -182,6 +184,13 @@ export function OrchiChatComposer({
               error={approvalPolicyUpdateError}
               onOptionChange={onApprovalPolicyChange}
               compact
+            />
+            <ChatWorktreeToggle
+              chatId={chatId}
+              projectId={projectId}
+              projects={projects}
+              messageCount={messageCount}
+              disabled={disabled}
             />
           </div>
           <Button

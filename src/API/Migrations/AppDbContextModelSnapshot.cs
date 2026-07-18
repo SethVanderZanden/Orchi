@@ -17,45 +17,6 @@ namespace Orchi.Api.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.9");
 
-            modelBuilder.Entity("Orchi.Api.Entities.AgentContextSize", b =>
-                {
-                    b.Property<string>("AgentId")
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("SizeId")
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsEnabled")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Label")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Source")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("TokenCount")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("AgentId", "SizeId");
-
-                    b.HasIndex("AgentId", "IsEnabled");
-
-                    b.ToTable("AgentContextSizes");
-                });
-
             modelBuilder.Entity("Orchi.Api.Entities.AgentCliOption", b =>
                 {
                     b.Property<string>("AgentId")
@@ -101,6 +62,45 @@ namespace Orchi.Api.Migrations
                     b.ToTable("AgentCliOptions");
                 });
 
+            modelBuilder.Entity("Orchi.Api.Entities.AgentContextSize", b =>
+                {
+                    b.Property<string>("AgentId")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SizeId")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("TokenCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("AgentId", "SizeId");
+
+                    b.HasIndex("AgentId", "IsEnabled");
+
+                    b.ToTable("AgentContextSizes");
+                });
+
             modelBuilder.Entity("Orchi.Api.Entities.AgentModel", b =>
                 {
                     b.Property<string>("AgentId")
@@ -143,41 +143,6 @@ namespace Orchi.Api.Migrations
                     b.ToTable("AgentModels");
                 });
 
-            modelBuilder.Entity("Orchi.Api.Entities.ModeRuntimeDefault", b =>
-                {
-                    b.Property<string>("Mode")
-                        .HasMaxLength(32)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("AgentId")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ApprovalPolicyId")
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ContextSizeId")
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ModelId")
-                        .HasMaxLength(256)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ReasoningEffortId")
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Mode");
-
-                    b.ToTable("ModeRuntimeDefaults");
-                });
-
             modelBuilder.Entity("Orchi.Api.Entities.Chat", b =>
                 {
                     b.Property<Guid>("Id")
@@ -193,11 +158,11 @@ namespace Orchi.Api.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("ContextSizeId")
                         .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("ExternalSessionId")
@@ -222,15 +187,15 @@ namespace Orchi.Api.Migrations
                     b.Property<Guid?>("ParentChatId")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("ReasoningEffortId")
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("PlanFilePath")
                         .HasMaxLength(512)
                         .HasColumnType("TEXT");
 
                     b.Property<Guid?>("ProjectId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ReasoningEffortId")
+                        .HasMaxLength(64)
                         .HasColumnType("TEXT");
 
                     b.Property<int>("Status")
@@ -296,6 +261,41 @@ namespace Orchi.Api.Migrations
                     b.HasIndex("ChatId");
 
                     b.ToTable("ChatMessages");
+                });
+
+            modelBuilder.Entity("Orchi.Api.Entities.ModeRuntimeDefault", b =>
+                {
+                    b.Property<string>("Mode")
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AgentId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ApprovalPolicyId")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ContextSizeId")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ModelId")
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ReasoningEffortId")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Mode");
+
+                    b.ToTable("ModeRuntimeDefaults");
                 });
 
             modelBuilder.Entity("Orchi.Api.Entities.OrchestrationWorkflow", b =>
@@ -367,6 +367,23 @@ namespace Orchi.Api.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("DefaultBaseBranch")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("main");
+
+                    b.Property<string>("DefaultWorktreeBranchPattern")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("orchi/{date}-{shortId}");
+
+                    b.Property<int>("GitHostProvider")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(256)
@@ -375,11 +392,84 @@ namespace Orchi.Api.Migrations
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("UseWorktreeOnKickoff")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true);
+
                     b.HasKey("Id");
 
                     b.HasIndex("UpdatedAt");
 
                     b.ToTable("Projects");
+                });
+
+            modelBuilder.Entity("Orchi.Api.Entities.Script", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ProjectId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("StepsJson")
+                        .IsRequired()
+                        .HasMaxLength(32000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId");
+
+                    b.ToTable("Scripts");
+                });
+
+            modelBuilder.Entity("Orchi.Api.Entities.ScriptBinding", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Event")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ModeFilter")
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("OnError")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ScriptId")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ScriptId");
+
+                    b.HasIndex("Event", "Enabled", "Order");
+
+                    b.ToTable("ScriptBindings");
                 });
 
             modelBuilder.Entity("Orchi.Api.Entities.SelectionAction", b =>
@@ -445,6 +535,14 @@ namespace Orchi.Api.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BaseBranch")
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Branch")
+                        .HasMaxLength(256)
                         .HasColumnType("TEXT");
 
                     b.Property<DateTimeOffset>("CreatedAt")
@@ -532,6 +630,27 @@ namespace Orchi.Api.Migrations
                     b.Navigation("SourceChat");
                 });
 
+            modelBuilder.Entity("Orchi.Api.Entities.Script", b =>
+                {
+                    b.HasOne("Orchi.Api.Entities.Project", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Project");
+                });
+
+            modelBuilder.Entity("Orchi.Api.Entities.ScriptBinding", b =>
+                {
+                    b.HasOne("Orchi.Api.Entities.Script", "Script")
+                        .WithMany("Bindings")
+                        .HasForeignKey("ScriptId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Script");
+                });
+
             modelBuilder.Entity("Orchi.Api.Entities.Workspace", b =>
                 {
                     b.HasOne("Orchi.Api.Entities.Project", "Project")
@@ -551,6 +670,11 @@ namespace Orchi.Api.Migrations
             modelBuilder.Entity("Orchi.Api.Entities.Project", b =>
                 {
                     b.Navigation("Workspaces");
+                });
+
+            modelBuilder.Entity("Orchi.Api.Entities.Script", b =>
+                {
+                    b.Navigation("Bindings");
                 });
 #pragma warning restore 612, 618
         }

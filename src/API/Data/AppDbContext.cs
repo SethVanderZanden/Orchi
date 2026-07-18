@@ -27,6 +27,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<SelectionAction> SelectionActions => Set<SelectionAction>();
 
+    public DbSet<Script> Scripts => Set<Script>();
+
+    public DbSet<ScriptBinding> ScriptBindings => Set<ScriptBinding>();
+
     public DbSet<UserPreference> UserPreferences => Set<UserPreference>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -35,6 +39,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             entity.HasKey(project => project.Id);
             entity.Property(project => project.Name).HasMaxLength(256);
+            entity.Property(project => project.DefaultBaseBranch).HasMaxLength(256).HasDefaultValue("main");
+            entity.Property(project => project.DefaultWorktreeBranchPattern)
+                .HasMaxLength(256)
+                .HasDefaultValue("orchi/{date}-{shortId}");
+            entity.Property(project => project.GitHostProvider).HasConversion<int>();
+            entity.Property(project => project.UseWorktreeOnKickoff).HasDefaultValue(true);
             entity.HasIndex(project => project.UpdatedAt);
         });
 
@@ -44,6 +54,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(workspace => workspace.Path).HasMaxLength(2048);
             entity.Property(workspace => workspace.NormalizedPath).HasMaxLength(2048);
             entity.Property(workspace => workspace.Name).HasMaxLength(256);
+            entity.Property(workspace => workspace.Branch).HasMaxLength(256);
+            entity.Property(workspace => workspace.BaseBranch).HasMaxLength(256);
             entity.HasIndex(workspace => new { workspace.ProjectId, workspace.NormalizedPath }).IsUnique();
             entity.HasOne(workspace => workspace.Project)
                 .WithMany(project => project.Workspaces)
@@ -165,6 +177,34 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(action => action.Label).HasMaxLength(128);
             entity.Property(action => action.Template).HasMaxLength(4000);
             entity.HasIndex(action => action.SortOrder);
+        });
+
+        modelBuilder.Entity<Script>(entity =>
+        {
+            entity.HasKey(script => script.Id);
+            entity.Property(script => script.Id).HasMaxLength(32);
+            entity.Property(script => script.Name).HasMaxLength(128);
+            entity.Property(script => script.StepsJson).HasMaxLength(32_000);
+            entity.HasIndex(script => script.ProjectId);
+            entity.HasOne(script => script.Project)
+                .WithMany()
+                .HasForeignKey(script => script.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ScriptBinding>(entity =>
+        {
+            entity.HasKey(binding => binding.Id);
+            entity.Property(binding => binding.Id).HasMaxLength(32);
+            entity.Property(binding => binding.ScriptId).HasMaxLength(32);
+            entity.Property(binding => binding.Event).HasConversion<int>();
+            entity.Property(binding => binding.ModeFilter).HasMaxLength(32);
+            entity.Property(binding => binding.OnError).HasConversion<int>();
+            entity.HasIndex(binding => new { binding.Event, binding.Enabled, binding.Order });
+            entity.HasOne(binding => binding.Script)
+                .WithMany(script => script.Bindings)
+                .HasForeignKey(binding => binding.ScriptId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<UserPreference>(entity =>

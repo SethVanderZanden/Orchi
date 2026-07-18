@@ -89,7 +89,7 @@ export function AppHeader(): React.JSX.Element {
             >
               <Search className="size-3.5" />
               <span className="hidden sm:inline">Search</span>
-              <ShortcutHint>Ctrl+K</ShortcutHint>
+              <ShortcutHint>Ctrl+P</ShortcutHint>
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

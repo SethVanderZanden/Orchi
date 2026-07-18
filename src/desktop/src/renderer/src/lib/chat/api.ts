@@ -18,7 +18,9 @@ import type {
   UpdateChatReasoningEffortRequest,
   UpdateChatReasoningEffortResponse,
   UpdateChatApprovalPolicyRequest,
-  UpdateChatApprovalPolicyResponse
+  UpdateChatApprovalPolicyResponse,
+  UpdateChatWorkspaceRequest,
+  UpdateChatWorkspaceResponse
 } from '@/lib/chat/types'
 import { getApiBaseUrl } from '@/lib/api'
 import {
@@ -310,6 +312,23 @@ export async function updateChatApprovalPolicy(
   return (await response.json()) as UpdateChatApprovalPolicyResponse
 }
 
+export async function updateChatWorkspace(
+  chatId: string,
+  request: UpdateChatWorkspaceRequest
+): Promise<UpdateChatWorkspaceResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/chats/${chatId}/workspace`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request)
+  })
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, chatErrorOptions))
+  }
+
+  return (await response.json()) as UpdateChatWorkspaceResponse
+}
+
 export async function closeChat(chatId: string): Promise<void> {
   const response = await fetch(`${getApiBaseUrl()}/chats/${chatId}`, {
     method: 'DELETE'
@@ -403,6 +422,11 @@ function dispatchChatSseEvent(
     case 'tool':
       handlers.onTool?.(String(payload.label ?? 'tool'))
       break
+    case 'script': {
+      const stepLabel = String(payload.stepLabel ?? payload.scriptName ?? 'script')
+      handlers.onScript?.(stepLabel)
+      break
+    }
     case 'done':
       handlers.onDone?.(String(payload.messageId ?? ''))
       break

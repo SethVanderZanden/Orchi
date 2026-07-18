@@ -10,7 +10,9 @@ import { ModeRuntimeDefaultsCard } from '@/components/settings/mode-runtime-defa
 import { DefaultChatModeCard } from '@/components/settings/default-chat-mode-card'
 import { PostMessageBehaviorCard } from '@/components/settings/post-message-behavior-card'
 import { PreferredEditorCard } from '@/components/settings/preferred-editor-card'
+import { GitSettingsCard } from '@/components/settings/git-settings-card'
 import { ProjectsSettingsCard } from '@/components/settings/projects-settings-card'
+import { ScriptsSettingsCard } from '@/components/settings/scripts-settings-card'
 import { SelectionActionsCard } from '@/components/settings/selection-actions-card'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -50,11 +52,13 @@ function SettingsPage(): React.JSX.Element {
             <TabsList variant="line" className="w-full justify-start">
               <TabsTrigger value="general">General</TabsTrigger>
               <TabsTrigger value="agents">Agents</TabsTrigger>
+              <TabsTrigger value="workflows">Workflows</TabsTrigger>
               <TabsTrigger value="selection">Selection</TabsTrigger>
             </TabsList>
 
             <TabsContent value="general" className="flex flex-col gap-8">
               <ProjectsSettingsCard />
+              <GitSettingsCard />
               <PreferredEditorCard />
               <DefaultChatModeCard />
               <PostMessageBehaviorCard />
@@ -90,6 +94,10 @@ function SettingsPage(): React.JSX.Element {
                   />
                 </div>
               ))}
+            </TabsContent>
+
+            <TabsContent value="workflows" className="flex flex-col gap-8">
+              <ScriptsSettingsCard />
             </TabsContent>
 
             <TabsContent value="selection" className="flex flex-col gap-8">

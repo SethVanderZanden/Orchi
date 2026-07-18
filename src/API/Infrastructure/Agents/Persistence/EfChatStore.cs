@@ -342,6 +342,29 @@ public sealed class EfChatStore(
         return true;
     }
 
+    public async Task<bool> UpdateWorkspaceAsync(
+        Guid chatId,
+        Guid projectId,
+        Guid workspaceId,
+        string workspacePath,
+        CancellationToken cancellationToken)
+    {
+        await using AppDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        Chat? chat = await db.Chats.FirstOrDefaultAsync(existing => existing.Id == chatId, cancellationToken);
+
+        if (chat is null)
+        {
+            return false;
+        }
+
+        chat.ProjectId = projectId;
+        chat.WorkspaceId = workspaceId;
+        chat.WorkspacePath = workspacePath;
+        chat.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     public async Task<bool> UpdateRuntimeAsync(
         Guid chatId,
         string agentId,

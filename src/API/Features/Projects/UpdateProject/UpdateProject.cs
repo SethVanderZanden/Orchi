@@ -10,16 +10,38 @@ namespace Orchi.Api.Features.Projects.UpdateProject;
 
 public static class UpdateProject
 {
-    public sealed record Command(Guid ProjectId, string Name) : ICommand<ProjectDetailResponse>;
+    public sealed record Command(
+        Guid ProjectId,
+        string? Name,
+        string? DefaultBaseBranch,
+        string? DefaultWorktreeBranchPattern,
+        string? GitHostProvider,
+        bool? UseWorktreeOnKickoff) : ICommand<ProjectDetailResponse>;
 
     internal sealed class Handler(IProjectStore projectStore)
         : ICommandHandler<Command, ProjectDetailResponse>
     {
         public async Task<Result<ProjectDetailResponse>> Handle(Command command, CancellationToken cancellationToken)
         {
+            GitHostProvider? host = null;
+            if (!string.IsNullOrWhiteSpace(command.GitHostProvider))
+            {
+                if (!ProjectMapper.TryParseGitHost(command.GitHostProvider, out GitHostProvider parsed))
+                {
+                    return Result.Failure<ProjectDetailResponse>(
+                        Error.Validation("GitHostProvider.Invalid", "Git host must be github or azureDevOps."));
+                }
+
+                host = parsed;
+            }
+
             Project? project = await projectStore.UpdateProjectAsync(
                 command.ProjectId,
                 command.Name,
+                command.DefaultBaseBranch,
+                command.DefaultWorktreeBranchPattern,
+                host,
+                command.UseWorktreeOnKickoff,
                 cancellationToken);
 
             if (project is null)
@@ -40,9 +62,14 @@ public static class UpdateProject
                 .NotEmpty()
                 .WithMessage("Project id is required.");
 
-            RuleFor(command => command.Name)
-                .NotEmpty()
-                .WithMessage("Project name is required.");
+            RuleFor(command => command)
+                .Must(command =>
+                    !string.IsNullOrWhiteSpace(command.Name)
+                    || !string.IsNullOrWhiteSpace(command.DefaultBaseBranch)
+                    || !string.IsNullOrWhiteSpace(command.DefaultWorktreeBranchPattern)
+                    || !string.IsNullOrWhiteSpace(command.GitHostProvider)
+                    || command.UseWorktreeOnKickoff is not null)
+                .WithMessage("At least one project field must be provided.");
         }
     }
 
@@ -63,7 +90,13 @@ public static class UpdateProject
             CancellationToken cancellationToken)
         {
             Result<ProjectDetailResponse> result = await handler.Handle(
-                new Command(projectId, request.Name),
+                new Command(
+                    projectId,
+                    request.Name,
+                    request.DefaultBaseBranch,
+                    request.DefaultWorktreeBranchPattern,
+                    request.GitHostProvider,
+                    request.UseWorktreeOnKickoff),
                 cancellationToken);
 
             return result.ToProblem();

@@ -152,6 +152,14 @@ public class ChatStatusServiceTests
             CancellationToken cancellationToken) =>
             Task.FromResult(false);
 
+        public Task<bool> UpdateWorkspaceAsync(
+            Guid chatId,
+            Guid projectId,
+            Guid workspaceId,
+            string workspacePath,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(false);
+
         public Task<bool> UpdateRuntimeAsync(
             Guid chatId,
             string agentId,

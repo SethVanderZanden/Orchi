@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 
 import { openWorkspaceInPreferredEditor } from '@/lib/preferences/open-in-editor'
+import { canUseWorktreeToggle, toggleWorktreeIntent } from '@/lib/chat/worktree-intent'
 import { useKeyboardShortcut, useKeyboardShortcutCombo } from '@/hooks/use-keyboard-shortcut'
 import { useChat } from '@/providers/chat-context'
 import { useChatTabs } from '@/providers/chat-tabs-provider'
@@ -23,6 +24,11 @@ export function useAppShortcuts(): void {
     setFinderOpen,
     isCreatingTab
   } = useChatTabs()
+
+  const activeChat = activeTabId ? getChat(activeTabId) : undefined
+  const canToggleActiveWorktree = Boolean(
+    activeChat?.projectId && canUseWorktreeToggle(activeChat.messages.length)
+  )
 
   const openFinder = useCallback(() => {
     setFinderOpen(true)
@@ -64,6 +70,19 @@ export function useAppShortcuts(): void {
     void openWorkspaceInPreferredEditor(chat.workspacePath)
   }, [activeTabId, getChat])
 
+  const toggleActiveChatWorktree = useCallback(() => {
+    if (!activeTabId) {
+      return
+    }
+
+    const chat = getChat(activeTabId)
+    if (!chat || !chat.projectId || !canUseWorktreeToggle(chat.messages.length)) {
+      return
+    }
+
+    toggleWorktreeIntent(activeTabId)
+  }, [activeTabId, getChat])
+
   const openParentBeside = useCallback((): boolean => {
     const chatId = activeTabId
     if (!chatId) {
@@ -86,7 +105,7 @@ export function useAppShortcuts(): void {
 
   useKeyboardShortcut('n', createTab, { enabled: !isCreatingTab })
 
-  useKeyboardShortcutCombo({ key: 'k', ctrl: true }, openFinder, {
+  useKeyboardShortcutCombo({ key: 'p', ctrl: true }, openFinder, {
     allowInTextarea: true
   })
 
@@ -107,6 +126,11 @@ export function useAppShortcuts(): void {
   useKeyboardShortcutCombo({ key: 'e', ctrl: true }, openInEditor, {
     allowInTextarea: true,
     enabled: Boolean(activeTabId)
+  })
+
+  useKeyboardShortcutCombo({ key: 't', ctrl: true }, toggleActiveChatWorktree, {
+    allowInTextarea: true,
+    enabled: canToggleActiveWorktree
   })
 
   useKeyboardShortcutCombo({ key: 'Tab', ctrl: true }, () => activateAdjacentTab('next'), {

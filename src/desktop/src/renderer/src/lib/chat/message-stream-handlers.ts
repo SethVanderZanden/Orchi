@@ -59,6 +59,21 @@ export function createMessageStreamHandlers({
         notifyAgentActivity({ phase: 'tool', label })
       }
     },
+    onScript: (label) => {
+      if (!isActiveTurn()) {
+        return
+      }
+
+      tokens.flush()
+
+      appendMarker(chatId, {
+        id: crypto.randomUUID(),
+        content: label,
+        variant: 'tool'
+      })
+
+      notifyAgentActivity({ phase: 'tool', label })
+    },
     onDone: () => {
       if (!isActiveTurn()) {
         tokens.cancel()

@@ -80,6 +80,7 @@ Stable contract between API and desktop:
 | `status` | `{ "phase": "processing" }` | Show processing `Marker` |
 | `token` | `{ "text": "..." }` | Append to assistant bubble; `status: streaming` |
 | `tool` | `{ "label": "Reading README.md" }` | Separator `Marker` row |
+| `script` | `{ "phase", "scriptName", "stepLabel", "output?", "error?" }` | Marker row (same UX as tool; e.g. “Running npm run lint”) |
 | `done` | `{ "messageId": "..." }` | `status: complete`; clear processing markers |
 | `error` | `{ "code": "...", "message": "..." }` | Error marker + message text |
 

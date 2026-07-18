@@ -113,6 +113,15 @@
     @apply bg-background font-sans text-foreground antialiased;
   }
 
+  select {
+    color-scheme: inherit;
+  }
+
+  select option {
+    background-color: var(--popover);
+    color: var(--popover-foreground);
+  }
+
   #root {
     @apply w-full p-0;
   }

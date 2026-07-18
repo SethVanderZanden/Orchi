@@ -13,3 +13,10 @@ public sealed record AgentSessionStartedEvent(string ExternalSessionId) : AgentE
 public sealed record AgentCompletedEvent(string? ExternalSessionId, string FullText) : AgentEvent;
 
 public sealed record AgentErrorEvent(string Code, string Message) : AgentEvent;
+
+public sealed record AgentScriptEvent(
+    string Phase,
+    string ScriptName,
+    string StepLabel,
+    string? Output,
+    string? Error) : AgentEvent;

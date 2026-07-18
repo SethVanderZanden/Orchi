@@ -40,7 +40,7 @@ public class ProjectsEndpointTests : IClassFixture<TestWebApplicationFactory>, I
         Assert.NotNull(created);
         Assert.Equal("Orchi", created.Name);
         Assert.True(created.DefaultWorkspace.IsDefault);
-        Assert.Equal("Primary", created.DefaultWorkspace.Kind);
+        Assert.Equal("primary", created.DefaultWorkspace.Kind);
     }
 
     [Fact]

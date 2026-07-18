@@ -195,7 +195,8 @@ public sealed class OrchiKickoffExecutor(
                 parentChatId,
                 planId,
                 title,
-                contentMarkdown)!;
+                contentMarkdown,
+                null)!;
 
             Result<object?> result = await InvokeHandlerAsync(
                 scopeFactory,

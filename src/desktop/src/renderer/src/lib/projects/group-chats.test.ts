@@ -39,6 +39,11 @@ function makeProject(overrides: Partial<Project> & Pick<Project, 'id' | 'name'>)
   return {
     id: overrides.id,
     name: overrides.name,
+    defaultBaseBranch: overrides.defaultBaseBranch ?? 'main',
+    defaultWorktreeBranchPattern:
+      overrides.defaultWorktreeBranchPattern ?? 'orchi/{date}-{shortId}',
+    gitHostProvider: overrides.gitHostProvider ?? 'github',
+    useWorktreeOnKickoff: overrides.useWorktreeOnKickoff ?? true,
     createdAt: overrides.createdAt ?? '2026-01-01T00:00:00.000Z',
     updatedAt: overrides.updatedAt ?? '2026-01-01T00:00:00.000Z',
     workspaces: overrides.workspaces ?? [
@@ -48,6 +53,8 @@ function makeProject(overrides: Partial<Project> & Pick<Project, 'id' | 'name'>)
         path: 'E:\\Projects\\Orchi',
         name: 'Orchi',
         isDefault: true,
+        branch: null,
+        baseBranch: null,
         kind: 'primary',
         createdAt: '2026-01-01T00:00:00.000Z'
       }
@@ -68,6 +75,8 @@ describe('getDefaultWorkspace', () => {
           name: 'main',
           isDefault: true,
           kind: 'primary',
+          branch: null,
+          baseBranch: null,
           createdAt: '2026-01-01T00:00:00.000Z'
         },
         {
@@ -77,6 +86,8 @@ describe('getDefaultWorkspace', () => {
           name: 'feature',
           isDefault: false,
           kind: 'worktree',
+          branch: null,
+          baseBranch: null,
           createdAt: '2026-01-01T00:00:00.000Z'
         }
       ]
@@ -97,6 +108,8 @@ describe('getDefaultWorkspace', () => {
           name: 'first',
           isDefault: false,
           kind: 'primary',
+          branch: null,
+          baseBranch: null,
           createdAt: '2026-01-01T00:00:00.000Z'
         }
       ]
@@ -134,6 +147,8 @@ describe('groupChatsByProject', () => {
           name: 'main',
           isDefault: true,
           kind: 'primary',
+          branch: null,
+          baseBranch: null,
           createdAt: '2026-01-01T00:00:00.000Z'
         },
         {
@@ -143,6 +158,8 @@ describe('groupChatsByProject', () => {
           name: 'feature-auth',
           isDefault: false,
           kind: 'worktree',
+          branch: null,
+          baseBranch: null,
           createdAt: '2026-01-01T00:00:00.000Z'
         }
       ]
@@ -241,6 +258,8 @@ describe('groupContainsChat', () => {
           name: 'main',
           isDefault: true,
           kind: 'primary',
+          branch: null,
+          baseBranch: null,
           createdAt: '2026-01-01T00:00:00.000Z'
         },
         {
@@ -250,6 +269,8 @@ describe('groupContainsChat', () => {
           name: 'feature-auth',
           isDefault: false,
           kind: 'worktree',
+          branch: null,
+          baseBranch: null,
           createdAt: '2026-01-01T00:00:00.000Z'
         }
       ]
@@ -317,6 +338,8 @@ describe('resolveWorkspaceIdForNewChat', () => {
           name: 'main',
           isDefault: true,
           kind: 'primary',
+          branch: null,
+          baseBranch: null,
           createdAt: '2026-01-01T00:00:00.000Z'
         },
         {
@@ -326,6 +349,8 @@ describe('resolveWorkspaceIdForNewChat', () => {
           name: 'feature-auth',
           isDefault: false,
           kind: 'worktree',
+          branch: null,
+          baseBranch: null,
           createdAt: '2026-01-01T00:00:00.000Z'
         }
       ]

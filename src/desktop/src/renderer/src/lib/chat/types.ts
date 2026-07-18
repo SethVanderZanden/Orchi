@@ -210,6 +210,17 @@ export type UpdateChatApprovalPolicyResponse = {
   approvalPolicyId: string | null
 }
 
+export type UpdateChatWorkspaceRequest = {
+  workspaceId: string
+}
+
+export type UpdateChatWorkspaceResponse = {
+  chatId: string
+  projectId: string | null
+  workspaceId: string | null
+  workspacePath: string
+}
+
 export type ChatSummaryResponse = {
   id: string
   title: string
@@ -253,6 +264,7 @@ export type KickOffPlanRequest = {
   planId: string
   title: string
   contentMarkdown: string
+  baseBranch?: string | null
 }
 
 export type KickOffPlanResponse = {
@@ -273,6 +285,7 @@ export type SseHandlers = {
   onStatus?: (phase: string) => void
   onToken?: (text: string) => void
   onTool?: (label: string) => void
+  onScript?: (label: string) => void
   onDone?: (messageId: string) => void
   onError?: (code: string, message: string) => void
 }

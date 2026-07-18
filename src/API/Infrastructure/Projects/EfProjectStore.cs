@@ -77,7 +77,11 @@ public sealed class EfProjectStore(IDbContextFactory<AppDbContext> dbContextFact
 
     public async Task<Project?> UpdateProjectAsync(
         Guid projectId,
-        string name,
+        string? name,
+        string? defaultBaseBranch,
+        string? defaultWorktreeBranchPattern,
+        GitHostProvider? gitHostProvider,
+        bool? useWorktreeOnKickoff,
         CancellationToken cancellationToken)
     {
         await using AppDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -90,7 +94,31 @@ public sealed class EfProjectStore(IDbContextFactory<AppDbContext> dbContextFact
             return null;
         }
 
-        project.Name = name.Trim();
+        if (!string.IsNullOrWhiteSpace(name))
+        {
+            project.Name = name.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(defaultBaseBranch))
+        {
+            project.DefaultBaseBranch = defaultBaseBranch.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(defaultWorktreeBranchPattern))
+        {
+            project.DefaultWorktreeBranchPattern = defaultWorktreeBranchPattern.Trim();
+        }
+
+        if (gitHostProvider is not null)
+        {
+            project.GitHostProvider = gitHostProvider.Value;
+        }
+
+        if (useWorktreeOnKickoff is not null)
+        {
+            project.UseWorktreeOnKickoff = useWorktreeOnKickoff.Value;
+        }
+
         project.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
         return project;
@@ -130,6 +158,9 @@ public sealed class EfProjectStore(IDbContextFactory<AppDbContext> dbContextFact
         Guid projectId,
         string path,
         string? name,
+        WorkspaceKind kind,
+        string? branch,
+        string? baseBranch,
         CancellationToken cancellationToken)
     {
         await using AppDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -160,7 +191,9 @@ public sealed class EfProjectStore(IDbContextFactory<AppDbContext> dbContextFact
                 ? WorkspacePathNormalizer.DeriveNameFromPath(fullPath)
                 : name.Trim(),
             IsDefault = false,
-            Kind = WorkspaceKind.Primary,
+            Kind = kind,
+            Branch = string.IsNullOrWhiteSpace(branch) ? null : branch.Trim(),
+            BaseBranch = string.IsNullOrWhiteSpace(baseBranch) ? null : baseBranch.Trim(),
             CreatedAt = DateTimeOffset.UtcNow
         };
 

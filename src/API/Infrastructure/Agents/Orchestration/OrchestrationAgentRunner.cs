@@ -62,6 +62,7 @@ public sealed class OrchestrationAgentRunner(
             AgentStatusEvent status => new OrchestrationAgentStatusEvent(childChatId, status.Phase),
             AgentTextDeltaEvent delta => new OrchestrationAgentTokenEvent(childChatId, delta.Text),
             AgentToolEvent tool => new OrchestrationAgentToolEvent(childChatId, tool.Label),
+            AgentScriptEvent script => new OrchestrationAgentToolEvent(childChatId, script.StepLabel),
             AgentCompletedEvent => new OrchestrationAgentDoneEvent(
                 childChatId,
                 assistantMessageId,

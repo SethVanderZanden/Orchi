@@ -59,7 +59,7 @@ function AppIndexPage(): React.JSX.Element {
   return (
     <EmptyState
       title="No chats open"
-      description="Open a new chat, pick a recent one, or find any chat with Ctrl+K."
+      description="Open a new chat, pick a recent one, or find any chat with Ctrl+P."
       icon={<MessageSquare className="size-8" />}
     >
       <Button
@@ -75,7 +75,7 @@ function AppIndexPage(): React.JSX.Element {
         <ShortcutRow label="New chat tab" shortcut="Ctrl+N" />
         <ShortcutRow label="Agents board" shortcut="Ctrl+B" />
         <ShortcutRow label="Open chat beside" shortcut="Ctrl+ArrowRight" />
-        <ShortcutRow label="Find chat" shortcut="Ctrl+K" />
+        <ShortcutRow label="Find chat" shortcut="Ctrl+P" />
       </div>
       {recentChats.length > 0 ? (
         <div className="mt-1 flex w-full max-w-sm flex-col gap-1 text-left">

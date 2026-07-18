@@ -15,8 +15,9 @@ import { mergeOrchestrationChildren } from '@/lib/orchestration/orchestration-ca
 import { kickOffAllOrchestration } from '@/lib/orchestration/orchestration-events'
 import { workflowProgressFromState } from '@/lib/orchestration/orchestration-state'
 import type { OrchestrationWorkflowProgress } from '@/lib/orchestration/orchestration-state'
-import { chatKeys } from '@/lib/query-keys'
+import type { Project } from '@/lib/projects/types'
 import { findChildForPlan } from '@/lib/projects/chat-tree'
+import { chatKeys, projectKeys } from '@/lib/query-keys'
 
 type UseChatOrchestrationOptions = {
   getChat: (chatId: string) => ChatThread | undefined
@@ -174,13 +175,18 @@ export function useChatOrchestration({
 
   const performKickOff = useCallback(
     async (chatId: string, plan: ParsedPlan, navigateToChild: boolean) => {
+      const parentChat = getChat(chatId)
+      const projects = queryClient.getQueryData<Project[]>(projectKeys.lists()) ?? []
+      const project = projects.find((entry) => entry.id === parentChat?.projectId)
+      const baseBranch = project?.defaultBaseBranch
+
       const response = await kickOffPlan(chatId, {
         planId: plan.planId,
         title: plan.title,
-        contentMarkdown: plan.contentMarkdown
+        contentMarkdown: plan.contentMarkdown,
+        baseBranch: baseBranch ?? null
       })
 
-      const parentChat = getChat(chatId)
       const childChat: ChatThread = {
         id: response.childChatId,
         title: plan.title,

@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createProject, deleteProject, listProjects, updateProject } from '@/lib/projects/api'
 import { migrateLocalWorkspacesIfNeeded } from '@/lib/projects/migrate-local-workspaces'
 import { workspaceNameFromPath } from '@/lib/projects/paths'
-import type { Project } from '@/lib/projects/types'
+import type { Project, UpdateProjectRequest } from '@/lib/projects/types'
 import { projectKeys } from '@/lib/query-keys'
 
 type ProjectContextValue = {
@@ -17,6 +17,10 @@ type ProjectContextValue = {
   addProject: (path: string) => Promise<Project | null>
   removeProject: (projectId: string) => Promise<void>
   renameProject: (projectId: string, name: string) => Promise<Project | null>
+  updateProjectSettings: (
+    projectId: string,
+    request: UpdateProjectRequest
+  ) => Promise<Project | null>
   pickDirectory: () => Promise<string | null>
 }
 
@@ -78,6 +82,17 @@ export function ProjectProvider({ children }: { children: React.ReactNode }): Re
     }
   })
 
+  const updateProjectMutation = useMutation({
+    mutationFn: ({ projectId, request }: { projectId: string; request: UpdateProjectRequest }) =>
+      updateProject(projectId, request),
+    onSuccess: (project) => {
+      queryClient.setQueryData<Project[]>(projectKeys.lists(), (current = []) =>
+        current.map((entry) => (entry.id === project.id ? project : entry))
+      )
+      queryClient.setQueryData(projectKeys.detail(project.id), project)
+    }
+  })
+
   const addProject = useCallback(
     async (path: string) => {
       const trimmed = path.trim()
@@ -109,6 +124,13 @@ export function ProjectProvider({ children }: { children: React.ReactNode }): Re
     [renameProjectMutation]
   )
 
+  const updateProjectSettings = useCallback(
+    async (projectId: string, request: UpdateProjectRequest) => {
+      return updateProjectMutation.mutateAsync({ projectId, request })
+    },
+    [updateProjectMutation]
+  )
+
   const pickDirectory = useCallback(async () => {
     if (!window.api?.openDirectory) {
       return null
@@ -127,6 +149,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }): Re
       addProject,
       removeProject,
       renameProject,
+      updateProjectSettings,
       pickDirectory
     }),
     [
@@ -138,6 +161,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }): Re
       addProject,
       removeProject,
       renameProject,
+      updateProjectSettings,
       pickDirectory
     ]
   )

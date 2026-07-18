@@ -67,6 +67,13 @@ public interface IChatStore
         string? approvalPolicyId,
         CancellationToken cancellationToken);
 
+    Task<bool> UpdateWorkspaceAsync(
+        Guid chatId,
+        Guid projectId,
+        Guid workspaceId,
+        string workspacePath,
+        CancellationToken cancellationToken);
+
     Task<bool> UpdateRuntimeAsync(
         Guid chatId,
         string agentId,

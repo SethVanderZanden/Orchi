@@ -54,6 +54,19 @@ internal static class ChatSseWriter
                     cancellationToken);
                 break;
 
+            case AgentScriptEvent script:
+                await WriteEventAsync(
+                    stream,
+                    "script",
+                    new SseScriptPayload(
+                        script.Phase,
+                        script.ScriptName,
+                        script.StepLabel,
+                        script.Output,
+                        script.Error),
+                    cancellationToken);
+                break;
+
             case AgentCompletedEvent:
                 await WriteEventAsync(
                     stream,

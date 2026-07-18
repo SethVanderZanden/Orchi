@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import type { NavigateOptions } from '@tanstack/react-router'
+import { toast } from 'sonner'
 
 import { sendMessageStream } from '@/lib/chat/api'
 import { isLocalChat } from '@/lib/chat/chat-persistence'
@@ -15,6 +16,7 @@ import { registerChatIdMigrator } from '@/lib/chat/migrate-chat-client-state'
 import { resolveDetailCache } from '@/lib/chat/resolve-detail-cache'
 import { maybeHydrateOrchestrationAfterChildSend } from '@/lib/orchestration/orchestration-cache'
 import { promoteLocalChat } from '@/lib/chat/promote-local-chat'
+import { provisionWorktreeForSendIfNeeded } from '@/lib/chat/provision-worktree-for-send'
 import type { ChatMarker, ChatThread, SendMessageOptions } from '@/lib/chat/types'
 import { chatKeys } from '@/lib/query-keys'
 
@@ -228,8 +230,12 @@ export function useChatStream({
             })
           }
         }
+
+        await provisionWorktreeForSendIfNeeded(queryClient, resolvedChatId)
       } catch (error) {
-        throw error instanceof Error ? error : new Error('Failed to create chat.')
+        const message = error instanceof Error ? error.message : 'Failed to prepare chat.'
+        toast.error(message)
+        return
       }
 
       abortStream(resolvedChatId)

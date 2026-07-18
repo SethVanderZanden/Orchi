@@ -8,6 +8,8 @@ using Orchi.Api.Infrastructure.Agents.Modes;
 using Orchi.Api.Infrastructure.Agents.Models;
 using Orchi.Api.Infrastructure.Agents.Orchestration;
 using Orchi.Api.Infrastructure.Projects;
+using Orchi.Api.Infrastructure.Scripts;
+using Orchi.Api.Infrastructure.Scripts.Actions;
 
 namespace Orchi.Api.Infrastructure.Agents;
 
@@ -25,6 +27,7 @@ public sealed class AgentSessionManager
     private readonly IAgentPromptComposer _promptComposer;
     private readonly IAgentTurnCompletionNotifier _turnCompletionNotifier;
     private readonly IChatStatusService _chatStatusService;
+    private readonly IScriptEventDispatcher _scriptEventDispatcher;
     private readonly ILogger<AgentSessionManager> _logger;
 
     public AgentSessionManager(
@@ -39,6 +42,7 @@ public sealed class AgentSessionManager
         IAgentPromptComposer promptComposer,
         IAgentTurnCompletionNotifier turnCompletionNotifier,
         IChatStatusService chatStatusService,
+        IScriptEventDispatcher scriptEventDispatcher,
         ILogger<AgentSessionManager> logger)
     {
         _chatStore = chatStore;
@@ -52,6 +56,7 @@ public sealed class AgentSessionManager
         _promptComposer = promptComposer;
         _turnCompletionNotifier = turnCompletionNotifier;
         _chatStatusService = chatStatusService;
+        _scriptEventDispatcher = scriptEventDispatcher;
         _logger = logger;
     }
 
@@ -566,6 +571,62 @@ public sealed class AgentSessionManager
         return Result.Success(session);
     }
 
+    public async Task<Result<ChatSession>> UpdateWorkspaceAsync(
+        Guid chatId,
+        Guid workspaceId,
+        CancellationToken cancellationToken)
+    {
+        ChatSession? session = await GetOrLoadSessionAsync(chatId, cancellationToken);
+        if (session is null)
+        {
+            return Result.Failure<ChatSession>(Error.NotFound($"Chat '{chatId}' was not found."));
+        }
+
+        lock (session.Sync)
+        {
+            if (session.RunningProcess is not null
+                || session.RunCts is not null
+                || session.Messages.Any(message =>
+                    message.Role == "assistant" && message.Status is "processing" or "streaming"))
+            {
+                return Result.Failure<ChatSession>(
+                    Error.Validation(
+                        "Workspace.Busy",
+                        "Workspace cannot be changed while the agent is running."));
+            }
+        }
+
+        Entities.Workspace? workspace = await _projectStore.GetWorkspaceAsync(workspaceId, cancellationToken);
+        if (workspace is null)
+        {
+            return Result.Failure<ChatSession>(Error.NotFound($"Workspace '{workspaceId}' was not found."));
+        }
+
+        if (!Directory.Exists(workspace.Path))
+        {
+            return Result.Failure<ChatSession>(
+                Error.Validation("Workspace.NotFound", $"Workspace path does not exist: {workspace.Path}"));
+        }
+
+        bool updated = await _chatStore.UpdateWorkspaceAsync(
+            chatId,
+            workspace.ProjectId,
+            workspace.Id,
+            workspace.Path,
+            cancellationToken);
+
+        if (!updated)
+        {
+            return Result.Failure<ChatSession>(Error.NotFound($"Chat '{chatId}' was not found."));
+        }
+
+        session.ProjectId = workspace.ProjectId;
+        session.WorkspaceId = workspace.Id;
+        session.WorkspacePath = workspace.Path;
+        _sessions[chatId] = session;
+        return Result.Success(session);
+    }
+
     public async Task<Result> CloseSessionAsync(Guid chatId, CancellationToken cancellationToken)
     {
         if (_sessions.TryRemove(chatId, out ChatSession? session))
@@ -658,6 +719,54 @@ public sealed class AgentSessionManager
             session.Messages.Add(assistantMessage);
         }
 
+        ScriptDispatchContext scriptContext = await BuildScriptDispatchContextAsync(
+            session,
+            succeeded: true,
+            cancellationToken);
+
+        bool abortTurn = false;
+        await foreach (AgentEvent scriptEvent in _scriptEventDispatcher.DispatchAsync(
+                           ScriptEventKind.AgentStart,
+                           scriptContext,
+                           runCts.Token))
+        {
+            yield return scriptEvent;
+            if (scriptEvent is AgentErrorEvent)
+            {
+                abortTurn = true;
+            }
+        }
+
+        if (scriptContext.WorkspaceSwitched
+            && scriptContext.WorkspaceId is Guid switchedWorkspaceId
+            && !string.IsNullOrWhiteSpace(scriptContext.WorkspacePath))
+        {
+            await ApplyWorkspaceSwitchAsync(
+                chatId,
+                session,
+                switchedWorkspaceId,
+                scriptContext.WorkspacePath,
+                runCts.Token);
+        }
+
+        if (abortTurn)
+        {
+            lock (session.Sync)
+            {
+                assistantMessage = assistantMessage with
+                {
+                    Content = "Turn aborted by start script.",
+                    Status = "error"
+                };
+                session.Messages[^1] = assistantMessage;
+            }
+
+            await _chatStore.SaveAssistantMessageAsync(chatId, assistantMessage, null, cancellationToken);
+            await TransitionStatusAsync(chatId, session, ChatStatus.ReadyForReview, cancellationToken);
+            yield return new AgentErrorEvent("Script.Aborted", "Turn aborted by start script.");
+            yield break;
+        }
+
         bool turnCompleted = false;
 
         await foreach (AgentEvent agentEvent in adapter.SendMessageAsync(
@@ -732,6 +841,14 @@ public sealed class AgentSessionManager
                         cancellationToken);
 
                     turnCompleted = true;
+                    await foreach (AgentEvent finishEvent in DispatchFinishScriptsAsync(
+                                       session,
+                                       succeeded: true,
+                                       runCts.Token))
+                    {
+                        yield return finishEvent;
+                    }
+
                     _turnCompletionNotifier.NotifyTurnCompleted(chatId, succeeded: true);
                     yield return completed;
                     break;
@@ -756,6 +873,14 @@ public sealed class AgentSessionManager
                         cancellationToken);
 
                     turnCompleted = true;
+                    await foreach (AgentEvent finishEvent in DispatchFinishScriptsAsync(
+                                       session,
+                                       succeeded: false,
+                                       runCts.Token))
+                    {
+                        yield return finishEvent;
+                    }
+
                     _turnCompletionNotifier.NotifyTurnCompleted(chatId, succeeded: false);
                     yield return error;
                     break;
@@ -1049,6 +1174,102 @@ public sealed class AgentSessionManager
             "Captured external session id from {Source} for chat {ChatId}",
             source,
             chatId);
+    }
+
+    private async IAsyncEnumerable<AgentEvent> DispatchFinishScriptsAsync(
+        ChatSession session,
+        bool succeeded,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        ScriptDispatchContext context = await BuildScriptDispatchContextAsync(session, succeeded, cancellationToken);
+        await foreach (AgentEvent finishEvent in _scriptEventDispatcher.DispatchAsync(
+                           ScriptEventKind.AgentFinish,
+                           context,
+                           cancellationToken))
+        {
+            yield return finishEvent;
+        }
+    }
+
+    private async Task ApplyWorkspaceSwitchAsync(
+        Guid chatId,
+        ChatSession session,
+        Guid workspaceId,
+        string workspacePath,
+        CancellationToken cancellationToken)
+    {
+        Entities.Workspace? workspace = await _projectStore.GetWorkspaceAsync(workspaceId, cancellationToken);
+        if (workspace is null)
+        {
+            return;
+        }
+
+        bool updated = await _chatStore.UpdateWorkspaceAsync(
+            chatId,
+            workspace.ProjectId,
+            workspace.Id,
+            workspacePath,
+            cancellationToken);
+
+        if (!updated)
+        {
+            return;
+        }
+
+        session.ProjectId = workspace.ProjectId;
+        session.WorkspaceId = workspace.Id;
+        session.WorkspacePath = workspacePath;
+        _sessions[chatId] = session;
+
+        _logger.LogInformation(
+            "Switched chat {ChatId} to worktree workspace {WorkspaceId} at {Path}",
+            chatId,
+            workspaceId,
+            workspacePath);
+    }
+
+    private async Task<ScriptDispatchContext> BuildScriptDispatchContextAsync(
+        ChatSession session,
+        bool succeeded,
+        CancellationToken cancellationToken)
+    {
+        string? branch = null;
+        string? baseBranch = null;
+        GitHostProviderSnapshot? gitHost = null;
+
+        if (session.WorkspaceId is Guid workspaceId)
+        {
+            Entities.Workspace? workspace = await _projectStore.GetWorkspaceAsync(workspaceId, cancellationToken);
+            branch = workspace?.Branch;
+            baseBranch = workspace?.BaseBranch;
+        }
+
+        if (session.ProjectId is Guid projectId)
+        {
+            Entities.Project? project = await _projectStore.GetProjectAsync(projectId, cancellationToken);
+            if (project is not null)
+            {
+                gitHost = new GitHostProviderSnapshot(
+                    project.GitHostProvider,
+                    project.DefaultBaseBranch,
+                    project.DefaultWorktreeBranchPattern);
+                baseBranch ??= project.DefaultBaseBranch;
+            }
+        }
+
+        return new ScriptDispatchContext
+        {
+            ChatId = session.Id,
+            Mode = session.Mode,
+            Succeeded = succeeded,
+            WorkspacePath = session.WorkspacePath,
+            ProjectId = session.ProjectId,
+            ParentChatId = session.ParentChatId,
+            WorkspaceId = session.WorkspaceId,
+            Branch = branch,
+            BaseBranch = baseBranch,
+            GitHost = gitHost
+        };
     }
 
     private async Task<ChatSession> GetRequiredSessionAsync(Guid chatId, CancellationToken cancellationToken) =>

@@ -1,5 +1,7 @@
 export type WorkspaceKind = 'primary' | 'worktree'
 
+export type GitHostProvider = 'github' | 'azureDevOps'
+
 export type Workspace = {
   id: string
   projectId: string
@@ -7,12 +9,18 @@ export type Workspace = {
   name: string
   isDefault: boolean
   kind: WorkspaceKind
+  branch: string | null
+  baseBranch: string | null
   createdAt: string
 }
 
 export type Project = {
   id: string
   name: string
+  defaultBaseBranch: string
+  defaultWorktreeBranchPattern: string
+  gitHostProvider: GitHostProvider
+  useWorktreeOnKickoff: boolean
   workspaces: Workspace[]
   createdAt: string
   updatedAt: string
@@ -26,6 +34,10 @@ export type CreateProjectRequest = {
 export type CreateProjectResponse = {
   id: string
   name: string
+  defaultBaseBranch: string
+  defaultWorktreeBranchPattern: string
+  gitHostProvider: string
+  useWorktreeOnKickoff: boolean
   createdAt: string
   updatedAt: string
   defaultWorkspace: WorkspaceResponse
@@ -34,6 +46,10 @@ export type CreateProjectResponse = {
 export type ProjectSummaryResponse = {
   id: string
   name: string
+  defaultBaseBranch: string
+  defaultWorktreeBranchPattern: string
+  gitHostProvider: string
+  useWorktreeOnKickoff: boolean
   createdAt: string
   updatedAt: string
   workspaces: WorkspaceResponse[]
@@ -42,6 +58,10 @@ export type ProjectSummaryResponse = {
 export type ProjectDetailResponse = {
   id: string
   name: string
+  defaultBaseBranch: string
+  defaultWorktreeBranchPattern: string
+  gitHostProvider: string
+  useWorktreeOnKickoff: boolean
   createdAt: string
   updatedAt: string
   workspaces: WorkspaceResponse[]
@@ -54,19 +74,33 @@ export type WorkspaceResponse = {
   name: string
   isDefault: boolean
   kind: string
+  branch?: string | null
+  baseBranch?: string | null
   createdAt: string
 }
 
 export type UpdateProjectRequest = {
-  name: string
+  name?: string
+  defaultBaseBranch?: string
+  defaultWorktreeBranchPattern?: string
+  gitHostProvider?: GitHostProvider
+  useWorktreeOnKickoff?: boolean
 }
 
 export type CreateWorkspaceRequest = {
   path: string
   name?: string
+  kind?: string
+  branch?: string
+  baseBranch?: string
 }
 
 export type UpdateWorkspaceRequest = {
   name?: string
   isDefault?: boolean
+}
+
+export type ProjectBranch = {
+  name: string
+  isCurrent: boolean
 }

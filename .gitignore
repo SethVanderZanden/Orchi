@@ -47,5 +47,5 @@ Thumbs.db
 src/desktop/release/
 
 .build-temp/
-
+.tmp-api*
 *.tsbuildinfo

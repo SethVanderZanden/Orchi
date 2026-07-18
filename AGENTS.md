@@ -15,7 +15,7 @@ Standard lint/test/build/run commands are already documented in `README.md` and 
 ### Toolchain (already provisioned in the VM snapshot)
 
 - **.NET 10 SDK** lives in `~/.dotnet` and is symlinked at `/usr/local/bin/dotnet` (so `dotnet` works in any shell). `~/.bashrc` also exports `DOTNET_ROOT` and adds `~/.dotnet` + `~/.dotnet/tools` to `PATH`.
-- **`dotnet-ef`** global tool is installed (for `dotnet ef migrations` / `database update`).
+- **`dotnet-ef`** global tool is installed (for `dotnet ef migrations` / `database update`). Never handwrite EF migrations unless required and human-approved — see `.cursor/skills/ef-migrations/SKILL.md`.
 - **Node 22** + npm are preinstalled. Dependencies are refreshed on startup by the update script (`npm install` at root and in `src/desktop`, plus `dotnet restore Orchi.slnx`).
 
 ### Known blocker: the .NET side does not build (pre-existing repo defect)

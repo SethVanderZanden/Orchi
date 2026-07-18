@@ -2,6 +2,7 @@ using FluentValidation;
 using Orchi.Api.Common.Abstractions;
 using Orchi.Api.Common.Http;
 using Orchi.Api.Common.Results;
+using Orchi.Api.Entities;
 using Orchi.Api.Features.Projects.Shared;
 using Orchi.Api.Infrastructure.Projects;
 
@@ -9,7 +10,13 @@ namespace Orchi.Api.Features.Projects.CreateWorkspace;
 
 public static class CreateWorkspace
 {
-    public sealed record Command(Guid ProjectId, string Path, string? Name) : ICommand<WorkspaceResponse>;
+    public sealed record Command(
+        Guid ProjectId,
+        string Path,
+        string? Name,
+        string? Kind,
+        string? Branch,
+        string? BaseBranch) : ICommand<WorkspaceResponse>;
 
     internal sealed class Handler(IProjectStore projectStore)
         : ICommandHandler<Command, WorkspaceResponse>
@@ -23,12 +30,21 @@ public static class CreateWorkspace
                     Error.Validation("Workspace.NotFound", $"Workspace path does not exist: {fullPath}"));
             }
 
+            if (!TryParseKind(command.Kind, out WorkspaceKind kind))
+            {
+                return Result.Failure<WorkspaceResponse>(
+                    Error.Validation("Workspace.Kind", "Workspace kind must be primary or worktree."));
+            }
+
             try
             {
                 WorkspaceCreateResult? created = await projectStore.CreateWorkspaceAsync(
                     command.ProjectId,
                     fullPath,
                     command.Name,
+                    kind,
+                    command.Branch,
+                    command.BaseBranch,
                     cancellationToken);
 
                 if (created is null)
@@ -43,6 +59,24 @@ public static class CreateWorkspace
             {
                 return Result.Failure<WorkspaceResponse>(Error.Validation("Workspace.Duplicate", ex.Message));
             }
+        }
+
+        private static bool TryParseKind(string? value, out WorkspaceKind kind)
+        {
+            kind = WorkspaceKind.Primary;
+            if (string.IsNullOrWhiteSpace(value)
+                || string.Equals(value, "primary", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (string.Equals(value, "worktree", StringComparison.OrdinalIgnoreCase))
+            {
+                kind = WorkspaceKind.Worktree;
+                return true;
+            }
+
+            return false;
         }
     }
 
@@ -77,7 +111,13 @@ public static class CreateWorkspace
             CancellationToken cancellationToken)
         {
             Result<WorkspaceResponse> result = await handler.Handle(
-                new Command(projectId, request.Path, request.Name),
+                new Command(
+                    projectId,
+                    request.Path,
+                    request.Name,
+                    request.Kind,
+                    request.Branch,
+                    request.BaseBranch),
                 cancellationToken);
 
             if (result.IsSuccess)

@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query'
 import { ChevronDown, ExternalLink, FileText } from 'lucide-react'
 import { useNavigate } from '@tanstack/react-router'
 
@@ -12,12 +13,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
+import { Label } from '@/components/ui/label'
+import { NativeSelect } from '@/components/ui/native-select'
 import type { ChatThread } from '@/lib/chat/types'
 import type { ParsedPlan } from '@/lib/orchestration/parse-plans'
 import type { ParsedReviewPlan } from '@/lib/orchestration/parse-review-plans'
 import { findChildForPlan, findReviewChildForPlan } from '@/lib/projects/chat-tree'
+import { listProjectBranches } from '@/lib/projects/api'
 import { getPlanReviewVisibility, isChildRunning } from '@/lib/orchestration/plan-review-visibility'
 import { getSequenceStepNumber, hasSequentialKickoff } from '@/lib/orchestration/plan-sequence'
+import { projectBranchKeys } from '@/lib/query-keys'
+import { useProjects } from '@/providers/project-provider'
 import { cn } from '@/lib/utils'
 
 type SequentialKickoffProgress = {
@@ -33,6 +39,7 @@ type PlanCardsProps = {
   reviewPlansByPlanId?: Record<string, ParsedReviewPlan | undefined>
   isParentKickingOffAny: (parentChatId: string) => boolean
   parentChatId: string
+  projectId?: string | null
   sequencePlanIds?: string[]
   sequentialKickoffProgress?: SequentialKickoffProgress | null
   orchestrationError?: string | null
@@ -47,6 +54,7 @@ export function PlanCards({
   reviewPlansByPlanId = {},
   isParentKickingOffAny,
   parentChatId,
+  projectId = null,
   sequencePlanIds = [],
   sequentialKickoffProgress = null,
   orchestrationError = null,
@@ -54,6 +62,14 @@ export function PlanCards({
   onKickOffAll
 }: PlanCardsProps): React.JSX.Element | null {
   const navigate = useNavigate()
+  const { projects, updateProjectSettings } = useProjects()
+  const project = projects.find((entry) => entry.id === projectId)
+  const branchesQuery = useQuery({
+    queryKey: projectBranchKeys.list(projectId ?? ''),
+    queryFn: () => listProjectBranches(projectId!),
+    enabled: Boolean(projectId),
+    retry: false
+  })
   const kickingOffAny = isParentKickingOffAny(parentChatId)
   const kickOffAllCount = plans.filter((plan) => !findChildForPlan(plan.planId, childChats)).length
   const isSequentialKickoff = hasSequentialKickoff(sequencePlanIds, plans)
@@ -65,7 +81,35 @@ export function PlanCards({
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-2 px-4 pb-4">
-      <p className="text-sm font-semibold">Plans</p>
+      <div className="flex items-end justify-between gap-3">
+        <p className="text-sm font-semibold">Plans</p>
+        {project ? (
+          <div className="flex min-w-0 items-center gap-2">
+            <Label htmlFor="plan-base-branch" className="shrink-0 text-xs text-muted-foreground">
+              Base branch
+            </Label>
+            <NativeSelect
+              id="plan-base-branch"
+              className="h-8 max-w-40 px-2 text-xs"
+              value={project.defaultBaseBranch}
+              onChange={(change) => {
+                void updateProjectSettings(project.id, {
+                  defaultBaseBranch: change.target.value
+                })
+              }}
+            >
+              {(branchesQuery.data?.length
+                ? branchesQuery.data.map((branch) => branch.name)
+                : [project.defaultBaseBranch]
+              ).map((branch) => (
+                <option key={branch} value={branch}>
+                  {branch}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
+        ) : null}
+      </div>
       {orchestrationError ? (
         <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {orchestrationError}

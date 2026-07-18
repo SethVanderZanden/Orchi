@@ -37,6 +37,7 @@ import {
   migrateComposerDraft,
   setComposerDraft
 } from '@/lib/chat/composer-drafts'
+import { migrateWorktreeIntent } from '@/lib/chat/worktree-intent'
 import { isDisposableEmptyChat } from '@/lib/chat/is-disposable-empty-chat'
 import { registerChatIdMigrator } from '@/lib/chat/migrate-chat-client-state'
 import { getDefaultWorkspace } from '@/lib/projects/group-chats'
@@ -116,6 +117,7 @@ export function ChatTabsProvider({ children }: { children: ReactNode }): React.J
   useEffect(() => {
     return registerChatIdMigrator((fromId, toId) => {
       migrateComposerDraft(fromId, toId)
+      migrateWorktreeIntent(fromId, toId)
       setState((current) => migrateChatTabId(current, fromId, toId))
     })
   }, [])

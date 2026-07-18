@@ -369,6 +369,9 @@ export function ChatPanel({
       canChangeApprovalPolicy={canChangeApprovalPolicy}
       approvalPolicyUpdateError={approvalPolicyUpdateError}
       onApprovalPolicyChange={onApprovalPolicyChange}
+      projectId={projectId}
+      projects={projects}
+      messageCount={messages.length}
     />
   )
 
@@ -404,6 +407,7 @@ export function ChatPanel({
                         childChats={childChats}
                         reviewPlansByPlanId={reviewPlansByPlanId}
                         parentChatId={parentChatId!}
+                        projectId={projectId}
                         isParentKickingOffAny={isParentKickingOffAny!}
                         sequencePlanIds={sequencePlanIds}
                         sequentialKickoffProgress={sequentialKickoffProgress}

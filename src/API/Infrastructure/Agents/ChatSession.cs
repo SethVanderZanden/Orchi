@@ -13,7 +13,7 @@ public sealed class ChatSession
 
     public Guid? WorkspaceId { get; set; }
 
-    public required string WorkspacePath { get; init; }
+    public required string WorkspacePath { get; set; }
 
     public string Mode { get; set; } = "default";
 

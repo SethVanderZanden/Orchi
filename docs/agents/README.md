@@ -51,6 +51,12 @@ Agent integration lives under `src/API/Infrastructure/Agents/`.
 
 Each Orchi mode (`default`, `orchestration`, …) has a settings-backed tuple: **agent + model + context size + CLI options** (reasoning effort, approval policy). Creating a chat or changing mode applies that tuple. See Settings → Agents → Mode defaults. Codex `-c` knobs are user-populated catalogs — see [codex.md](codex.md).
 
+## Event scripting and git workflows
+
+Named scripts (global or project) bind to **agent start/finish** with optional mode filters. Steps include shell commands and git actions (`commit`, `push`, `merge`, `createPullRequest`, `worktree`). Hosted PRs use pluggable adapters for **GitHub (`gh`)** and **Azure DevOps (`az`)** — see [event-scripting.md](../patterns/event-scripting.md).
+
+Plan kickoff can provision a `WorkspaceKind.Worktree` from the project `DefaultBaseBranch`. Apply the orchestration git template from Settings → Workflows.
+
 ## Agent model catalog
 
 Each agent can expose a model list (Cursor via `agent --list-models`). Orchi stores catalog entries in SQLite with enable/disable curation and caches list reads in HybridCache (24h default).

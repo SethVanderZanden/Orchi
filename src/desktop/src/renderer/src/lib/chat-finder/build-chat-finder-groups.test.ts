@@ -32,6 +32,10 @@ function project(id: string, name: string): Project {
   return {
     id,
     name,
+    defaultBaseBranch: 'main',
+    defaultWorktreeBranchPattern: 'orchi/{date}-{shortId}',
+    gitHostProvider: 'github',
+    useWorktreeOnKickoff: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     workspaces: []

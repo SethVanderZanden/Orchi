@@ -33,6 +33,23 @@ export const selectionActionKeys = {
   lists: () => [...selectionActionKeys.all, 'list'] as const
 }
 
+export const scriptKeys = {
+  all: ['scripts'] as const,
+  lists: (projectId?: string | null) => [...scriptKeys.all, 'list', { projectId }] as const
+}
+
+export const gitHostingKeys = {
+  all: ['git-hosting'] as const,
+  providers: () => [...gitHostingKeys.all, 'providers'] as const,
+  readiness: (projectId?: string | null) =>
+    [...gitHostingKeys.all, 'readiness', { projectId }] as const
+}
+
+export const projectBranchKeys = {
+  all: ['project-branches'] as const,
+  list: (projectId: string) => [...projectBranchKeys.all, projectId] as const
+}
+
 export const userPreferenceKeys = {
   all: ['user-preferences'] as const,
   detail: () => [...userPreferenceKeys.all, 'detail'] as const
