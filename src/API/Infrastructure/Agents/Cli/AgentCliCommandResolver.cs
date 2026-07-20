@@ -3,7 +3,6 @@ namespace Orchi.Api.Infrastructure.Agents.Cli;
 /// <summary>
 /// Shared CLI discovery suite used by every agent adapter.
 /// Pipeline: find a candidate path → classify install kind → unwrap once → stamp result.
-/// Equivalent role to T3 Code's <c>@t3tools/shared/shell</c>.
 /// </summary>
 internal static class AgentCliCommandResolver
 {
@@ -239,7 +238,7 @@ internal static class AgentCliCommandResolver
                         }
                     }
 
-                    // Extensionless Windows npm shims are not CreateProcess-spawnable (T3 rule).
+                    // Extensionless Windows npm shims are not CreateProcess-spawnable.
                     searchedPaths.Add(Path.Combine(directory, candidateName));
                     continue;
                 }

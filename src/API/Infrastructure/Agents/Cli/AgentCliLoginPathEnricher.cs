@@ -5,7 +5,7 @@ namespace Orchi.Api.Infrastructure.Agents.Cli;
 
 /// <summary>
 /// Soft-fail PATH enrichment for GUI-hosted processes (Finder/Dock/Visual Studio) that do not
-/// inherit the user's login-shell PATH. Mirrors T3 Code's login-shell / launchctl probes.
+/// inherit the user's login-shell PATH. Probes login shell and, on macOS, launchctl.
 /// Never throws — enrichment is best-effort and skipped when probes fail or time out.
 /// </summary>
 internal static class AgentCliLoginPathEnricher

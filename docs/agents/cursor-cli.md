@@ -35,7 +35,7 @@ Orchi resolves the executable before spawning (shared suite — see [agent CLI c
 3. Search merged user + machine PATH with `PATHEXT` (`.exe`, `.cmd`, …) via `AgentCliCommandResolver`
 4. Windows fallback: `%LOCALAPPDATA%\cursor-agent\agent.exe` (then `cursor-agent.exe`, `.cmd` shims)
 
-Prefer the **node bundle** or **`agent.exe`** over `.cmd`/`.ps1` wrappers — the `.cmd` shim re-invokes PowerShell and can corrupt XML prompts passed as CLI arguments. When only a `.cmd` remains, `AgentCliProcessStart` wraps it with `cmd.exe /d /s /c` (same idea as T3 Code `resolveSpawnCommand`).
+Prefer the **node bundle** or **`agent.exe`** over `.cmd`/`.ps1` wrappers — the `.cmd` shim re-invokes PowerShell and can corrupt XML prompts passed as CLI arguments. When only a `.cmd` remains, `AgentCliProcessStart` wraps it with `cmd.exe /d /s /c` so stdout/stderr stay redirectable.
 
 On macOS/Linux, known Homebrew/npm dirs plus a soft-fail login-shell / `launchctl` PATH merge help GUI-hosted API processes. Cursor home-directory guesses (`~/.local/share/cursor-agent`, `~/.cursor-agent`) are **best-effort** until confirmed against your installed CLI layout.
 

@@ -6,8 +6,7 @@ namespace Orchi.Api.Infrastructure.Agents.Cli;
 /// <summary>
 /// Builds a redirected <see cref="ProcessStartInfo"/> for an agent CLI launch.
 /// On Windows, npm <c>.cmd</c>/<c>.bat</c> shims cannot be started with
-/// <c>UseShellExecute=false</c> (CreateProcess) — same constraint T3 Code handles
-/// via <c>resolveSpawnCommand</c> + <c>shell: true</c>. Orchi wraps them with
+/// <c>UseShellExecute=false</c> (CreateProcess). Orchi wraps them with
 /// <c>cmd.exe /d /c</c> so stdout/stderr stay redirectable.
 /// </summary>
 internal static class AgentCliProcessStart

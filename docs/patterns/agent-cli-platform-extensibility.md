@@ -43,11 +43,11 @@ Everything below is the phased plan and the hooks that make adding OSes cheap.
 1. **Auto-detect OS** from `OperatingSystem` / `RuntimeInformation` — no config switch.
 2. **Auto-detect install kind** from the resolved path (and nearby files), not from user prompts.
 3. Keep **one PATH algorithm**; only tables of directories and unwrap rules grow per OS/agent.
-4. Match T3 Code’s spirit: shared shell suite + per-provider drivers, without Effect/TypeScript.
+4. Stay consistent with Orchi’s Strategy + Adapter style; use other open-source hosts only as **evidence**, not as a port target.
 
 ## Non-goals (for this plan)
 
-- Shipping a full login-shell PATH merger on day one (T3-style `launchctl` / zsh profile) — tracked as a follow-up phase.
+- Porting another product’s CLI stack into Orchi.
 - Auto-installing missing CLIs.
 - WSL-as-a-separate-platform (treat as Linux inside WSL; document later if GUI↔WSL bridging is needed).
 
@@ -177,6 +177,6 @@ Cursor/Codex Unix install directories under `~/.local/share/...` and similar are
 
 ## Further reading
 
-- [Agent CLI command suite](agent-cli-command-suite.md) — current shared resolver
-- [T3 Code `shell.ts`](https://github.com/pingdotgg/t3code/blob/main/packages/shared/src/shell.ts) — PATH / spawn reference
+- [Agent CLI command suite](agent-cli-command-suite.md) — current shared resolver (includes credit to T3 Code as evidence)
 - [Adapters](../agents/adapters.md)
+- [T3 Code](https://github.com/pingdotgg/t3code) — open-source multi-provider CLI host (prior art / evidence only)

@@ -1,8 +1,8 @@
 namespace Orchi.Api.Infrastructure.Agents.Cli;
 
 /// <summary>
-/// How to spawn an agent CLI after PATH/PATHEXT resolution.
-/// Mirrors T3 Code's ResolvedSpawnCommand shape (command + optional entry script).
+/// How to spawn an agent CLI after PATH/PATHEXT resolution
+/// (executable path plus optional node entry script).
 /// </summary>
 internal sealed record AgentCliLaunchSpec(
     string ExecutablePath,

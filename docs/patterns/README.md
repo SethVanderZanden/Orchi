@@ -13,7 +13,7 @@ Orchi tracks the design patterns and architectural styles used across the codeba
 | **Options** | `PerformanceOptions` and other config-bound settings | [Options](options.md) |
 | **Dependency injection** | Constructor injection throughout; handlers and behaviours resolved from the container | [Dependency injection](dependency-injection.md) |
 | **Event scripting** | Agent start/finish scripts + git host adapters (strategy/factory/facade) | [Event scripting](event-scripting.md) — start with the [Dummy section](event-scripting.md#dummy-section-start-here) |
-| **Agent CLI command suite** | Shared PATH/PATHEXT discovery + per-agent install layouts (Cursor/Codex); mirrors T3 Code `shell.ts` + Drivers | [Agent CLI command suite](agent-cli-command-suite.md) — start with the [Dummy section](agent-cli-command-suite.md#dummy-section-start-here) |
+| **Agent CLI command suite** | Shared PATH/PATHEXT discovery + per-agent install layouts (Cursor/Codex) | [Agent CLI command suite](agent-cli-command-suite.md) — start with the [Dummy section](agent-cli-command-suite.md#dummy-section-start-here) |
 | **Agent CLI platform extensibility** | Auto-detect OS + install kind; known dirs / native packages per platform so Mac/Linux/Windows stay one suite | [Platform extensibility plan](agent-cli-platform-extensibility.md) — start with the [Dummy section](agent-cli-platform-extensibility.md#dummy-section-start-here) |
 
 ## Architectural styles

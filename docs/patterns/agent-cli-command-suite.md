@@ -23,12 +23,12 @@ Configured name "codex"
 
 **Aha:** adding Claude later should mean a new drawer label (`IAgentCliInstallLayout`), not a second copy of PATH search.
 
-| Workshop | Orchi | T3 Code (open source) |
-|----------|-------|------------------------|
-| Shared rack rules | `AgentCliCommandResolver` | `@t3tools/shared/shell` (`resolveCommandPath`) |
-| Chef drawers | `IAgentCliInstallLayout` | Provider `Drivers/*` (e.g. `ClaudeExecutable`) |
-| Checkout / spawn | `AgentCliProcessStart` | `resolveSpawnCommand` (+ `shell: true` for `.cmd`) |
-| Order ticket | `IAgentAdapter` | Provider adapter / session runtime |
+| Workshop | Orchi |
+|----------|-------|
+| Shared rack rules | `AgentCliCommandResolver` |
+| Chef drawers | `IAgentCliInstallLayout` |
+| Checkout / spawn | `AgentCliProcessStart` |
+| Order ticket | `IAgentAdapter` |
 
 Everything below is the same idea with C# types and Windows quirks.
 
@@ -38,7 +38,13 @@ Everything below is the same idea with C# types and Windows quirks.
 
 Cursor and Codex both need Windows-aware CLI discovery. Duplicating PATH/PATHEXT logic per agent caused the Codex fresh-install bug: Orchi picked the extensionless npm shim (`nodejs\codex`) that `CreateProcess` cannot run.
 
-T3 Code already solved this once for every provider. Orchi now mirrors that suite without adopting Effect/TypeScript.
+We consolidated discovery into one suite that fits Orchi’s Strategy + Adapter patterns (`IAgentModeStrategy`, `IScriptActionStrategy`, `IAgentAdapter`).
+
+### Credit: T3 Code as evidence
+
+Thanks to the [T3 Code](https://github.com/pingdotgg/t3code) project (Ping / Theo and contributors) for publishing an open-source multi-provider CLI host. Their shared shell helpers and per-provider drivers were useful **evidence** that a shared PATH/spawn layer plus agent-specific unwrap is a workable shape for this problem.
+
+That was reference material for Orchi’s design discussion — **not** a mandate to port or copy their stack (Effect, TypeScript drivers, etc.). Orchi’s implementation is its own C# suite.
 
 ## Patterns in play
 
@@ -47,8 +53,6 @@ T3 Code already solved this once for every provider. Orchi now mirrors that suit
 | **Strategy** | `IAgentCliInstallLayout` — per-agent install dirs + npm/native unwrap |
 | **Template / shared service** | `AgentCliCommandResolver` — one PATH/PATHEXT algorithm for all agents |
 | **Adapter** (unchanged) | `IAgentAdapter` — spawn + parse events for one agent |
-
-This matches Orchi’s existing Strategy + Factory style (`IAgentModeStrategy`, `IScriptActionStrategy`) and T3’s split between shared shell helpers and per-provider drivers.
 
 ## Resolution order
 
@@ -62,6 +66,7 @@ Each success stamps `HostPlatform`, `InstallKind`, `LaunchKind` on `ResolveResul
 Host OS, install kind (npm / Homebrew / native / Volta), and optional login-shell PATH enrichment are **auto-detected** — see [platform extensibility](agent-cli-platform-extensibility.md#dummy-section-start-here).
 
 macOS/Linux Cursor home dirs are **best-effort** until verified against a real CLI install.
+
 ## Spawn rules
 
 `AgentCliProcessStart.Create`:
@@ -69,7 +74,7 @@ macOS/Linux Cursor home dirs are **best-effort** until verified against a real C
 - **Direct / node-bundle** → `FileName` + `ArgumentList`, `UseShellExecute=false`
 - **`.cmd` / `.bat`** (Windows only) → `ComSpec` (`cmd.exe`) with `/d /s /c` and a quoted command line (redirected IO still works)
 
-Same constraint T3 documents: Node/`CreateProcess` cannot execute launcher scripts without a shell.
+Windows constraint: `CreateProcess` / `UseShellExecute=false` cannot run `.cmd`/`.bat` launcher scripts directly, so Orchi wraps them with `cmd.exe` while keeping stdout/stderr redirected.
 
 ## Adding a new agent CLI
 
@@ -83,8 +88,8 @@ Do **not** copy PATH search into the new agent folder. Do **not** add an “OS m
 ## Further reading
 
 - [Platform extensibility plan](agent-cli-platform-extensibility.md) — Mac/Linux/Windows roadmap + install-kind detection
-- [T3 Code providers](https://github.com/pingdotgg/t3code) — `packages/shared/src/shell.ts`, `apps/server/src/provider/Drivers/`
 - [Adapters](../agents/adapters.md)
 - [Cursor CLI](../agents/cursor-cli.md)
 - [Codex CLI](../agents/codex.md)
 - [Event scripting](event-scripting.md) — another Strategy + Factory suite in Orchi
+- [T3 Code](https://github.com/pingdotgg/t3code) — open-source multi-provider CLI host (evidence / prior art; see credit above)

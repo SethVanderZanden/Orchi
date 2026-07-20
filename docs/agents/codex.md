@@ -43,7 +43,7 @@ Orchi resolves the executable before spawning (shared suite — see [agent CLI c
 4. Search merged user + machine PATH with `PATHEXT` (`.exe`, `.cmd`, …), preferring `.exe`/`.cmd` and **ignoring extensionless** Windows shims
 5. Windows fallback: `%APPDATA%\npm` and `%ProgramFiles%\nodejs`
 
-Prefer the **native binary** or **node bundle** over extensionless npm shims — the shim at `nodejs\codex` is a Unix shell script that Windows cannot execute via `CreateProcess`. If only `codex.cmd` is found, `AgentCliProcessStart` launches it through `cmd.exe` (aligned with T3 Code).
+Prefer the **native binary** or **node bundle** over extensionless npm shims — the shim at `nodejs\codex` is a Unix shell script that Windows cannot execute via `CreateProcess`. If only `codex.cmd` is found, `AgentCliProcessStart` launches it through `cmd.exe` so redirected IO still works.
 
 On macOS/Linux, Homebrew (`/opt/homebrew/bin`) and npm-global bins are searched automatically; GUI hosts also get a soft-fail login-shell PATH merge. Set `Agents:Codex:Executable` only if auto-detect still misses.
 
