@@ -6,6 +6,10 @@ Orchi docs use a **Dummy section** at the top of every substantive guide.
 
 Technical docs are easier to absorb when there is a plain-language entry point first — an analogy, a diagram, and a clear "oh, okay" moment before code and DI wiring.
 
+## Durable docs only
+
+`docs/` describes **current** Orchi behavior. Do **not** store roadmaps, phased plans, “non-goals”, success criteria for unfinished work, or agent scratch notes here — use the PR or issue instead. Prefer one short guide over multiple overlapping plan docs.
+
 ## Template
 
 ```markdown
@@ -33,4 +37,4 @@ That is the whole idea. Everything below is the same thing with more detail.
 ## For agents and contributors
 
 - **Cursor rule:** `.cursor/rules/documentation-dummy-section.mdc` (applies when editing `docs/**/*.md`)
-- **Skill:** `.cursor/skills/orchi-documentation/SKILL.md`
+- **Skill:** `.cursor/skills/orchi-documentation/SKILL.md` (Dummy section + durable-docs rules)

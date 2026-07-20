@@ -1,10 +1,10 @@
 ---
-description: Orchi docs must start with a Dummy section — simple analogy before technical detail
+description: Orchi docs must start with a Dummy section and stay durable — no roadmaps or temp plans in docs/
 globs: docs/**/*.md
 alwaysApply: false
 ---
 
-# Documentation — Dummy section first
+# Documentation — Dummy section first + durable only
 
 Seth's brain connects easier with simplicity. When creating or editing documentation under `docs/`, **always include a Dummy section** at the top.
 
@@ -30,6 +30,8 @@ Seth's brain connects easier with simplicity. When creating or editing documenta
 - Map analogy → Orchi in a short table or bullet list
 - End Dummy with a signpost: technical detail follows below
 - Keep Dummy short; put depth in sections after `---`
+- **Durable only:** document how Orchi works **today**. Do not add roadmaps, Phase 0/1/2 plans, “non-goals”, success criteria for unfinished work, or “optional later” feature dumps — those belong in the PR or issue
+- Prefer merging into an existing guide over creating a second “plan/extensibility” doc for the same topic
 
 ## Reference
 

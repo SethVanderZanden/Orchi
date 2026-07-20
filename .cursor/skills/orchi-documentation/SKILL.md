@@ -4,7 +4,8 @@ description: >-
   Write and update Orchi documentation with a Dummy section first — plain-language
   analogy before technical detail. Use when creating or editing docs under docs/,
   adding pattern guides, architecture write-ups, README sections, or when the user
-  asks for documentation.
+  asks for documentation. Enforces durable docs only — no roadmaps, temp plans, or
+  future-work dumps in docs/.
 ---
 
 # Orchi Documentation
@@ -42,14 +43,49 @@ Keep the Dummy section **short** (roughly 15–40 lines). It is a ramp, not the 
 
 See [docs/patterns/decorator.md](../../../docs/patterns/decorator.md#dummy-section-start-here) — pizza wrappers → CQRS behaviours.
 
+## Durable docs only (non-negotiable)
+
+`docs/` is for **what Orchi is and how it works today** — not a scratchpad for agent work.
+
+### Do not put in `docs/`
+
+| Ban | Examples |
+|-----|----------|
+| Roadmaps / phased rollouts | “Phase 0… Phase 3”, “done in tree”, “tracked as follow-up” |
+| Temp plans / design dumps | Long “Goals / Non-goals / Success criteria” for unfinished work |
+| Future feature speculation | “Optional UI later”, “when we add Claude…”, unverified path guesses framed as status |
+| Agent scratch notes | Post-review checklists, PR narratives, “best-effort until we verify on a Mac” essays |
+| Duplicate guides | Two pattern docs for one suite (prefer one short durable guide) |
+
+Put that material in the **PR description**, Linear/issue, or chat — not under `docs/`.
+
+### Do put in `docs/`
+
+- How a shipped feature/pattern works (contracts, file paths, config keys)
+- Short “how to extend” steps that match **current** code
+- Brief credit / prior-art footnotes when useful (evidence, not “we copied X”)
+- Operator facts: install prerequisites, resolution order, spawn rules
+
+### Prefer merge over multiply
+
+Before adding `docs/patterns/{new}.md`, ask: can this be a **section** in an existing durable guide? Prefer one suite doc over “suite + extensibility plan + roadmap”.
+
+### Keep agent and pattern docs short
+
+- Agent CLI install notes live in `docs/agents/{name}.md` (prerequisites + pointer to the suite pattern)
+- Pattern doc explains the shared mechanism once
+- Do not paste the same PATH essay into three files
+
 ## Doc workflow
 
 When writing or updating Orchi docs:
 
-1. Add or refresh the **Dummy section** first
-2. Write the technical body (diagrams, code, tables, FAQ)
-3. Cross-link related docs; avoid duplicating full explanations in two places
-4. Link from index pages (`docs/patterns/README.md`, `docs/architecture/README.md`) to `#dummy-section-start-here` when helpful
+1. Confirm the content is **durable** (ships with the product mental model) — if it’s a plan or future work, stop and put it in the PR/issue instead
+2. Add or refresh the **Dummy section** first
+3. Write a **short** technical body (diagrams, code pointers, tables, FAQ)
+4. Cross-link related docs; avoid duplicating full explanations in two places
+5. Link from index pages (`docs/patterns/README.md`, `docs/architecture/README.md`) to `#dummy-section-start-here` when helpful
+6. If deleting a temp/roadmap doc, remove its index row and fix broken links
 
 ## Where docs live
 
@@ -65,11 +101,14 @@ When writing or updating Orchi docs:
 - Friendly and direct — write for a smart person who prefers simple entry points
 - Complete sentences; no telegraphic shorthand in Dummy sections
 - Technical sections can be denser, but still scannable (headings, tables, short paragraphs)
+- Prefer “how it works” over “what we might do”
 
 ## Checklist before finishing
 
+- [ ] Content is durable (no roadmap / temp plan / future-work dump)
 - [ ] Dummy section exists directly under the title
 - [ ] Analogy is concrete (not abstract "wrapper pattern" with no picture)
 - [ ] Orchi mapping is explicit
 - [ ] Horizontal rule `---` separates Dummy from technical content
-- [ ] Index/README links updated if this is a new doc
+- [ ] No duplicate essay also living in sibling docs
+- [ ] Index/README links updated if this is a new **or deleted** doc
