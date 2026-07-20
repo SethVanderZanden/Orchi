@@ -26,32 +26,9 @@ internal sealed class CursorCliInstallLayout : IAgentCliInstallLayout
 
     public IEnumerable<string> GetPreferredInstallDirectories(IExecutableEnvironment environment)
     {
-        switch (environment.HostPlatform)
+        foreach (string directory in PlatformInstallDirectories(environment))
         {
-            case AgentCliHostPlatform.Windows:
-            {
-                string? localAppData = environment.GetEnvironmentVariable("LOCALAPPDATA");
-                if (!string.IsNullOrWhiteSpace(localAppData))
-                {
-                    yield return Path.Combine(localAppData, "cursor-agent");
-                }
-
-                break;
-            }
-            case AgentCliHostPlatform.MacOS:
-            case AgentCliHostPlatform.Linux:
-            {
-                // Best-effort Unix layout guesses until verified against a real Cursor CLI
-                // install on macOS/Linux (official paths may differ by installer version).
-                string? home = environment.GetEnvironmentVariable("HOME");
-                if (!string.IsNullOrWhiteSpace(home))
-                {
-                    yield return Path.Combine(home, ".local", "share", "cursor-agent");
-                    yield return Path.Combine(home, ".cursor-agent");
-                }
-
-                break;
-            }
+            yield return directory;
         }
 
         foreach (string pathDirectory in environment.GetPathDirectories())
@@ -67,6 +44,34 @@ internal sealed class CursorCliInstallLayout : IAgentCliInstallLayout
                 yield return expanded;
             }
         }
+    }
+
+    private static IEnumerable<string> PlatformInstallDirectories(IExecutableEnvironment environment)
+    {
+        if (environment.HostPlatform == AgentCliHostPlatform.Windows)
+        {
+            string? localAppData = environment.GetEnvironmentVariable("LOCALAPPDATA");
+            if (!string.IsNullOrWhiteSpace(localAppData))
+            {
+                yield return Path.Combine(localAppData, "cursor-agent");
+            }
+
+            yield break;
+        }
+
+        if (environment.HostPlatform is not (AgentCliHostPlatform.MacOS or AgentCliHostPlatform.Linux))
+        {
+            yield break;
+        }
+
+        string? home = environment.GetEnvironmentVariable("HOME");
+        if (string.IsNullOrWhiteSpace(home))
+        {
+            yield break;
+        }
+
+        yield return Path.Combine(home, ".local", "share", "cursor-agent");
+        yield return Path.Combine(home, ".cursor-agent");
     }
 
     public IEnumerable<string> GetFallbackPaths(

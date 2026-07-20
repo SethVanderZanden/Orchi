@@ -130,15 +130,7 @@ internal static class AgentCliLoginPathEnricher
             Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync();
             if (!process.WaitForExit((int)ProbeTimeout.TotalMilliseconds))
             {
-                try
-                {
-                    process.Kill(entireProcessTree: true);
-                }
-                catch
-                {
-                    // ignore
-                }
-
+                TryKill(process);
                 return null;
             }
 
@@ -148,6 +140,18 @@ internal static class AgentCliLoginPathEnricher
         catch
         {
             return null;
+        }
+    }
+
+    private static void TryKill(Process process)
+    {
+        try
+        {
+            process.Kill(entireProcessTree: true);
+        }
+        catch
+        {
+            // Soft-fail probe cleanup.
         }
     }
 }

@@ -122,21 +122,13 @@ internal sealed class CodexCliInstallLayout : IAgentCliInstallLayout
         string codexPackageRoot = Path.Combine(installDirectory, "node_modules", "@openai", "codex");
         searchedPaths?.Add(codexPackageRoot);
 
+        string binName = environment.HostPlatform == AgentCliHostPlatform.Windows ? "codex.exe" : "codex";
+
         foreach (AgentCliPlatformPackage package in AgentCliPlatformPackages.ForHost(NativePackages, environment))
         {
-            string binName = environment.HostPlatform == AgentCliHostPlatform.Windows ? "codex.exe" : "codex";
-            string[] candidatePaths =
-            [
-                Path.Combine(codexPackageRoot, "node_modules", package.PackageName, "bin", binName),
-                Path.Combine(codexPackageRoot, "node_modules", package.PackageName, package.RelativeExecutablePath),
-                Path.Combine(installDirectory, "node_modules", package.PackageName, "bin", binName),
-                Path.Combine(installDirectory, "node_modules", package.PackageName, package.RelativeExecutablePath)
-            ];
-
-            foreach (string candidatePath in candidatePaths)
+            foreach (string candidatePath in NativeCandidatePaths(installDirectory, codexPackageRoot, package, binName))
             {
                 searchedPaths?.Add(candidatePath);
-
                 if (environment.FileExists(candidatePath))
                 {
                     return new AgentCliLaunchSpec(candidatePath, null);
@@ -145,5 +137,17 @@ internal sealed class CodexCliInstallLayout : IAgentCliInstallLayout
         }
 
         return null;
+    }
+
+    private static IEnumerable<string> NativeCandidatePaths(
+        string installDirectory,
+        string codexPackageRoot,
+        AgentCliPlatformPackage package,
+        string binName)
+    {
+        yield return Path.Combine(codexPackageRoot, "node_modules", package.PackageName, "bin", binName);
+        yield return Path.Combine(codexPackageRoot, "node_modules", package.PackageName, package.RelativeExecutablePath);
+        yield return Path.Combine(installDirectory, "node_modules", package.PackageName, "bin", binName);
+        yield return Path.Combine(installDirectory, "node_modules", package.PackageName, package.RelativeExecutablePath);
     }
 }

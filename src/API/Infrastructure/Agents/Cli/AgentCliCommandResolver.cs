@@ -1,8 +1,7 @@
 namespace Orchi.Api.Infrastructure.Agents.Cli;
 
 /// <summary>
-/// Shared CLI discovery suite used by every agent adapter.
-/// Pipeline: find a candidate path → classify install kind → unwrap once → stamp result.
+/// Shared CLI discovery: find a path → unwrap once → stamp the result.
 /// </summary>
 internal static class AgentCliCommandResolver
 {
@@ -37,59 +36,71 @@ internal static class AgentCliCommandResolver
             : configuredExecutable.Trim();
 
         string[] candidateNames = layout.GetCandidateNames(executable);
-        IReadOnlyList<string> searchDirectories = CollectSearchDirectories(
-            additionalSearchPaths,
-            layout,
-            environment);
+        IReadOnlyList<string> searchRoots = GetSearchRoots(additionalSearchPaths, layout, environment, includePath: true);
+        IReadOnlyList<string> bundleRoots = GetSearchRoots(additionalSearchPaths, layout, environment, includePath: false);
 
-        // 1) Absolute configured path
-        if (Path.IsPathRooted(executable))
+        if (TryAbsolutePath(executable, environment, searchedPaths) is { } absolute)
         {
-            string absolutePath = Path.GetFullPath(executable);
-            searchedPaths.Add(absolutePath);
-
-            if (environment.FileExists(absolutePath))
-            {
-                return Finish(absolutePath, layout, environment, searchedPaths);
-            }
+            return Complete(absolute, layout, environment, searchedPaths);
         }
 
-        // 2) Prefer native / node bundles in known + agent install dirs (before PATH shims)
-        foreach (string installDirectory in CollectBundleProbeDirectories(additionalSearchPaths, layout, environment))
+        if (TryFindBundle(bundleRoots, layout, environment, searchedPaths) is { } bundle)
         {
-            AgentCliLaunchSpec? bundle = layout.TryResolveBundle(installDirectory, environment, searchedPaths);
-            if (bundle is not null)
-            {
-                return Success(bundle, environment, searchedPaths);
-            }
+            return ToResult(bundle, environment, searchedPaths);
         }
 
-        // 3) PATH / known-dir file search
-        string? resolved = FindInDirectories(searchDirectories, candidateNames, environment, searchedPaths);
-        if (resolved is not null)
+        if (FindInDirectories(searchRoots, candidateNames, environment, searchedPaths) is { } fromPath)
         {
-            return Finish(resolved, layout, environment, searchedPaths);
+            return Complete(fromPath, layout, environment, searchedPaths);
         }
 
-        // 4) Last-resort absolute fallbacks
-        foreach (string fallbackPath in layout.GetFallbackPaths(environment, candidateNames))
+        if (TryFindFallback(layout, candidateNames, environment, searchedPaths) is { } fallback)
         {
-            searchedPaths.Add(fallbackPath);
-
-            if (!environment.FileExists(fallbackPath))
-            {
-                continue;
-            }
-
-            return Finish(fallbackPath, layout, environment, searchedPaths);
+            return Complete(fallback, layout, environment, searchedPaths);
         }
 
+        return Fail(layout.AgentDisplayName, executable, environment, searchedPaths);
+    }
+
+    private static ResolveResult Complete(
+        string resolvedPath,
+        IAgentCliInstallLayout layout,
+        IExecutableEnvironment environment,
+        List<string> searchedPaths)
+    {
+        string installDirectory = Path.GetDirectoryName(resolvedPath) ?? resolvedPath;
+        AgentCliLaunchSpec launch =
+            layout.TryResolveBundle(installDirectory, environment, searchedPaths)
+            ?? new AgentCliLaunchSpec(resolvedPath, null);
+
+        return ToResult(launch, environment, searchedPaths);
+    }
+
+    private static ResolveResult ToResult(
+        AgentCliLaunchSpec launch,
+        IExecutableEnvironment environment,
+        List<string> searchedPaths) =>
+        new(
+            true,
+            launch,
+            null,
+            environment.HostPlatform,
+            AgentCliHostDetector.DetectInstallKind(launch.ExecutablePath, environment.HostPlatform),
+            DistinctPaths(searchedPaths));
+
+    private static ResolveResult Fail(
+        string agentDisplayName,
+        string executable,
+        IExecutableEnvironment environment,
+        List<string> searchedPaths)
+    {
+        IReadOnlyList<string> searched = DistinctPaths(searchedPaths);
         string message =
-            $"Unable to locate {layout.AgentDisplayName} CLI executable '{executable}'. " +
-            $"Ensure {layout.AgentDisplayName} is installed and on PATH, restart the Orchi API after installing, " +
+            $"Unable to locate {agentDisplayName} CLI executable '{executable}'. " +
+            $"Ensure {agentDisplayName} is installed and on PATH, restart the Orchi API after installing, " +
             "or set the agent Executable setting to the full path. " +
             $"platform={environment.HostPlatform}; " +
-            $"Searched: {string.Join("; ", searchedPaths.Distinct(StringComparer.OrdinalIgnoreCase))}";
+            $"Searched: {string.Join("; ", searched)}";
 
         return new ResolveResult(
             false,
@@ -97,74 +108,88 @@ internal static class AgentCliCommandResolver
             message,
             environment.HostPlatform,
             AgentCliInstallKind.Unknown,
-            searchedPaths.Distinct(StringComparer.OrdinalIgnoreCase).ToList());
+            searched);
     }
 
-    private static ResolveResult Finish(
-        string resolvedPath,
+    private static string? TryAbsolutePath(
+        string executable,
+        IExecutableEnvironment environment,
+        ICollection<string> searchedPaths)
+    {
+        if (!Path.IsPathRooted(executable))
+        {
+            return null;
+        }
+
+        string absolutePath = Path.GetFullPath(executable);
+        searchedPaths.Add(absolutePath);
+        return environment.FileExists(absolutePath) ? absolutePath : null;
+    }
+
+    private static AgentCliLaunchSpec? TryFindBundle(
+        IEnumerable<string> directories,
         IAgentCliInstallLayout layout,
         IExecutableEnvironment environment,
-        List<string> searchedPaths)
+        ICollection<string> searchedPaths)
     {
-        string installDirectory = Path.GetDirectoryName(resolvedPath) ?? resolvedPath;
-        AgentCliLaunchSpec? bundle = layout.TryResolveBundle(installDirectory, environment, searchedPaths);
-        AgentCliLaunchSpec launch = bundle ?? new AgentCliLaunchSpec(resolvedPath, null);
-        return Success(launch, environment, searchedPaths);
+        foreach (string directory in directories)
+        {
+            AgentCliLaunchSpec? bundle = layout.TryResolveBundle(directory, environment, searchedPaths);
+            if (bundle is not null)
+            {
+                return bundle;
+            }
+        }
+
+        return null;
     }
 
-    private static ResolveResult Success(
-        AgentCliLaunchSpec launch,
+    private static string? TryFindFallback(
+        IAgentCliInstallLayout layout,
+        IReadOnlyList<string> candidateNames,
         IExecutableEnvironment environment,
-        List<string> searchedPaths)
+        ICollection<string> searchedPaths)
     {
-        AgentCliInstallKind installKind = AgentCliHostDetector.DetectInstallKind(
-            launch.ExecutablePath,
-            environment.HostPlatform);
+        foreach (string fallbackPath in layout.GetFallbackPaths(environment, candidateNames))
+        {
+            searchedPaths.Add(fallbackPath);
+            if (environment.FileExists(fallbackPath))
+            {
+                return fallbackPath;
+            }
+        }
 
-        return new ResolveResult(
-            true,
-            launch,
-            null,
-            environment.HostPlatform,
-            installKind,
-            searchedPaths.Distinct(StringComparer.OrdinalIgnoreCase).ToList());
+        return null;
     }
 
-    private static IReadOnlyList<string> CollectSearchDirectories(
+    private static IReadOnlyList<string> GetSearchRoots(
         IReadOnlyList<string> additionalSearchPaths,
         IAgentCliInstallLayout layout,
-        IExecutableEnvironment environment)
+        IExecutableEnvironment environment,
+        bool includePath)
     {
         var directories = new List<string>();
-
         AddExpanded(directories, additionalSearchPaths, environment);
         AddExpanded(directories, AgentCliKnownDirectories.For(environment), environment);
         AddExpanded(directories, layout.GetPreferredInstallDirectories(environment), environment);
-        AddExpanded(directories, environment.GetPathDirectories(), environment);
 
-        return directories
-            .Where(directory => !string.IsNullOrWhiteSpace(directory))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-    }
+        if (includePath)
+        {
+            AddExpanded(directories, environment.GetPathDirectories(), environment);
+        }
 
-    private static IReadOnlyList<string> CollectBundleProbeDirectories(
-        IReadOnlyList<string> additionalSearchPaths,
-        IAgentCliInstallLayout layout,
-        IExecutableEnvironment environment)
-    {
-        var directories = new List<string>();
-
-        AddExpanded(directories, additionalSearchPaths, environment);
-        AddExpanded(directories, AgentCliKnownDirectories.For(environment), environment);
-        AddExpanded(directories, layout.GetPreferredInstallDirectories(environment), environment);
-
-        // npm global often stores packages under the prefix parent of .../bin
+        // npm global packages often live under the prefix parent of .../bin
         foreach (string directory in directories.ToList())
         {
-            string? parent = Path.GetDirectoryName(directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-            if (!string.IsNullOrWhiteSpace(parent) &&
-                directory.EndsWith($"{Path.DirectorySeparatorChar}bin", StringComparison.OrdinalIgnoreCase))
+            if (!directory.EndsWith($"{Path.DirectorySeparatorChar}bin", StringComparison.OrdinalIgnoreCase) &&
+                !directory.EndsWith($"{Path.AltDirectorySeparatorChar}bin", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            string? parent = Path.GetDirectoryName(
+                directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            if (!string.IsNullOrWhiteSpace(parent))
             {
                 directories.Add(parent);
             }
@@ -198,7 +223,6 @@ internal static class AgentCliCommandResolver
         IExecutableEnvironment environment,
         ICollection<string> searchedPaths)
     {
-        IReadOnlyList<string> pathExtensions = environment.GetPathExtensions();
         var candidates = new List<string>();
 
         foreach (string directory in directories)
@@ -210,49 +234,54 @@ internal static class AgentCliCommandResolver
 
             foreach (string candidateName in candidateNames)
             {
-                if (Path.HasExtension(candidateName))
-                {
-                    string fullPath = Path.Combine(directory, candidateName);
-                    searchedPaths.Add(fullPath);
-
-                    if (IsSpawnableCandidate(fullPath, environment))
-                    {
-                        candidates.Add(fullPath);
-                    }
-
-                    continue;
-                }
-
-                if (environment.IsWindows)
-                {
-                    foreach (string extension in WindowsPreferredExtensions
-                                 .Concat(pathExtensions)
-                                 .Distinct(StringComparer.OrdinalIgnoreCase))
-                    {
-                        string fullPath = Path.Combine(directory, candidateName + extension);
-                        searchedPaths.Add(fullPath);
-
-                        if (IsSpawnableCandidate(fullPath, environment))
-                        {
-                            candidates.Add(fullPath);
-                        }
-                    }
-
-                    // Extensionless Windows npm shims are not CreateProcess-spawnable.
-                    searchedPaths.Add(Path.Combine(directory, candidateName));
-                    continue;
-                }
-
-                string extensionless = Path.Combine(directory, candidateName);
-                searchedPaths.Add(extensionless);
-                if (environment.FileExists(extensionless))
-                {
-                    candidates.Add(extensionless);
-                }
+                AddCandidates(directory, candidateName, environment, searchedPaths, candidates);
             }
         }
 
         return SelectPreferredCandidate(candidates, environment);
+    }
+
+    private static void AddCandidates(
+        string directory,
+        string candidateName,
+        IExecutableEnvironment environment,
+        ICollection<string> searchedPaths,
+        List<string> candidates)
+    {
+        if (Path.HasExtension(candidateName))
+        {
+            TryAddCandidate(Path.Combine(directory, candidateName), environment, searchedPaths, candidates);
+            return;
+        }
+
+        if (!environment.IsWindows)
+        {
+            TryAddCandidate(Path.Combine(directory, candidateName), environment, searchedPaths, candidates);
+            return;
+        }
+
+        foreach (string extension in WindowsPreferredExtensions
+                     .Concat(environment.GetPathExtensions())
+                     .Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            TryAddCandidate(Path.Combine(directory, candidateName + extension), environment, searchedPaths, candidates);
+        }
+
+        // Note extensionless npm shims as searched; they are not spawnable via CreateProcess.
+        searchedPaths.Add(Path.Combine(directory, candidateName));
+    }
+
+    private static void TryAddCandidate(
+        string fullPath,
+        IExecutableEnvironment environment,
+        ICollection<string> searchedPaths,
+        List<string> candidates)
+    {
+        searchedPaths.Add(fullPath);
+        if (IsSpawnableCandidate(fullPath, environment))
+        {
+            candidates.Add(fullPath);
+        }
     }
 
     private static bool IsSpawnableCandidate(string fullPath, IExecutableEnvironment environment)
@@ -268,13 +297,8 @@ internal static class AgentCliCommandResolver
         }
 
         string extension = Path.GetExtension(fullPath);
-        if (string.IsNullOrEmpty(extension))
-        {
-            return false;
-        }
-
-        return environment.GetPathExtensions()
-            .Contains(extension, StringComparer.OrdinalIgnoreCase);
+        return !string.IsNullOrEmpty(extension)
+            && environment.GetPathExtensions().Contains(extension, StringComparer.OrdinalIgnoreCase);
     }
 
     private static string? SelectPreferredCandidate(
@@ -308,4 +332,7 @@ internal static class AgentCliCommandResolver
             _ => 4
         };
     }
+
+    private static IReadOnlyList<string> DistinctPaths(IEnumerable<string> paths) =>
+        paths.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
 }
