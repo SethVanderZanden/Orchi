@@ -40,12 +40,6 @@ Cursor and Codex both need Windows-aware CLI discovery. Duplicating PATH/PATHEXT
 
 We consolidated discovery into one suite that fits Orchi’s Strategy + Adapter patterns (`IAgentModeStrategy`, `IScriptActionStrategy`, `IAgentAdapter`).
 
-### Credit: T3 Code as evidence
-
-Thanks to the [T3 Code](https://github.com/pingdotgg/t3code) project (Ping / Theo and contributors) for publishing an open-source multi-provider CLI host. Their shared shell helpers and per-provider drivers were useful **evidence** that a shared PATH/spawn layer plus agent-specific unwrap is a workable shape for this problem.
-
-That was reference material for Orchi’s design discussion — **not** a mandate to port or copy their stack (Effect, TypeScript drivers, etc.). Orchi’s implementation is its own C# suite.
-
 ## Patterns in play
 
 | Pattern | Role |
@@ -92,4 +86,3 @@ Do **not** copy PATH search into the new agent folder. Do **not** add an “OS m
 - [Cursor CLI](../agents/cursor-cli.md)
 - [Codex CLI](../agents/codex.md)
 - [Event scripting](event-scripting.md) — another Strategy + Factory suite in Orchi
-- [T3 Code](https://github.com/pingdotgg/t3code) — open-source multi-provider CLI host (evidence / prior art; see credit above)

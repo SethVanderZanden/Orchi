@@ -177,6 +177,5 @@ Cursor/Codex Unix install directories under `~/.local/share/...` and similar are
 
 ## Further reading
 
-- [Agent CLI command suite](agent-cli-command-suite.md) — current shared resolver (includes credit to T3 Code as evidence)
+- [Agent CLI command suite](agent-cli-command-suite.md) — current shared resolver
 - [Adapters](../agents/adapters.md)
-- [T3 Code](https://github.com/pingdotgg/t3code) — open-source multi-provider CLI host (prior art / evidence only)
