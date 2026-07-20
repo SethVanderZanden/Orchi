@@ -53,16 +53,18 @@ This matches Orchi’s existing Strategy + Factory style (`IAgentModeStrategy`, 
 ## Resolution order
 
 1. Absolute `Executable` path (if rooted and present)
-2. Layout preferred install directories + `TryResolveBundle` (native `.exe` / `node` + entry script)
-3. Merged user + machine PATH with `PATHEXT` (`.exe` preferred over `.cmd`; **extensionless ignored on Windows**)
-4. Layout Windows fallbacks (`%LOCALAPPDATA%\cursor-agent`, `%APPDATA%\npm`, `%ProgramFiles%\nodejs`, …)
+2. Shared **known directories for the auto-detected OS** (`AgentCliKnownDirectories`) + layout preferred dirs, then `TryResolveBundle` (native binary / `node` + entry script)
+3. Merged PATH with platform rules (`PATHEXT` on Windows; extensionless allowed on macOS/Linux)
+4. Layout fallbacks (OS-specific absolute candidates)
+
+Host OS and install kind (npm / Homebrew / native / Volta) are **auto-detected** — see [platform extensibility](agent-cli-platform-extensibility.md#dummy-section-start-here).
 
 ## Spawn rules
 
 `AgentCliProcessStart.Create`:
 
 - **Direct / node-bundle** → `FileName` + `ArgumentList`, `UseShellExecute=false`
-- **`.cmd` / `.bat`** → `ComSpec` (`cmd.exe`) with `/d /s /c` and a quoted command line (redirected IO still works)
+- **`.cmd` / `.bat`** (Windows only) → `ComSpec` (`cmd.exe`) with `/d /s /c` and a quoted command line (redirected IO still works)
 
 Same constraint T3 documents: Node/`CreateProcess` cannot execute launcher scripts without a shell.
 
@@ -71,12 +73,13 @@ Same constraint T3 documents: Node/`CreateProcess` cannot execute launcher scrip
 1. Implement `IAgentCliInstallLayout` (candidate names, install dirs, `TryResolveBundle`)
 2. Thin `XxxAgentExecutableResolver` that calls `AgentCliCommandResolver.Resolve(...)`
 3. Adapter uses `AgentCliProcessStart.Create(launch, workspace, args)`
-4. Unit-test the layout + shared resolver with `IExecutableEnvironment` fakes
+4. Unit-test the layout + shared resolver with `IExecutableEnvironment` fakes (`HostPlatform` / `HostArchitecture`)
 
-Do **not** copy PATH search into the new agent folder.
+Do **not** copy PATH search into the new agent folder. Do **not** add an “OS mode” setting — detect it.
 
 ## Further reading
 
+- [Platform extensibility plan](agent-cli-platform-extensibility.md) — Mac/Linux/Windows roadmap + install-kind detection
 - [T3 Code providers](https://github.com/pingdotgg/t3code) — `packages/shared/src/shell.ts`, `apps/server/src/provider/Drivers/`
 - [Adapters](../agents/adapters.md)
 - [Cursor CLI](../agents/cursor-cli.md)

@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using Orchi.Api.Infrastructure.Agents.Cli;
 
 namespace Orchi.Api.Infrastructure.Agents.Cursor;
@@ -7,8 +6,8 @@ internal sealed class CursorCliInstallLayout : IAgentCliInstallLayout
 {
     private static readonly string[] AliasNames = ["agent", "cursor-agent"];
 
-    private static readonly Regex VersionDirectoryPattern =
-        new(@"^\d{4}\.\d{1,2}\.\d{1,2}(-\d{2}-\d{2}-\d{2})?-[a-f0-9]+$", RegexOptions.IgnoreCase);
+    private static readonly System.Text.RegularExpressions.Regex VersionDirectoryPattern =
+        new(@"^\d{4}\.\d{1,2}\.\d{1,2}(-\d{2}-\d{2}-\d{2})?-[a-f0-9]+$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
     public string AgentDisplayName => "Cursor";
 
@@ -27,15 +26,30 @@ internal sealed class CursorCliInstallLayout : IAgentCliInstallLayout
 
     public IEnumerable<string> GetPreferredInstallDirectories(IExecutableEnvironment environment)
     {
-        if (!environment.IsWindows)
+        switch (environment.HostPlatform)
         {
-            yield break;
-        }
+            case AgentCliHostPlatform.Windows:
+            {
+                string? localAppData = environment.GetEnvironmentVariable("LOCALAPPDATA");
+                if (!string.IsNullOrWhiteSpace(localAppData))
+                {
+                    yield return Path.Combine(localAppData, "cursor-agent");
+                }
 
-        string? localAppData = environment.GetEnvironmentVariable("LOCALAPPDATA");
-        if (!string.IsNullOrWhiteSpace(localAppData))
-        {
-            yield return Path.Combine(localAppData, "cursor-agent");
+                break;
+            }
+            case AgentCliHostPlatform.MacOS:
+            case AgentCliHostPlatform.Linux:
+            {
+                string? home = environment.GetEnvironmentVariable("HOME");
+                if (!string.IsNullOrWhiteSpace(home))
+                {
+                    yield return Path.Combine(home, ".local", "share", "cursor-agent");
+                    yield return Path.Combine(home, ".cursor-agent");
+                }
+
+                break;
+            }
         }
 
         foreach (string pathDirectory in environment.GetPathDirectories())
@@ -53,33 +67,32 @@ internal sealed class CursorCliInstallLayout : IAgentCliInstallLayout
         }
     }
 
-    public IEnumerable<string> GetWindowsFallbackPaths(
+    public IEnumerable<string> GetFallbackPaths(
         IExecutableEnvironment environment,
         IReadOnlyList<string> candidateNames)
     {
-        if (!environment.IsWindows)
+        foreach (string installDirectory in GetPreferredInstallDirectories(environment))
         {
-            yield break;
-        }
+            foreach (string candidateName in candidateNames)
+            {
+                string baseName = Path.HasExtension(candidateName)
+                    ? Path.GetFileNameWithoutExtension(candidateName)
+                    : candidateName;
 
-        string? localAppData = environment.GetEnvironmentVariable("LOCALAPPDATA");
-        if (string.IsNullOrWhiteSpace(localAppData))
-        {
-            yield break;
-        }
-
-        string installDirectory = Path.Combine(localAppData, "cursor-agent");
-
-        foreach (string candidateName in candidateNames)
-        {
-            string baseName = Path.HasExtension(candidateName)
-                ? Path.GetFileNameWithoutExtension(candidateName)
-                : candidateName;
-
-            yield return Path.Combine(installDirectory, baseName + ".exe");
-            yield return Path.Combine(installDirectory, "cursor-agent.exe");
-            yield return Path.Combine(installDirectory, baseName + ".cmd");
-            yield return Path.Combine(installDirectory, "cursor-agent.cmd");
+                if (environment.HostPlatform == AgentCliHostPlatform.Windows)
+                {
+                    yield return Path.Combine(installDirectory, baseName + ".exe");
+                    yield return Path.Combine(installDirectory, "cursor-agent.exe");
+                    yield return Path.Combine(installDirectory, baseName + ".cmd");
+                    yield return Path.Combine(installDirectory, "cursor-agent.cmd");
+                }
+                else
+                {
+                    yield return Path.Combine(installDirectory, baseName);
+                    yield return Path.Combine(installDirectory, "cursor-agent");
+                    yield return Path.Combine(installDirectory, "agent");
+                }
+            }
         }
     }
 
@@ -93,7 +106,8 @@ internal sealed class CursorCliInstallLayout : IAgentCliInstallLayout
             return null;
         }
 
-        string coLocatedNode = Path.Combine(installDirectory, "node.exe");
+        string nodeFileName = environment.HostPlatform == AgentCliHostPlatform.Windows ? "node.exe" : "node";
+        string coLocatedNode = Path.Combine(installDirectory, nodeFileName);
         string coLocatedIndex = Path.Combine(installDirectory, "index.js");
         searchedPaths?.Add(coLocatedNode);
         searchedPaths?.Add(coLocatedIndex);
@@ -121,7 +135,7 @@ internal sealed class CursorCliInstallLayout : IAgentCliInstallLayout
             return null;
         }
 
-        string nodePath = Path.Combine(latestVersionDirectory, "node.exe");
+        string nodePath = Path.Combine(latestVersionDirectory, nodeFileName);
         string indexPath = Path.Combine(latestVersionDirectory, "index.js");
         searchedPaths?.Add(nodePath);
         searchedPaths?.Add(indexPath);

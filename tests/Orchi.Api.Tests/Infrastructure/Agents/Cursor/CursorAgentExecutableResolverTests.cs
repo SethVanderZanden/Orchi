@@ -175,7 +175,7 @@ public class CursorAgentExecutableResolverTests
 
         {
 
-            IsWindows = true,
+            HostPlatform = AgentCliHostPlatform.Windows,
 
             EnvironmentVariables =
 
@@ -245,7 +245,7 @@ public class CursorAgentExecutableResolverTests
 
         {
 
-            IsWindows = true,
+            HostPlatform = AgentCliHostPlatform.Windows,
 
             EnvironmentVariables =
 
@@ -327,7 +327,7 @@ public class CursorAgentExecutableResolverTests
 
         {
 
-            IsWindows = true,
+            HostPlatform = AgentCliHostPlatform.Windows,
 
             EnvironmentVariables =
 
@@ -605,7 +605,9 @@ public class CursorAgentExecutableResolverTests
 
     {
 
-        public bool IsWindows { get; init; }
+        public AgentCliHostPlatform HostPlatform { get; init; } = AgentCliHostPlatform.Linux;
+
+        public AgentCliHostArchitecture HostArchitecture { get; init; } = AgentCliHostArchitecture.X64;
 
 
 

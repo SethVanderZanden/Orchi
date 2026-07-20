@@ -4,10 +4,38 @@ namespace Orchi.Api.Infrastructure.Agents.Codex;
 
 internal sealed class CodexCliInstallLayout : IAgentCliInstallLayout
 {
-    private static readonly (string Package, string VendorTriple)[] WindowsPlatformPackages =
+    private static readonly AgentCliPlatformPackage[] NativePackages =
     [
-        ("@openai/codex-win32-x64", "x86_64-pc-windows-msvc"),
-        ("@openai/codex-win32-arm64", "aarch64-pc-windows-msvc")
+        new(
+            AgentCliHostPlatform.Windows,
+            AgentCliHostArchitecture.X64,
+            "@openai/codex-win32-x64",
+            Path.Combine("vendor", "x86_64-pc-windows-msvc", "codex", "codex.exe")),
+        new(
+            AgentCliHostPlatform.Windows,
+            AgentCliHostArchitecture.Arm64,
+            "@openai/codex-win32-arm64",
+            Path.Combine("vendor", "aarch64-pc-windows-msvc", "codex", "codex.exe")),
+        new(
+            AgentCliHostPlatform.MacOS,
+            AgentCliHostArchitecture.X64,
+            "@openai/codex-darwin-x64",
+            Path.Combine("vendor", "x86_64-apple-darwin", "codex", "codex")),
+        new(
+            AgentCliHostPlatform.MacOS,
+            AgentCliHostArchitecture.Arm64,
+            "@openai/codex-darwin-arm64",
+            Path.Combine("vendor", "aarch64-apple-darwin", "codex", "codex")),
+        new(
+            AgentCliHostPlatform.Linux,
+            AgentCliHostArchitecture.X64,
+            "@openai/codex-linux-x64",
+            Path.Combine("vendor", "x86_64-unknown-linux-musl", "codex", "codex")),
+        new(
+            AgentCliHostPlatform.Linux,
+            AgentCliHostArchitecture.Arm64,
+            "@openai/codex-linux-arm64",
+            Path.Combine("vendor", "aarch64-unknown-linux-musl", "codex", "codex"))
     ];
 
     public string AgentDisplayName => "Codex";
@@ -30,48 +58,35 @@ internal sealed class CodexCliInstallLayout : IAgentCliInstallLayout
 
     public IEnumerable<string> GetPreferredInstallDirectories(IExecutableEnvironment environment)
     {
-        if (!environment.IsWindows)
-        {
-            yield break;
-        }
-
-        string? appData = environment.GetEnvironmentVariable("APPDATA");
-        if (!string.IsNullOrWhiteSpace(appData))
-        {
-            yield return Path.Combine(appData, "npm");
-        }
-
-        string? programFiles = environment.GetEnvironmentVariable("ProgramFiles");
-        if (!string.IsNullOrWhiteSpace(programFiles))
-        {
-            yield return Path.Combine(programFiles, "nodejs");
-        }
+        // Shared npm/Homebrew/Volta dirs come from AgentCliKnownDirectories.
+        // Codex only adds package roots when they sit beside a global npm prefix.
+        yield break;
     }
 
-    public IEnumerable<string> GetWindowsFallbackPaths(
+    public IEnumerable<string> GetFallbackPaths(
         IExecutableEnvironment environment,
         IReadOnlyList<string> candidateNames)
     {
-        if (!environment.IsWindows)
+        foreach (string directory in AgentCliKnownDirectories.For(environment))
         {
-            yield break;
-        }
-
-        string? appData = environment.GetEnvironmentVariable("APPDATA");
-        if (!string.IsNullOrWhiteSpace(appData))
-        {
-            foreach (string candidatePath in GetCandidatePathsForDirectory(Path.Combine(appData, "npm"), candidateNames))
+            foreach (string candidateName in candidateNames)
             {
-                yield return candidatePath;
-            }
-        }
+                string baseName = Path.HasExtension(candidateName)
+                    ? Path.GetFileNameWithoutExtension(candidateName)
+                    : candidateName;
 
-        string? programFiles = environment.GetEnvironmentVariable("ProgramFiles");
-        if (!string.IsNullOrWhiteSpace(programFiles))
-        {
-            foreach (string candidatePath in GetCandidatePathsForDirectory(Path.Combine(programFiles, "nodejs"), candidateNames))
-            {
-                yield return candidatePath;
+                if (environment.HostPlatform == AgentCliHostPlatform.Windows)
+                {
+                    yield return Path.Combine(directory, baseName + ".exe");
+                    yield return Path.Combine(directory, "codex.exe");
+                    yield return Path.Combine(directory, baseName + ".cmd");
+                    yield return Path.Combine(directory, "codex.cmd");
+                }
+                else
+                {
+                    yield return Path.Combine(directory, baseName);
+                    yield return Path.Combine(directory, "codex");
+                }
             }
         }
     }
@@ -92,7 +107,8 @@ internal sealed class CodexCliInstallLayout : IAgentCliInstallLayout
             return nativeBinary;
         }
 
-        string coLocatedNode = Path.Combine(installDirectory, "node.exe");
+        string nodeFileName = environment.HostPlatform == AgentCliHostPlatform.Windows ? "node.exe" : "node";
+        string coLocatedNode = Path.Combine(installDirectory, nodeFileName);
         string codexJs = Path.Combine(installDirectory, "node_modules", "@openai", "codex", "bin", "codex.js");
         searchedPaths?.Add(coLocatedNode);
         searchedPaths?.Add(codexJs);
@@ -110,22 +126,18 @@ internal sealed class CodexCliInstallLayout : IAgentCliInstallLayout
         IExecutableEnvironment environment,
         ICollection<string>? searchedPaths)
     {
-        if (!environment.IsWindows)
-        {
-            return null;
-        }
-
         string codexPackageRoot = Path.Combine(installDirectory, "node_modules", "@openai", "codex");
         searchedPaths?.Add(codexPackageRoot);
 
-        foreach ((string package, string vendorTriple) in WindowsPlatformPackages)
+        foreach (AgentCliPlatformPackage package in AgentCliPlatformPackages.ForHost(NativePackages, environment))
         {
+            string binName = environment.HostPlatform == AgentCliHostPlatform.Windows ? "codex.exe" : "codex";
             string[] candidatePaths =
             [
-                Path.Combine(codexPackageRoot, "node_modules", package, "bin", "codex.exe"),
-                Path.Combine(codexPackageRoot, "node_modules", package, "vendor", vendorTriple, "codex", "codex.exe"),
-                Path.Combine(installDirectory, "node_modules", package, "bin", "codex.exe"),
-                Path.Combine(installDirectory, "node_modules", package, "vendor", vendorTriple, "codex", "codex.exe")
+                Path.Combine(codexPackageRoot, "node_modules", package.PackageName, "bin", binName),
+                Path.Combine(codexPackageRoot, "node_modules", package.PackageName, package.RelativeExecutablePath),
+                Path.Combine(installDirectory, "node_modules", package.PackageName, "bin", binName),
+                Path.Combine(installDirectory, "node_modules", package.PackageName, package.RelativeExecutablePath)
             ];
 
             foreach (string candidatePath in candidatePaths)
@@ -140,22 +152,5 @@ internal sealed class CodexCliInstallLayout : IAgentCliInstallLayout
         }
 
         return null;
-    }
-
-    private static IEnumerable<string> GetCandidatePathsForDirectory(
-        string directory,
-        IReadOnlyList<string> candidateNames)
-    {
-        foreach (string candidateName in candidateNames)
-        {
-            string baseName = Path.HasExtension(candidateName)
-                ? Path.GetFileNameWithoutExtension(candidateName)
-                : candidateName;
-
-            yield return Path.Combine(directory, baseName + ".exe");
-            yield return Path.Combine(directory, "codex.exe");
-            yield return Path.Combine(directory, baseName + ".cmd");
-            yield return Path.Combine(directory, "codex.cmd");
-        }
     }
 }

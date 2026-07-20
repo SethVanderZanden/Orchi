@@ -14,7 +14,7 @@ public class CodexAgentExecutableResolverTests
 
         var environment = new FakeExecutableEnvironment
         {
-            IsWindows = true,
+            HostPlatform = AgentCliHostPlatform.Windows,
             ExistingFiles = { executablePath }
         };
 
@@ -40,7 +40,7 @@ public class CodexAgentExecutableResolverTests
 
         var environment = new FakeExecutableEnvironment
         {
-            IsWindows = true,
+            HostPlatform = AgentCliHostPlatform.Windows,
             PathDirectories = { tempDirectory },
             ExistingFiles = { shimPath, cmdPath }
         };
@@ -80,7 +80,7 @@ public class CodexAgentExecutableResolverTests
 
         var environment = new FakeExecutableEnvironment
         {
-            IsWindows = true,
+            HostPlatform = AgentCliHostPlatform.Windows,
             PathDirectories = { tempDirectory },
             ExistingFiles = { nativePath, cmdPath }
         };
@@ -111,7 +111,7 @@ public class CodexAgentExecutableResolverTests
 
         var environment = new FakeExecutableEnvironment
         {
-            IsWindows = true,
+            HostPlatform = AgentCliHostPlatform.Windows,
             PathDirectories = { tempDirectory },
             ExistingFiles = { nodePath, codexJs, cmdPath }
         };
@@ -139,7 +139,7 @@ public class CodexAgentExecutableResolverTests
 
         var environment = new FakeExecutableEnvironment
         {
-            IsWindows = true,
+            HostPlatform = AgentCliHostPlatform.Windows,
             EnvironmentVariables =
             {
                 ["ProgramFiles"] = tempDirectory
@@ -166,7 +166,7 @@ public class CodexAgentExecutableResolverTests
 
         var environment = new FakeExecutableEnvironment
         {
-            IsWindows = true,
+            HostPlatform = AgentCliHostPlatform.Windows,
             ExistingFiles = { executablePath }
         };
 
@@ -193,7 +193,9 @@ public class CodexAgentExecutableResolverTests
 
     private sealed class FakeExecutableEnvironment : IExecutableEnvironment
     {
-        public bool IsWindows { get; init; }
+        public AgentCliHostPlatform HostPlatform { get; init; } = AgentCliHostPlatform.Linux;
+
+        public AgentCliHostArchitecture HostArchitecture { get; init; } = AgentCliHostArchitecture.X64;
 
         public HashSet<string> ExistingFiles { get; } = new(StringComparer.OrdinalIgnoreCase);
 

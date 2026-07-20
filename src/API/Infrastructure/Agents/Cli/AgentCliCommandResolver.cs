@@ -71,7 +71,7 @@ internal static class AgentCliCommandResolver
             return Success(new AgentCliLaunchSpec(resolved, null));
         }
 
-        foreach (string fallbackPath in layout.GetWindowsFallbackPaths(environment, candidateNames))
+        foreach (string fallbackPath in layout.GetFallbackPaths(environment, candidateNames))
         {
             searchedPaths.Add(fallbackPath);
 
@@ -119,6 +119,11 @@ internal static class AgentCliCommandResolver
             directories.Add(environment.ExpandEnvironmentVariables(searchPath.Trim()));
         }
 
+        foreach (string directory in AgentCliKnownDirectories.For(environment))
+        {
+            directories.Add(directory);
+        }
+
         foreach (string directory in layout.GetPreferredInstallDirectories(environment))
         {
             if (!string.IsNullOrWhiteSpace(directory))
@@ -146,6 +151,7 @@ internal static class AgentCliCommandResolver
     {
         var directories = new List<string>();
         directories.AddRange(additionalSearchPaths);
+        directories.AddRange(AgentCliKnownDirectories.For(environment));
         directories.AddRange(environment.GetPathDirectories());
 
         return directories

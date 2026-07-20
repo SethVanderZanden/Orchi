@@ -2,7 +2,11 @@ namespace Orchi.Api.Infrastructure.Agents.Cli;
 
 internal interface IExecutableEnvironment
 {
-    bool IsWindows { get; }
+    AgentCliHostPlatform HostPlatform { get; }
+
+    AgentCliHostArchitecture HostArchitecture { get; }
+
+    bool IsWindows => HostPlatform == AgentCliHostPlatform.Windows;
 
     string? GetEnvironmentVariable(string name);
 
@@ -23,7 +27,9 @@ internal sealed class ExecutableEnvironment : IExecutableEnvironment
 {
     public static IExecutableEnvironment Current { get; } = new ExecutableEnvironment();
 
-    public bool IsWindows => OperatingSystem.IsWindows();
+    public AgentCliHostPlatform HostPlatform { get; } = AgentCliHostDetector.DetectPlatform();
+
+    public AgentCliHostArchitecture HostArchitecture { get; } = AgentCliHostDetector.DetectArchitecture();
 
     public string? GetEnvironmentVariable(string name) => Environment.GetEnvironmentVariable(name);
 
@@ -40,12 +46,18 @@ internal sealed class ExecutableEnvironment : IExecutableEnvironment
     {
         var directories = new List<string>();
 
-        AddPathDirectories(directories, Environment.GetEnvironmentVariable("PATH"));
+        AddPathDirectories(directories, Environment.GetEnvironmentVariable("PATH"), Path.PathSeparator);
 
-        if (IsWindows)
+        if (HostPlatform == AgentCliHostPlatform.Windows)
         {
-            AddPathDirectories(directories, Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User));
-            AddPathDirectories(directories, Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine));
+            AddPathDirectories(
+                directories,
+                Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User),
+                ';');
+            AddPathDirectories(
+                directories,
+                Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine),
+                ';');
         }
 
         return directories
@@ -55,6 +67,11 @@ internal sealed class ExecutableEnvironment : IExecutableEnvironment
 
     public IReadOnlyList<string> GetPathExtensions()
     {
+        if (HostPlatform != AgentCliHostPlatform.Windows)
+        {
+            return [];
+        }
+
         string? pathExt = Environment.GetEnvironmentVariable("PATHEXT");
 
         if (string.IsNullOrWhiteSpace(pathExt))
@@ -68,16 +85,19 @@ internal sealed class ExecutableEnvironment : IExecutableEnvironment
             .ToList();
     }
 
-    private static void AddPathDirectories(ICollection<string> directories, string? pathValue)
+    private static void AddPathDirectories(
+        ICollection<string> directories,
+        string? pathValue,
+        char separator)
     {
         if (string.IsNullOrWhiteSpace(pathValue))
         {
             return;
         }
 
-        foreach (string directory in pathValue.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        foreach (string directory in pathValue.Split(separator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
-            directories.Add(directory);
+            directories.Add(directory.Trim('"'));
         }
     }
 }
