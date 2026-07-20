@@ -31,6 +31,37 @@ Everything below is the same idea with adapters, catalogs, and JSONL.
 2. Authenticate per Codex docs
 3. Run the Orchi API on the same machine
 
+### API process PATH (Windows)
+
+Your terminal may find `codex` while the Orchi API cannot. The API is started by `dotnet run`, Visual Studio, or another host that often **does not inherit your user PATH** (including npm global prefixes added at install time).
+
+Orchi resolves the executable before spawning:
+
+1. Absolute path from `Agents:Codex:Executable` (if set and file exists)
+2. **Native `codex.exe`** from the npm platform package (`@openai/codex-win32-x64`, etc.) under the npm global prefix
+3. **`node.exe` + `bin/codex.js`** in the same npm prefix (bypasses extensionless shims)
+4. Search merged user + machine PATH with `PATHEXT` (`.exe`, `.cmd`, …), preferring `.exe`/`.cmd` over extensionless `codex` shims
+5. Windows fallback: `%APPDATA%\npm` and `%ProgramFiles%\nodejs`
+
+Prefer the **native binary** or **node bundle** over extensionless npm shims — the shim at `nodejs\codex` is a Unix shell script that Windows cannot execute directly via `Process.Start`.
+
+**If spawn still fails:**
+
+- Restart the Orchi API after installing Codex (`npm install -g @openai/codex`)
+- Set a full path in `appsettings.json`:
+
+```json
+"Agents": {
+  "Codex": {
+    "Executable": "C:\\Program Files\\nodejs\\codex.cmd"
+  }
+}
+```
+
+- Optional: add custom search directories via `AdditionalSearchPaths`
+
+Implementation: `src/API/Infrastructure/Agents/Codex/CodexAgentExecutableResolver.cs`
+
 Config (`appsettings.json`):
 
 ```json
