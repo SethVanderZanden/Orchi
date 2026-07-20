@@ -20,7 +20,7 @@ internal sealed class CodexAgentAdapter(
         CodexAgentOptions config = options.Value;
         CodexAgentExecutableResolver.ResolveResult resolveResult = CodexAgentExecutableResolver.Resolve(config);
 
-        if (!resolveResult.Success || string.IsNullOrWhiteSpace(resolveResult.ExecutablePath))
+        if (!resolveResult.Success || resolveResult.Launch is null)
         {
             logger.LogError(
                 "Unable to resolve Codex agent executable for chat {ChatId}: {Message}",
@@ -31,21 +31,18 @@ internal sealed class CodexAgentAdapter(
             yield break;
         }
 
-        ProcessStartInfo startInfo = BuildStartInfo(
-            resolveResult.ExecutablePath,
-            config,
-            session,
-            prompt,
-            extraCliArgs);
+        CodexAgentLaunchSpec launch = resolveResult.Launch;
+        ProcessStartInfo startInfo = BuildStartInfo(launch, config, session, prompt, extraCliArgs);
 
         bool hasResume = !string.IsNullOrWhiteSpace(session.ExternalSessionId);
         logger.LogDebug(
-            "Starting Codex agent for chat {ChatId}: resume={HasResume}, externalSessionId={ExternalSessionId}",
+            "Starting Codex agent for chat {ChatId}: launch={LaunchKind}, resume={HasResume}, externalSessionId={ExternalSessionId}",
             session.Id,
+            launch.LaunchKind,
             hasResume,
             hasResume ? TruncateForLog(session.ExternalSessionId!) : "(none)");
 
-        ProcessStartResult start = TryStartProcess(startInfo, session.Id, resolveResult.ExecutablePath);
+        ProcessStartResult start = TryStartProcess(startInfo, session.Id, launch.ExecutablePath);
         if (start.Error is not null)
         {
             yield return start.Error;
@@ -89,9 +86,18 @@ internal sealed class CodexAgentAdapter(
         CodexAgentOptions config,
         ChatSession session,
         string prompt,
-        IReadOnlyList<string>? extraCliArgs = null)
+        IReadOnlyList<string>? extraCliArgs = null,
+        string? entryScript = null)
     {
-        var arguments = new List<string> { "exec", "--json" };
+        var arguments = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(entryScript))
+        {
+            arguments.Add(entryScript);
+        }
+
+        arguments.Add("exec");
+        arguments.Add("--json");
 
         foreach (string defaultArg in config.DefaultArgs.Distinct(StringComparer.Ordinal))
         {
@@ -135,17 +141,21 @@ internal sealed class CodexAgentAdapter(
     }
 
     private static ProcessStartInfo BuildStartInfo(
-        string executablePath,
+        CodexAgentLaunchSpec launch,
         CodexAgentOptions config,
         ChatSession session,
         string prompt,
         IReadOnlyList<string> extraCliArgs)
     {
-        IReadOnlyList<string> arguments = BuildArguments(config, session, prompt, extraCliArgs);
+        IReadOnlyList<string> arguments = BuildArguments(
+            config,
+            session,
+            prompt,
+            extraCliArgs,
+            launch.EntryScript);
 
         var startInfo = new ProcessStartInfo
         {
-            FileName = executablePath,
             WorkingDirectory = session.WorkspacePath,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -154,6 +164,20 @@ internal sealed class CodexAgentAdapter(
             UseShellExecute = false,
             CreateNoWindow = true
         };
+
+        if (launch.UsesCmdShim)
+        {
+            startInfo.FileName = OperatingSystem.IsWindows() ? "cmd.exe" : launch.ExecutablePath;
+            if (OperatingSystem.IsWindows())
+            {
+                startInfo.ArgumentList.Add("/c");
+                startInfo.ArgumentList.Add(launch.ExecutablePath);
+            }
+        }
+        else
+        {
+            startInfo.FileName = launch.ExecutablePath;
+        }
 
         foreach (string argument in arguments)
         {
