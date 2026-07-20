@@ -145,24 +145,29 @@ Cursor keeps its versioned `node` + `index.js` bundle layout; paths differ by OS
 - Cursor preferred dirs for Windows + macOS/Linux home layouts
 - Plan documented here; suite doc links here
 
-### Phase 1 — macOS / Linux install bays
+### Phase 1 — macOS / Linux install bays (done in tree)
 
-- Populate known dirs for Homebrew / npm-global / `~/.local/bin`
-- Cursor macOS/Linux preferred install directories (wherever the official CLI lands)
-- Codex darwin/linux platform package unwrap
-- Tests for each platform fake filesystem
+- Known dirs for Homebrew / npm-global / `~/.local/bin` / linuxbrew
+- Cursor macOS/Linux preferred dirs (marked **best-effort** until verified on a real install)
+- Codex darwin/linux platform package unwrap matrix
+- Fake-filesystem tests for known dirs + install-kind classification
 
-### Phase 2 — GUI-app PATH parity (T3-aligned)
+### Phase 2 — GUI-app PATH parity (done in tree)
 
-- Optional login-shell / `launchctl getenv PATH` merge when process PATH lacks `node`/`codex`/`agent`
-- Windows profile PATH already partially covered via User+Machine PATH; extend carefully
-- Feature-flag or soft-fail: never block spawn if probe fails
+- Soft-fail login-shell PATH probe (`$SHELL -l`) on macOS/Linux
+- Soft-fail `launchctl getenv PATH` on macOS
+- Merged into `ExecutableEnvironment.GetPathDirectories()`; probes never block resolution
+- Windows User + Machine PATH merge unchanged
 
-### Phase 3 — Observability
+### Phase 3 — Observability (done in tree)
 
-- Log `HostPlatform`, `InstallKind`, `LaunchKind`, and resolved path at Debug when an agent starts
-- Surface a settings “CLI probe” result (path + kind) for support — optional UI later
+- `ResolveResult` stamps `HostPlatform`, `InstallKind`, `LaunchKind`, `SearchedPaths`
+- Adapters log path + platform + install + launch at Debug on start
+- Settings “CLI probe” UI remains optional later
 
+## Mac path caveat
+
+Cursor/Codex Unix install directories under `~/.local/share/...` and similar are **best-effort guesses**. Official installer layouts can differ by version. Prefer PATH / Homebrew / npm-global when present; set `Agents:*:Executable` only if auto-detect misses.
 ## Success criteria
 
 - Adding Linux support for an existing agent = table rows + tests, not a new resolver class

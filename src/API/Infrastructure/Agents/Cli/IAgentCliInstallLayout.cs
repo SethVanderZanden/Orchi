@@ -14,9 +14,10 @@ internal interface IAgentCliInstallLayout
 
     /// <summary>
     /// Agent-specific install directories for the current host platform (in addition to
-    /// <see cref="AgentCliKnownDirectories"/>).
+    /// <see cref="AgentCliKnownDirectories"/>). Default: none.
     /// </summary>
-    IEnumerable<string> GetPreferredInstallDirectories(IExecutableEnvironment environment);
+    IEnumerable<string> GetPreferredInstallDirectories(IExecutableEnvironment environment) =>
+        [];
 
     /// <summary>
     /// Last-resort absolute candidate files when PATH search fails (OS-specific).

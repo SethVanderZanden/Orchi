@@ -37,6 +37,8 @@ Orchi resolves the executable before spawning (shared suite — see [agent CLI c
 
 Prefer the **node bundle** or **`agent.exe`** over `.cmd`/`.ps1` wrappers — the `.cmd` shim re-invokes PowerShell and can corrupt XML prompts passed as CLI arguments. When only a `.cmd` remains, `AgentCliProcessStart` wraps it with `cmd.exe /d /s /c` (same idea as T3 Code `resolveSpawnCommand`).
 
+On macOS/Linux, known Homebrew/npm dirs plus a soft-fail login-shell / `launchctl` PATH merge help GUI-hosted API processes. Cursor home-directory guesses (`~/.local/share/cursor-agent`, `~/.cursor-agent`) are **best-effort** until confirmed against your installed CLI layout.
+
 **If spawn still fails:**
 
 - Restart the Orchi API after installing the Cursor CLI

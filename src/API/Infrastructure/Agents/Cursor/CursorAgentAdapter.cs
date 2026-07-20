@@ -40,9 +40,12 @@ internal sealed class CursorAgentAdapter(
 
         bool hasResume = !string.IsNullOrWhiteSpace(session.ExternalSessionId);
         logger.LogDebug(
-            "Starting Cursor agent for chat {ChatId}: launch={LaunchKind}, resume={HasResume}, externalSessionId={ExternalSessionId}",
+            "Starting Cursor agent for chat {ChatId}: path={ExecutablePath}, platform={HostPlatform}, install={InstallKind}, launch={LaunchKind}, resume={HasResume}, externalSessionId={ExternalSessionId}",
             session.Id,
-            launch.LaunchKind,
+            launch.ExecutablePath,
+            resolveResult.HostPlatform,
+            resolveResult.InstallKind,
+            resolveResult.LaunchKind,
             hasResume,
             hasResume ? TruncateForLog(session.ExternalSessionId!) : "(none)");
 
@@ -203,7 +206,7 @@ internal sealed class CursorAgentAdapter(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Unable to start Cursor agent for chat {ChatId}", chatId);
+            logger.LogError(ex, "Unable to start Cursor agent for chat {ChatId} (path={ExecutablePath})", chatId, executablePath);
             return new ProcessStartResult(
                 null,
                 new AgentErrorEvent(

@@ -56,13 +56,6 @@ internal sealed class CodexCliInstallLayout : IAgentCliInstallLayout
             : [fileName, baseName];
     }
 
-    public IEnumerable<string> GetPreferredInstallDirectories(IExecutableEnvironment environment)
-    {
-        // Shared npm/Homebrew/Volta dirs come from AgentCliKnownDirectories.
-        // Codex only adds package roots when they sit beside a global npm prefix.
-        yield break;
-    }
-
     public IEnumerable<string> GetFallbackPaths(
         IExecutableEnvironment environment,
         IReadOnlyList<string> candidateNames)

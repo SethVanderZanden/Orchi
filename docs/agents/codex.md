@@ -45,6 +45,8 @@ Orchi resolves the executable before spawning (shared suite — see [agent CLI c
 
 Prefer the **native binary** or **node bundle** over extensionless npm shims — the shim at `nodejs\codex` is a Unix shell script that Windows cannot execute via `CreateProcess`. If only `codex.cmd` is found, `AgentCliProcessStart` launches it through `cmd.exe` (aligned with T3 Code).
 
+On macOS/Linux, Homebrew (`/opt/homebrew/bin`) and npm-global bins are searched automatically; GUI hosts also get a soft-fail login-shell PATH merge. Set `Agents:Codex:Executable` only if auto-detect still misses.
+
 **If spawn still fails:**
 
 - Restart the Orchi API after installing Codex (`npm install -g @openai/codex`)

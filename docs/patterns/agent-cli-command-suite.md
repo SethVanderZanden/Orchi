@@ -52,13 +52,16 @@ This matches Orchi’s existing Strategy + Factory style (`IAgentModeStrategy`, 
 
 ## Resolution order
 
-1. Absolute `Executable` path (if rooted and present)
-2. Shared **known directories for the auto-detected OS** (`AgentCliKnownDirectories`) + layout preferred dirs, then `TryResolveBundle` (native binary / `node` + entry script)
-3. Merged PATH with platform rules (`PATHEXT` on Windows; extensionless allowed on macOS/Linux)
-4. Layout fallbacks (OS-specific absolute candidates)
+1. Absolute `Executable` path (if rooted and present) → unwrap once
+2. Probe **known + agent install dirs** for native / node bundles (before PATH shims)
+3. Search PATH + known dirs for a spawnable file (Windows: `PATHEXT`, no extensionless; Unix: extensionless)
+4. Layout fallbacks → unwrap once
 
-Host OS and install kind (npm / Homebrew / native / Volta) are **auto-detected** — see [platform extensibility](agent-cli-platform-extensibility.md#dummy-section-start-here).
+Each success stamps `HostPlatform`, `InstallKind`, `LaunchKind` on `ResolveResult` (logged at Debug by adapters).
 
+Host OS, install kind (npm / Homebrew / native / Volta), and optional login-shell PATH enrichment are **auto-detected** — see [platform extensibility](agent-cli-platform-extensibility.md#dummy-section-start-here).
+
+macOS/Linux Cursor home dirs are **best-effort** until verified against a real CLI install.
 ## Spawn rules
 
 `AgentCliProcessStart.Create`:

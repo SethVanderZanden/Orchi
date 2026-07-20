@@ -59,6 +59,13 @@ internal sealed class ExecutableEnvironment : IExecutableEnvironment
                 Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine),
                 ';');
         }
+        else
+        {
+            foreach (string directory in AgentCliLoginPathEnricher.GetExtraPathDirectories(this))
+            {
+                directories.Add(directory);
+            }
+        }
 
         return directories
             .Distinct(StringComparer.OrdinalIgnoreCase)

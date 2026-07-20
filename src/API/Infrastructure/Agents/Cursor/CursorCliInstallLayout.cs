@@ -41,6 +41,8 @@ internal sealed class CursorCliInstallLayout : IAgentCliInstallLayout
             case AgentCliHostPlatform.MacOS:
             case AgentCliHostPlatform.Linux:
             {
+                // Best-effort Unix layout guesses until verified against a real Cursor CLI
+                // install on macOS/Linux (official paths may differ by installer version).
                 string? home = environment.GetEnvironmentVariable("HOME");
                 if (!string.IsNullOrWhiteSpace(home))
                 {

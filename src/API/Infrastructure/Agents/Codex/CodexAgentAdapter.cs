@@ -41,9 +41,12 @@ internal sealed class CodexAgentAdapter(
 
         bool hasResume = !string.IsNullOrWhiteSpace(session.ExternalSessionId);
         logger.LogDebug(
-            "Starting Codex agent for chat {ChatId}: launch={LaunchKind}, resume={HasResume}, externalSessionId={ExternalSessionId}",
+            "Starting Codex agent for chat {ChatId}: path={ExecutablePath}, platform={HostPlatform}, install={InstallKind}, launch={LaunchKind}, resume={HasResume}, externalSessionId={ExternalSessionId}",
             session.Id,
-            launch.LaunchKind,
+            launch.ExecutablePath,
+            resolveResult.HostPlatform,
+            resolveResult.InstallKind,
+            resolveResult.LaunchKind,
             hasResume,
             hasResume ? TruncateForLog(session.ExternalSessionId!) : "(none)");
 
@@ -156,15 +159,19 @@ internal sealed class CodexAgentAdapter(
 
             return new ProcessStartResult(process, null);
         }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Unable to start Codex agent for chat {ChatId}", chatId);
-            return new ProcessStartResult(
-                null,
-                new AgentErrorEvent(
-                    "Agent.StartFailed",
-                    $"Unable to start Codex CLI ('{executablePath}'). Ensure Codex is installed and accessible."));
-        }
+            catch (Exception ex)
+            {
+                logger.LogError(
+                    ex,
+                    "Unable to start Codex agent for chat {ChatId} (path={ExecutablePath})",
+                    chatId,
+                    executablePath);
+                return new ProcessStartResult(
+                    null,
+                    new AgentErrorEvent(
+                        "Agent.StartFailed",
+                        $"Unable to start Codex CLI ('{executablePath}'). Ensure Codex is installed and accessible."));
+            }
     }
 
     private void TryKillProcessTree(Process process, Guid chatId)

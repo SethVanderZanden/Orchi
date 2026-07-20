@@ -6,14 +6,18 @@ internal sealed record CachedCursorExecutableResolution(
     bool Success,
     string? ExecutablePath,
     string? EntryScript,
-    string? ErrorMessage)
+    string? ErrorMessage,
+    AgentCliHostPlatform HostPlatform = AgentCliHostPlatform.Unknown,
+    AgentCliInstallKind InstallKind = AgentCliInstallKind.Unknown)
 {
     public static CachedCursorExecutableResolution From(CursorAgentExecutableResolver.ResolveResult result) =>
         new(
             result.Success,
             result.Launch?.ExecutablePath,
             result.Launch?.EntryScript,
-            result.ErrorMessage);
+            result.ErrorMessage,
+            result.HostPlatform,
+            result.InstallKind);
 
     public CursorAgentExecutableResolver.ResolveResult ToResolveResult()
     {
@@ -22,9 +26,16 @@ internal sealed record CachedCursorExecutableResolution(
             return new CursorAgentExecutableResolver.ResolveResult(
                 true,
                 new AgentCliLaunchSpec(ExecutablePath, EntryScript),
-                null);
+                null,
+                HostPlatform,
+                InstallKind);
         }
 
-        return new CursorAgentExecutableResolver.ResolveResult(false, null, ErrorMessage);
+        return new CursorAgentExecutableResolver.ResolveResult(
+            false,
+            null,
+            ErrorMessage,
+            HostPlatform,
+            InstallKind);
     }
 }
