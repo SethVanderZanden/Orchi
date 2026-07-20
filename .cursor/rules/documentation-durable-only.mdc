@@ -1,0 +1,21 @@
+---
+description: Keep docs/ durable — no roadmaps, temp plans, or future-work dumps
+globs: docs/**/*.md
+alwaysApply: false
+---
+
+# Documentation — durable content only
+
+`docs/` describes **current** Orchi behavior.
+
+## Do not add to `docs/`
+
+- Roadmaps / Phase 0–N plans / “done in tree” trackers
+- Goals / Non-goals / Success criteria for unfinished work
+- “Optional later” feature dumps or agent scratch notes
+
+Those belong in the PR or issue. Prefer one short durable guide over multiple overlapping plan docs.
+
+## Reference
+
+`.cursor/skills/orchi-durable-docs/SKILL.md`
