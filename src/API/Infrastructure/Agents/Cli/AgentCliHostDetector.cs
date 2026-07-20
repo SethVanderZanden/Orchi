@@ -63,18 +63,20 @@ internal static class AgentCliHostDetector
             return AgentCliInstallKind.Pnpm;
         }
 
-        if (platform is AgentCliHostPlatform.MacOS or AgentCliHostPlatform.Linux &&
-            (ContainsOrdinalIgnoreCase(normalized, "/opt/homebrew/") ||
-             ContainsOrdinalIgnoreCase(normalized, "/homebrew/") ||
-             ContainsOrdinalIgnoreCase(normalized, "/usr/local/cellar/") ||
-             ContainsOrdinalIgnoreCase(normalized, "/home/linuxbrew/")))
+        bool isUnixHost = platform is AgentCliHostPlatform.MacOS or AgentCliHostPlatform.Linux;
+        if (isUnixHost
+            && (ContainsOrdinalIgnoreCase(normalized, "/opt/homebrew/")
+                || ContainsOrdinalIgnoreCase(normalized, "/homebrew/")
+                || ContainsOrdinalIgnoreCase(normalized, "/usr/local/cellar/")
+                || ContainsOrdinalIgnoreCase(normalized, "/home/linuxbrew/")))
         {
             return AgentCliInstallKind.Homebrew;
         }
 
-        if (ContainsOrdinalIgnoreCase(normalized, "/cursor-agent/") ||
-            ContainsOrdinalIgnoreCase(normalized, "/.local/share/cursor-agent/") ||
-            ContainsOrdinalIgnoreCase(normalized, "/vendor/") && ContainsOrdinalIgnoreCase(normalized, "/codex"))
+        if (ContainsOrdinalIgnoreCase(normalized, "/cursor-agent/")
+            || ContainsOrdinalIgnoreCase(normalized, "/.local/share/cursor-agent/")
+            || (ContainsOrdinalIgnoreCase(normalized, "/vendor/")
+                && ContainsOrdinalIgnoreCase(normalized, "/codex")))
         {
             return AgentCliInstallKind.NativeInstaller;
         }
