@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Text;
 using Microsoft.Extensions.Options;
+using Orchi.Api.Infrastructure.Agents.Cli;
 
 namespace Orchi.Api.Infrastructure.Agents.Codex;
 
@@ -31,7 +31,7 @@ internal sealed class CodexAgentAdapter(
             yield break;
         }
 
-        CodexAgentLaunchSpec launch = resolveResult.Launch;
+        AgentCliLaunchSpec launch = resolveResult.Launch;
         ProcessStartInfo startInfo = BuildStartInfo(
             launch,
             config,
@@ -91,18 +91,9 @@ internal sealed class CodexAgentAdapter(
         CodexAgentOptions config,
         ChatSession session,
         string prompt,
-        IReadOnlyList<string>? extraCliArgs = null,
-        string? entryScript = null)
+        IReadOnlyList<string>? extraCliArgs = null)
     {
-        var arguments = new List<string>();
-
-        if (!string.IsNullOrWhiteSpace(entryScript))
-        {
-            arguments.Add(entryScript);
-        }
-
-        arguments.Add("exec");
-        arguments.Add("--json");
+        var arguments = new List<string> { "exec", "--json" };
 
         foreach (string defaultArg in config.DefaultArgs.Distinct(StringComparer.Ordinal))
         {
@@ -146,37 +137,14 @@ internal sealed class CodexAgentAdapter(
     }
 
     private static ProcessStartInfo BuildStartInfo(
-        CodexAgentLaunchSpec launch,
+        AgentCliLaunchSpec launch,
         CodexAgentOptions config,
         ChatSession session,
         string prompt,
         IReadOnlyList<string> extraCliArgs)
     {
-        IReadOnlyList<string> arguments = BuildArguments(
-            config,
-            session,
-            prompt,
-            extraCliArgs,
-            launch.EntryScript);
-
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = launch.ExecutablePath,
-            WorkingDirectory = session.WorkspacePath,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            StandardOutputEncoding = Encoding.UTF8,
-            StandardErrorEncoding = Encoding.UTF8,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
-
-        foreach (string argument in arguments)
-        {
-            startInfo.ArgumentList.Add(argument);
-        }
-
-        return startInfo;
+        IReadOnlyList<string> arguments = BuildArguments(config, session, prompt, extraCliArgs);
+        return AgentCliProcessStart.Create(launch, session.WorkspacePath, arguments);
     }
 
     private ProcessStartResult TryStartProcess(ProcessStartInfo startInfo, Guid chatId, string executablePath)

@@ -1,5 +1,4 @@
-using Orchi.Api.Infrastructure.Agents;
-
+using Orchi.Api.Infrastructure.Agents.Cli;
 using Orchi.Api.Infrastructure.Agents.Cursor;
 
 
@@ -344,7 +343,7 @@ public class CursorAgentExecutableResolverTests
 
 
 
-        CursorAgentLaunchSpec? launch = CursorAgentExecutableResolver.TryResolveNodeBundle(
+        AgentCliLaunchSpec? launch = CursorAgentExecutableResolver.TryResolveNodeBundle(
 
             installDirectory,
 

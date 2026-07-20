@@ -1,5 +1,5 @@
+using Orchi.Api.Infrastructure.Agents.Cli;
 using Orchi.Api.Infrastructure.Agents.Codex;
-using Orchi.Api.Infrastructure.Agents.Cursor;
 
 namespace Orchi.Api.Tests.Infrastructure.Agents.Codex;
 

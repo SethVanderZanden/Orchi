@@ -28,14 +28,14 @@ Orchi listens on that walkie-talkie, filters duplicate partial messages, and reb
 
 Your terminal may find `agent` while the Orchi API cannot. The API is started by `dotnet run`, Visual Studio, or another host that often **does not inherit your user PATH** (including `%LOCALAPPDATA%\cursor-agent` added at install time).
 
-Orchi resolves the executable before spawning:
+Orchi resolves the executable before spawning (shared suite — see [agent CLI command suite](../patterns/agent-cli-command-suite.md#dummy-section-start-here)):
 
 1. Absolute path from `Agents:Cursor:Executable` (if set and file exists)
 2. **`node.exe` + `index.js` bundle** in `%LOCALAPPDATA%\cursor-agent\versions\{latest}` (bypasses `.cmd`/PowerShell shims on Windows)
-3. Search merged user + machine PATH with `PATHEXT` (`.exe`, `.cmd`, …)
+3. Search merged user + machine PATH with `PATHEXT` (`.exe`, `.cmd`, …) via `AgentCliCommandResolver`
 4. Windows fallback: `%LOCALAPPDATA%\cursor-agent\agent.exe` (then `cursor-agent.exe`, `.cmd` shims)
 
-Prefer the **node bundle** or **`agent.exe`** over `.cmd`/`.ps1` wrappers — the `.cmd` shim re-invokes PowerShell and can corrupt XML prompts passed as CLI arguments.
+Prefer the **node bundle** or **`agent.exe`** over `.cmd`/`.ps1` wrappers — the `.cmd` shim re-invokes PowerShell and can corrupt XML prompts passed as CLI arguments. When only a `.cmd` remains, `AgentCliProcessStart` wraps it with `cmd.exe /d /s /c` (same idea as T3 Code `resolveSpawnCommand`).
 
 **If spawn still fails:**
 
@@ -52,7 +52,7 @@ Prefer the **node bundle** or **`agent.exe`** over `.cmd`/`.ps1` wrappers — th
 
 - Optional: add custom search directories via `AdditionalSearchPaths`
 
-Implementation: `src/API/Infrastructure/Agents/Cursor/CursorAgentExecutableResolver.cs`
+Implementation: `CursorCliInstallLayout` + `AgentCliCommandResolver` (`src/API/Infrastructure/Agents/Cli/`)
 
 ## Spawn command
 

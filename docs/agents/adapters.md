@@ -67,11 +67,12 @@ services.AddSingleton<IAgentAdapterFactory, AgentAdapterFactory>();
 
 ## Adding Claude (future)
 
-1. Implement `IAgentAdapter` with agent-specific spawn + output parsing
-2. Add config section (`Agents:Claude`, etc.)
-3. Allow `agent: "claude"` in `CreateChatRequest` (validation already checks factory)
-4. Add parser unit tests with fixture stdout (no real CLI in CI)
-5. Document CLI flags and event mapping in a new `docs/agents/{name}.md`
+1. Implement `IAgentCliInstallLayout` for Claude install dirs / npm unwrap — do **not** copy PATH search (see [agent CLI command suite](../patterns/agent-cli-command-suite.md#dummy-section-start-here))
+2. Implement `IAgentAdapter` with agent-specific spawn + output parsing; spawn via `AgentCliProcessStart`
+3. Add config section (`Agents:Claude`, etc.)
+4. Allow `agent: "claude"` in `CreateChatRequest` (validation already checks factory)
+5. Add parser unit tests with fixture stdout (no real CLI in CI)
+6. Document CLI flags and event mapping in a new `docs/agents/{name}.md`
 
 Codex is implemented — see [codex.md](codex.md).
 

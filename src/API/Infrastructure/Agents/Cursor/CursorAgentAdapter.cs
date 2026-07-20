@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Text;
 using Microsoft.Extensions.Options;
+using Orchi.Api.Infrastructure.Agents.Cli;
 using Orchi.Api.Infrastructure.Caching;
 
 namespace Orchi.Api.Infrastructure.Agents.Cursor;
@@ -35,7 +35,7 @@ internal sealed class CursorAgentAdapter(
             yield break;
         }
 
-        CursorAgentLaunchSpec launch = resolveResult.Launch;
+        AgentCliLaunchSpec launch = resolveResult.Launch;
         ProcessStartInfo startInfo = BuildStartInfo(launch, config, session, prompt, extraCliArgs);
 
         bool hasResume = !string.IsNullOrWhiteSpace(session.ExternalSessionId);
@@ -120,15 +120,9 @@ internal sealed class CursorAgentAdapter(
         CursorAgentOptions config,
         ChatSession session,
         string prompt,
-        IReadOnlyList<string>? extraCliArgs = null,
-        string? entryScript = null)
+        IReadOnlyList<string>? extraCliArgs = null)
     {
         var arguments = new List<string>();
-
-        if (!string.IsNullOrWhiteSpace(entryScript))
-        {
-            arguments.Add(entryScript);
-        }
 
         foreach (string defaultArg in config.DefaultArgs.Distinct(StringComparer.Ordinal))
         {
@@ -183,7 +177,7 @@ internal sealed class CursorAgentAdapter(
     }
 
     private static ProcessStartInfo BuildStartInfo(
-        CursorAgentLaunchSpec launch,
+        AgentCliLaunchSpec launch,
         CursorAgentOptions config,
         ChatSession session,
         string prompt,
@@ -193,27 +187,9 @@ internal sealed class CursorAgentAdapter(
             config,
             session,
             prompt,
-            extraCliArgs,
-            launch.EntryScript);
+            extraCliArgs);
 
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = launch.ExecutablePath,
-            WorkingDirectory = session.WorkspacePath,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            StandardOutputEncoding = Encoding.UTF8,
-            StandardErrorEncoding = Encoding.UTF8,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
-
-        foreach (string argument in arguments)
-        {
-            startInfo.ArgumentList.Add(argument);
-        }
-
-        return startInfo;
+        return AgentCliProcessStart.Create(launch, session.WorkspacePath, arguments);
     }
 
     private ProcessStartResult TryStartProcess(ProcessStartInfo startInfo, Guid chatId, string executablePath)

@@ -35,15 +35,15 @@ Everything below is the same idea with adapters, catalogs, and JSONL.
 
 Your terminal may find `codex` while the Orchi API cannot. The API is started by `dotnet run`, Visual Studio, or another host that often **does not inherit your user PATH** (including npm global prefixes added at install time).
 
-Orchi resolves the executable before spawning:
+Orchi resolves the executable before spawning (shared suite — see [agent CLI command suite](../patterns/agent-cli-command-suite.md#dummy-section-start-here)):
 
 1. Absolute path from `Agents:Codex:Executable` (if set and file exists)
 2. **Native `codex.exe`** from the npm platform package (`@openai/codex-win32-x64`, etc.) under the npm global prefix
 3. **`node.exe` + `bin/codex.js`** in the same npm prefix (bypasses extensionless shims)
-4. Search merged user + machine PATH with `PATHEXT` (`.exe`, `.cmd`, …), preferring `.exe`/`.cmd` over extensionless `codex` shims
+4. Search merged user + machine PATH with `PATHEXT` (`.exe`, `.cmd`, …), preferring `.exe`/`.cmd` and **ignoring extensionless** Windows shims
 5. Windows fallback: `%APPDATA%\npm` and `%ProgramFiles%\nodejs`
 
-Prefer the **native binary** or **node bundle** over extensionless npm shims — the shim at `nodejs\codex` is a Unix shell script that Windows cannot execute directly via `Process.Start`.
+Prefer the **native binary** or **node bundle** over extensionless npm shims — the shim at `nodejs\codex` is a Unix shell script that Windows cannot execute via `CreateProcess`. If only `codex.cmd` is found, `AgentCliProcessStart` launches it through `cmd.exe` (aligned with T3 Code).
 
 **If spawn still fails:**
 
@@ -60,7 +60,7 @@ Prefer the **native binary** or **node bundle** over extensionless npm shims —
 
 - Optional: add custom search directories via `AdditionalSearchPaths`
 
-Implementation: `src/API/Infrastructure/Agents/Codex/CodexAgentExecutableResolver.cs`
+Implementation: `CodexCliInstallLayout` + `AgentCliCommandResolver` (`src/API/Infrastructure/Agents/Cli/`)
 
 Config (`appsettings.json`):
 

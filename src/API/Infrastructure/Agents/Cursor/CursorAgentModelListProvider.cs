@@ -1,6 +1,6 @@
 using System.Diagnostics;
-using System.Text;
 using Microsoft.Extensions.Options;
+using Orchi.Api.Infrastructure.Agents.Cli;
 using Orchi.Api.Infrastructure.Agents.Models;
 using Orchi.Api.Infrastructure.Caching;
 
@@ -25,8 +25,8 @@ internal sealed class CursorAgentModelListProvider(
             throw new InvalidOperationException(resolveResult.ErrorMessage ?? "Unable to resolve Cursor agent executable.");
         }
 
-        CursorAgentLaunchSpec launch = resolveResult.Launch;
-        ProcessStartInfo startInfo = BuildStartInfo(launch, config);
+        AgentCliLaunchSpec launch = resolveResult.Launch;
+        ProcessStartInfo startInfo = BuildStartInfo(launch);
 
         using Process process = Process.Start(startInfo)
             ?? throw new InvalidOperationException($"Failed to start Cursor agent executable '{launch.ExecutablePath}'.");
@@ -90,27 +90,8 @@ internal sealed class CursorAgentModelListProvider(
         return string.Join('\u001f', parts);
     }
 
-    private static ProcessStartInfo BuildStartInfo(CursorAgentLaunchSpec launch, CursorAgentOptions config)
-    {
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = launch.ExecutablePath,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            StandardOutputEncoding = Encoding.UTF8,
-            StandardErrorEncoding = Encoding.UTF8,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
-
-        if (!string.IsNullOrWhiteSpace(launch.EntryScript))
-        {
-            startInfo.ArgumentList.Add(launch.EntryScript);
-        }
-
-        startInfo.ArgumentList.Add("--list-models");
-        return startInfo;
-    }
+    private static ProcessStartInfo BuildStartInfo(AgentCliLaunchSpec launch) =>
+        AgentCliProcessStart.Create(launch, workingDirectory: null, ["--list-models"]);
 
     private static void TryKillProcess(Process process)
     {
