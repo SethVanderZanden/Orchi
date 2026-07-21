@@ -32,5 +32,4 @@ Root cause: the root `.gitignore` rule `artifacts/` matches the `Artifacts/` sou
 
 ### Test caveats
 
-- Desktop `vitest` (`npm run test --prefix src/desktop`): 3 tests in `src/main/open-in-editor.test.ts` fail on Linux because they assert Windows path behavior (`C:\...`). This is a pre-existing OS-specific assumption, not an environment issue.
 - Desktop `npm run lint` currently reports pre-existing ESLint errors/warnings in committed code (the tooling itself runs fine).

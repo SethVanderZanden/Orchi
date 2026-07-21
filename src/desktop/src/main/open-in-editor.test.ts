@@ -1,3 +1,5 @@
+import { tmpdir } from 'os'
+import path from 'path'
 import { describe, expect, it, vi } from 'vitest'
 
 import {
@@ -42,7 +44,11 @@ describe('getKnownEditorInstallPaths', () => {
 })
 
 describe('openInEditor', () => {
-  const folderPath = 'C:\\Projects\\Orchi'
+  const folderPath =
+    process.platform === 'win32'
+      ? 'C:\\Projects\\Orchi'
+      : path.join(tmpdir(), 'orchi-test-workspace')
+  const resolvedFolderPath = path.resolve(folderPath)
 
   function createDeps(overrides: Partial<OpenInEditorDeps> = {}): OpenInEditorDeps {
     return {
@@ -73,7 +79,9 @@ describe('openInEditor', () => {
     const result = await openInEditor(folderPath, 'vscode', deps)
 
     expect(result).toEqual({ ok: true })
-    expect(deps.openExternal).toHaveBeenCalledWith(getEditorProtocolUrl(folderPath, 'vscode'))
+    expect(deps.openExternal).toHaveBeenCalledWith(
+      getEditorProtocolUrl(resolvedFolderPath, 'vscode')
+    )
     expect(deps.spawnDetached).not.toHaveBeenCalled()
   })
 
@@ -86,7 +94,7 @@ describe('openInEditor', () => {
     const result = await openInEditor(folderPath, 'cursor', deps)
 
     expect(result).toEqual({ ok: true })
-    expect(deps.spawnDetached).toHaveBeenCalledWith('cursor', [folderPath])
+    expect(deps.spawnDetached).toHaveBeenCalledWith('cursor', [resolvedFolderPath])
   })
 
   it('falls back to known install path when cli fails', async () => {
@@ -96,20 +104,24 @@ describe('openInEditor', () => {
       spawnDetached: vi.fn().mockImplementation((command: string) => command === installPath),
       fileExists: vi
         .fn()
-        .mockImplementation((path: string) => path === folderPath || path === installPath)
+        .mockImplementation(
+          (checkedPath: string) => checkedPath === resolvedFolderPath || checkedPath === installPath
+        )
     })
 
     const result = await openInEditor(folderPath, 'vscode', deps)
 
     expect(result).toEqual({ ok: true })
-    expect(deps.spawnDetached).toHaveBeenCalledWith(installPath, [folderPath])
+    expect(deps.spawnDetached).toHaveBeenCalledWith(installPath, [resolvedFolderPath])
   })
 
   it('returns error when all strategies fail', async () => {
     const deps = createDeps({
       openExternal: vi.fn().mockRejectedValue(new Error('protocol failed')),
       spawnDetached: vi.fn().mockReturnValue(false),
-      fileExists: vi.fn().mockImplementation((path: string) => path === folderPath)
+      fileExists: vi
+        .fn()
+        .mockImplementation((checkedPath: string) => checkedPath === resolvedFolderPath)
     })
 
     const result = await openInEditor(folderPath, 'vscode', deps)

@@ -90,9 +90,7 @@ export function AgentSetupWizardDialog({
       })
       onOpenChange?.(false)
     } catch (saveError) {
-      setError(
-        saveError instanceof Error ? saveError.message : 'Unable to save agent preferences.'
-      )
+      setError(saveError instanceof Error ? saveError.message : 'Unable to save agent preferences.')
     }
   }
 
