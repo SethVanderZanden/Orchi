@@ -27,9 +27,21 @@ public interface IAgentAdapter
     IAsyncEnumerable<AgentEvent> SendMessageAsync(
         ChatSession session,
         string prompt,
+        IReadOnlyList<string> extraCliArgs,
         CancellationToken cancellationToken);
 }
 ```
+
+CLI adapters delegate to **`AgentCliTurnProcessor`** (template method) with a per-agent **`IAgentCliProcessorProfile`** (strategy bundle):
+
+| Strategy | Interface | Example |
+|----------|-----------|---------|
+| argv builder | `IAgentCliArgumentBuilder` | `CodexCliArgumentBuilder` |
+| stdout parser | `IAgentStreamLineParser` | `CodexNdjsonParser` |
+| executable resolve | `IAgentLaunchResolver` | `CodexAgentLaunchResolverService` |
+| profile factory | `IAgentCliProcessorFactory` | `AgentCliProcessorFactory` |
+
+Register one `IAgentCliProcessorProfile` per agent in `AgentsExtensions.AddOrchiAgents()`. The adapter itself stays a thin `IAgentAdapter` facade.
 
 Implementations:
 
@@ -67,11 +79,15 @@ services.AddSingleton<IAgentAdapterFactory, AgentAdapterFactory>();
 
 ## Adding Claude (future)
 
-1. Implement `IAgentAdapter` with agent-specific spawn + output parsing
-2. Add config section (`Agents:Claude`, etc.)
-3. Allow `agent: "claude"` in `CreateChatRequest` (validation already checks factory)
-4. Add parser unit tests with fixture stdout (no real CLI in CI)
-5. Document CLI flags and event mapping in a new `docs/agents/{name}.md`
+1. Implement `IAgentStreamLineParser` for the agent's NDJSON stdout
+2. Implement `IAgentCliArgumentBuilder` for argv (model, resume, config overrides)
+3. Implement `IAgentLaunchResolver` (or wrap a static resolver)
+4. Register `{Name}AgentCliProcessorProfile` as `IAgentCliProcessorProfile`
+5. Implement `IAgentAdapter` as a thin wrapper over `AgentCliTurnProcessor`
+6. Add config section (`Agents:Claude`, etc.)
+7. Allow `agent: "claude"` in `CreateChatRequest` (validation already checks factory)
+8. Add parser unit tests with fixture stdout (no real CLI in CI)
+9. Document CLI flags and event mapping in a new `docs/agents/{name}.md`
 
 Codex is implemented — see [codex.md](codex.md).
 
