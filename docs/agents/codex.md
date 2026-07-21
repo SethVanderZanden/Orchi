@@ -83,9 +83,7 @@ Config (`appsettings.json`):
     "DefaultArgs": [
       "--skip-git-repo-check",
       "--sandbox",
-      "workspace-write",
-      "--ask-for-approval",
-      "never"
+      "workspace-write"
     ],
     "TimeoutSeconds": 600
   }
@@ -98,7 +96,7 @@ One process per user turn:
 
 ```bash
 codex exec --json [--skip-git-repo-check] \
-  [--sandbox workspace-write] [--ask-for-approval never] \
+  [--sandbox workspace-write] \
   [--model {slug}] \
   [-c model_context_window={tokens}] \
   [-c model_reasoning_effort={effort}] \
@@ -139,7 +137,7 @@ Mode defaults pick agent + model + context per Orchi mode (e.g. orchestration â†
 
 Orchi seeds Codex reasoning and approval presets on API startup and during first-time agent setup. First launch walks you through agent selection and a Codex approval policy (default: **on request**).
 
-Spawn uses `--ask-for-approval {policy}` from the chat or mode default (not a duplicate `-c approval_policy` flag).
+Spawn uses `-c approval_policy={policy}` from the chat or mode default.
 
 | Kind | Codex `-c` key | Typical Codex presets |
 |------|----------------|------------------------|
