@@ -134,8 +134,8 @@ public class CodexNdjsonParserTests
                 "workspace-write",
                 "--model",
                 "gpt-5.4",
-                "--ask-for-approval",
-                "on-request",
+                "-c",
+                "approval_policy=\"on-request\"",
                 "-c",
                 "model_context_window=272000",
                 "resume",
@@ -178,8 +178,8 @@ public class CodexNdjsonParserTests
                 "model_context_window=272000",
                 "-c",
                 "model_reasoning_effort=\"high\"",
-                "--ask-for-approval",
-                "on-request",
+                "-c",
+                "approval_policy=\"on-request\"",
                 "do the thing"
             ],
             args);

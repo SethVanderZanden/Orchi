@@ -38,8 +38,10 @@ internal sealed class CodexCliArgumentBuilder(IOptions<CodexAgentOptions> option
             ExcludeApprovalPolicy(session.CliConfigOverrides);
         AgentCliConfigArgs.AppendOverrides(arguments, configOverrides);
 
-        arguments.Add("--ask-for-approval");
-        arguments.Add(ResolveApprovalPolicy(session));
+        AgentCliConfigArgs.AppendOverride(
+            arguments,
+            AgentCliOptionKinds.ApprovalPolicy,
+            ResolveApprovalPolicy(session));
 
         if (session.ContextSizeTokens is int tokens and > 0
             && !session.CliConfigOverrides.ContainsKey("model_context_window"))
