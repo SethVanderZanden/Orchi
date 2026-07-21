@@ -74,12 +74,12 @@ public static class ListAgentModels
 
         private static async Task<IResult> Handle(
             string agentId,
-            bool includeDisabled,
+            bool? includeDisabled,
             IQueryHandler<Query, Response> handler,
             CancellationToken cancellationToken)
         {
             Result<Response> result = await handler.Handle(
-                new Query(agentId, includeDisabled),
+                new Query(agentId, includeDisabled ?? false),
                 cancellationToken);
 
             return result.ToProblem();
