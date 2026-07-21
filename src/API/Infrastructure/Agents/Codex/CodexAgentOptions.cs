@@ -6,7 +6,12 @@ internal sealed class CodexAgentOptions
 
     public string Executable { get; init; } = "codex";
 
-    public string[] DefaultArgs { get; init; } = ["--skip-git-repo-check"];
+    public string[] DefaultArgs { get; init; } =
+    [
+        "--skip-git-repo-check",
+        "--sandbox",
+        "workspace-write"
+    ];
 
     public string[] AdditionalSearchPaths { get; init; } = [];
 

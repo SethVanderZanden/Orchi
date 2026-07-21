@@ -2,9 +2,11 @@ using System.Text.Json;
 
 namespace Orchi.Api.Infrastructure.Agents.Codex;
 
-internal static class CodexNdjsonParser
+internal sealed class CodexNdjsonParser
 {
-    public static IEnumerable<AgentEvent> ParseLine(string line)
+    private readonly Dictionary<string, string> _agentMessageTextByItemId = new(StringComparer.Ordinal);
+
+    public IEnumerable<AgentEvent> ParseLine(string line)
     {
         if (string.IsNullOrWhiteSpace(line))
         {
@@ -43,6 +45,7 @@ internal static class CodexNdjsonParser
                     break;
 
                 case "item.started":
+                case "item.updated":
                 case "item.completed":
                     foreach (AgentEvent itemEvent in ParseItemEvent(root, type))
                     {
@@ -86,7 +89,7 @@ internal static class CodexNdjsonParser
         yield return new AgentSessionStartedEvent(threadId);
     }
 
-    private static IEnumerable<AgentEvent> ParseItemEvent(JsonElement root, string eventType)
+    private IEnumerable<AgentEvent> ParseItemEvent(JsonElement root, string eventType)
     {
         if (!root.TryGetProperty("item", out JsonElement item))
         {
@@ -101,15 +104,25 @@ internal static class CodexNdjsonParser
 
         if (IsAgentMessage(itemType))
         {
-            if (!string.Equals(eventType, "item.completed", StringComparison.Ordinal))
+            if (string.Equals(eventType, "item.started", StringComparison.Ordinal))
             {
                 yield break;
             }
 
-            string? text = ReadItemText(item);
-            if (!string.IsNullOrEmpty(text))
+            foreach (AgentEvent textEvent in EmitAgentMessageText(item))
             {
-                yield return new AgentTextDeltaEvent(text);
+                yield return textEvent;
+            }
+
+            yield break;
+        }
+
+        if (IsReasoning(itemType))
+        {
+            if (string.Equals(eventType, "item.started", StringComparison.Ordinal)
+                || string.Equals(eventType, "item.updated", StringComparison.Ordinal))
+            {
+                yield return new AgentToolEvent("Thinking…");
             }
 
             yield break;
@@ -120,6 +133,39 @@ internal static class CodexNdjsonParser
         {
             yield return new AgentToolEvent(label);
         }
+    }
+
+    private IEnumerable<AgentEvent> EmitAgentMessageText(JsonElement item)
+    {
+        string? itemId = item.TryGetProperty("id", out JsonElement idElement)
+            ? idElement.GetString()
+            : null;
+        string? text = ReadItemText(item);
+        if (string.IsNullOrEmpty(text))
+        {
+            yield break;
+        }
+
+        string key = string.IsNullOrWhiteSpace(itemId) ? string.Empty : itemId;
+        _agentMessageTextByItemId.TryGetValue(key, out string? previousText);
+        previousText ??= string.Empty;
+
+        if (text.Length <= previousText.Length
+            && string.Equals(text, previousText, StringComparison.Ordinal))
+        {
+            yield break;
+        }
+
+        string delta = text.StartsWith(previousText, StringComparison.Ordinal)
+            ? text[previousText.Length..]
+            : text;
+
+        if (!string.IsNullOrEmpty(delta))
+        {
+            yield return new AgentTextDeltaEvent(delta);
+        }
+
+        _agentMessageTextByItemId[key] = text;
     }
 
     private static string ReadItemType(JsonElement item)
@@ -141,6 +187,9 @@ internal static class CodexNdjsonParser
         string.Equals(itemType, "agent_message", StringComparison.OrdinalIgnoreCase)
         || string.Equals(itemType, "assistant_message", StringComparison.OrdinalIgnoreCase);
 
+    private static bool IsReasoning(string itemType) =>
+        string.Equals(itemType, "reasoning", StringComparison.OrdinalIgnoreCase);
+
     private static string? ReadItemText(JsonElement item)
     {
         if (item.TryGetProperty("text", out JsonElement textElement))
@@ -158,7 +207,8 @@ internal static class CodexNdjsonParser
             "command_execution" => BuildCommandLabel(item),
             "file_change" => "Applying file changes",
             "mcp_tool_call" => BuildMcpLabel(item),
-            "web_search" => "Web search",
+            "collab_tool_call" => BuildCollabLabel(item),
+            "web_search" => BuildWebSearchLabel(item),
             "todo_list" => "Updating todo list",
             _ => string.Empty
         };
@@ -200,6 +250,34 @@ internal static class CodexNdjsonParser
         }
 
         return "MCP tool";
+    }
+
+    private static string BuildCollabLabel(JsonElement item)
+    {
+        if (item.TryGetProperty("tool", out JsonElement toolElement))
+        {
+            string? tool = toolElement.GetString();
+            if (!string.IsNullOrWhiteSpace(tool))
+            {
+                return $"Collab {tool.Replace('_', ' ', StringComparison.Ordinal)}";
+            }
+        }
+
+        return "Collab tool";
+    }
+
+    private static string BuildWebSearchLabel(JsonElement item)
+    {
+        if (item.TryGetProperty("query", out JsonElement queryElement))
+        {
+            string? query = queryElement.GetString();
+            if (!string.IsNullOrWhiteSpace(query))
+            {
+                return $"Web search: {Truncate(query.Trim(), 80)}";
+            }
+        }
+
+        return "Web search";
     }
 
     private static string? ReadErrorMessage(JsonElement root)

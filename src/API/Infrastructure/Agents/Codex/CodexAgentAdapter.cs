@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Microsoft.Extensions.Options;
+using Orchi.Api.Infrastructure.Agents.Models;
 
 namespace Orchi.Api.Infrastructure.Agents.Codex;
 
@@ -110,7 +111,12 @@ internal sealed class CodexAgentAdapter(
             arguments.Add(session.ModelId);
         }
 
-        AgentCliConfigArgs.AppendOverrides(arguments, session.CliConfigOverrides);
+        IReadOnlyDictionary<string, string> configOverrides =
+            ExcludeApprovalPolicy(session.CliConfigOverrides);
+        AgentCliConfigArgs.AppendOverrides(arguments, configOverrides);
+
+        arguments.Add("--ask-for-approval");
+        arguments.Add(ResolveApprovalPolicy(session));
 
         // Fallback for callers that set ContextSizeTokens without hydrating CliConfigOverrides.
         if (session.ContextSizeTokens is int tokens and > 0
@@ -138,6 +144,30 @@ internal sealed class CodexAgentAdapter(
 
         arguments.Add(prompt);
         return arguments;
+    }
+
+    private static IReadOnlyDictionary<string, string> ExcludeApprovalPolicy(
+        IReadOnlyDictionary<string, string> overrides)
+    {
+        if (!overrides.ContainsKey(AgentCliOptionKinds.ApprovalPolicy))
+        {
+            return overrides;
+        }
+
+        return overrides
+            .Where(pair => !string.Equals(pair.Key, AgentCliOptionKinds.ApprovalPolicy, StringComparison.Ordinal))
+            .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+    }
+
+    private static string ResolveApprovalPolicy(ChatSession session)
+    {
+        if (session.CliConfigOverrides.TryGetValue(AgentCliOptionKinds.ApprovalPolicy, out string? value)
+            && !string.IsNullOrWhiteSpace(value))
+        {
+            return value.Trim().Trim('"');
+        }
+
+        return CodexBuiltInCatalog.DefaultApprovalPolicyId;
     }
 
     private static ProcessStartInfo BuildStartInfo(
@@ -265,6 +295,8 @@ internal sealed class CodexAgentAdapter(
         timeoutCts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
 
         Task<string> stderrTask = process.StandardError.ReadToEndAsync(timeoutCts.Token);
+        var parser = new CodexNdjsonParser();
+        int parsedEventCount = 0;
 
         while (true)
         {
@@ -282,14 +314,25 @@ internal sealed class CodexAgentAdapter(
                 break;
             }
 
-            foreach (AgentEvent agentEvent in CodexNdjsonParser.ParseLine(line))
+            foreach (AgentEvent agentEvent in parser.ParseLine(line))
             {
+                parsedEventCount++;
                 yield return agentEvent;
             }
         }
 
         string stderr = await stderrTask;
-        if (!string.IsNullOrWhiteSpace(stderr) && process.ExitCode != 0)
+        if (parsedEventCount == 0 && !string.IsNullOrWhiteSpace(stderr))
+        {
+            logger.LogWarning(
+                "Codex agent produced no JSON events; stderr: {StdErr}",
+                TruncateForLog(stderr.Trim(), 500));
+
+            yield return new AgentErrorEvent(
+                "Agent.NoEvents",
+                $"Codex produced no output. {TruncateForLog(stderr.Trim(), 300)}");
+        }
+        else if (!string.IsNullOrWhiteSpace(stderr) && process.ExitCode != 0)
         {
             logger.LogWarning("Codex agent stderr for chat process: {StdErr}", stderr);
         }

@@ -165,12 +165,30 @@ public class ModeRuntimeDefaultServiceTests
     }
 
     [Fact]
+    public async Task ApplyEnabledAgentsAsync_SeedAllModes_AppliesCodexApprovalPolicy()
+    {
+        await using ServiceProvider provider = BuildProvider();
+        IModeRuntimeDefaultService service = provider.GetRequiredService<IModeRuntimeDefaultService>();
+
+        await service.ApplyEnabledAgentsAsync(
+            ["codex"],
+            seedAllModes: true,
+            new AgentSetupOptions(CodexApprovalPolicyId: "never"),
+            CancellationToken.None);
+
+        IReadOnlyList<ModeRuntimeDefaultDto> defaults =
+            await service.ListAsync(CancellationToken.None);
+
+        Assert.All(defaults, dto => Assert.Equal("never", dto.ApprovalPolicyId));
+    }
+
+    [Fact]
     public async Task ApplyEnabledAgentsAsync_SeedAllModes_WritesPreferredAgentsWithNullModels()
     {
         await using ServiceProvider provider = BuildProvider();
         IModeRuntimeDefaultService service = provider.GetRequiredService<IModeRuntimeDefaultService>();
 
-        await service.ApplyEnabledAgentsAsync(["codex"], seedAllModes: true, CancellationToken.None);
+        await service.ApplyEnabledAgentsAsync(["codex"], seedAllModes: true, setupOptions: null, CancellationToken.None);
 
         IReadOnlyList<ModeRuntimeDefaultDto> defaults =
             await service.ListAsync(CancellationToken.None);
@@ -205,7 +223,7 @@ public class ModeRuntimeDefaultServiceTests
             null,
             CancellationToken.None);
 
-        await service.ApplyEnabledAgentsAsync(["cursor"], seedAllModes: false, CancellationToken.None);
+        await service.ApplyEnabledAgentsAsync(["cursor"], seedAllModes: false, setupOptions: null, CancellationToken.None);
 
         IReadOnlyList<ModeRuntimeDefaultDto> defaults =
             await service.ListAsync(CancellationToken.None);
@@ -337,6 +355,9 @@ public class ModeRuntimeDefaultServiceTests
             string optionId,
             CancellationToken cancellationToken) =>
             Task.FromResult<string?>(optionId);
+
+        public Task EnsureBuiltInPresetsAsync(string agentId, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
     }
 
     private sealed class FakeAgentModelListProvider : IAgentModelListProvider

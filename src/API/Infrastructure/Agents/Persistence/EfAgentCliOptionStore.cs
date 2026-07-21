@@ -108,6 +108,44 @@ public sealed class EfAgentCliOptionStore(IDbContextFactory<AppDbContext> dbCont
         return ToStored(entity);
     }
 
+    public async Task EnsureBuiltInAsync(
+        string agentId,
+        string kind,
+        string optionId,
+        string label,
+        string cliValue,
+        CancellationToken cancellationToken)
+    {
+        await using AppDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        bool exists = await db.AgentCliOptions.AnyAsync(
+            option => option.AgentId == agentId
+                && option.Kind == kind
+                && option.OptionId == optionId,
+            cancellationToken);
+
+        if (exists)
+        {
+            return;
+        }
+
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        db.AgentCliOptions.Add(new AgentCliOption
+        {
+            AgentId = agentId,
+            Kind = kind,
+            OptionId = optionId,
+            Label = label,
+            CliValue = cliValue,
+            IsEnabled = true,
+            Source = AgentCliOptionSource.BuiltIn,
+            CreatedAt = now,
+            UpdatedAt = now
+        });
+
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<bool> RemoveAsync(
         string agentId,
         string kind,

@@ -114,4 +114,12 @@ public static class AgentsExtensions
 
         return services;
     }
+
+    public static async Task EnsureCodexBuiltInCatalogAsync(this WebApplication app)
+    {
+        using IServiceScope scope = app.Services.CreateScope();
+        IAgentCliOptionCatalogService catalog =
+            scope.ServiceProvider.GetRequiredService<IAgentCliOptionCatalogService>();
+        await catalog.EnsureBuiltInPresetsAsync(AgentIds.Codex, CancellationToken.None);
+    }
 }
