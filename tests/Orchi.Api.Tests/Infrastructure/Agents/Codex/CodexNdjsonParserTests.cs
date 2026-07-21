@@ -135,14 +135,35 @@ public class CodexNdjsonParserTests
                 "--model",
                 "gpt-5.4",
                 "-c",
-                "approval_policy=\"on-request\"",
-                "-c",
                 "model_context_window=272000",
                 "resume",
                 "thread-abc",
                 "do the thing"
             ],
             args);
+    }
+
+    [Fact]
+    public void BuildArguments_StripsApprovalPolicyFromCliOverrides()
+    {
+        var session = new ChatSession
+        {
+            Id = Guid.NewGuid(),
+            AgentId = AgentIds.Codex,
+            WorkspacePath = @"C:\repo",
+            ModelId = "gpt-5.4"
+        };
+        session.CliConfigOverrides["approval_policy"] = "on-request";
+        session.CliConfigOverrides["model_reasoning_effort"] = "high";
+
+        IReadOnlyList<string> args = CreateArgumentBuilder().BuildArguments(
+            session,
+            "do the thing",
+            [],
+            entryScript: null);
+
+        Assert.DoesNotContain(args, arg => arg.Contains("approval_policy", StringComparison.Ordinal));
+        Assert.Contains("model_reasoning_effort=\"high\"", args);
     }
 
     [Fact]
@@ -178,8 +199,6 @@ public class CodexNdjsonParserTests
                 "model_context_window=272000",
                 "-c",
                 "model_reasoning_effort=\"high\"",
-                "-c",
-                "approval_policy=\"on-request\"",
                 "do the thing"
             ],
             args);

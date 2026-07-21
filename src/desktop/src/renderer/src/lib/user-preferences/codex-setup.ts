@@ -21,4 +21,4 @@ export const CODEX_APPROVAL_SETUP_OPTIONS = [
 
 export type CodexApprovalSetupOptionId = (typeof CODEX_APPROVAL_SETUP_OPTIONS)[number]['id']
 
-export const DEFAULT_CODEX_APPROVAL_POLICY_ID: CodexApprovalSetupOptionId = 'on-request'
+export const DEFAULT_CODEX_APPROVAL_POLICY_ID: CodexApprovalSetupOptionId = 'never'
