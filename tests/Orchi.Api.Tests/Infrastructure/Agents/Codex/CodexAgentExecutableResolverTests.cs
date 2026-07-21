@@ -206,7 +206,7 @@ public class CodexAgentExecutableResolverTests
 
         Assert.Equal(
             [
-                codexJsPath, "exec", "--json", "--skip-git-repo-check", "hello"
+                codexJsPath, "exec", "--json", "--skip-git-repo-check", "--sandbox", "workspace-write", "--ask-for-approval", "never", "hello"
             ],
             arguments);
     }
@@ -231,7 +231,7 @@ public class CodexAgentExecutableResolverTests
         ProcessStartInfo startInfo = InvokeBuildStartInfo(launch, options, session, "hello");
 
         Assert.Equal("cmd.exe", startInfo.FileName);
-        Assert.Equal(["/c", launch.ExecutablePath, "exec", "--json", "--skip-git-repo-check", "hello"], startInfo.ArgumentList);
+        Assert.Equal(["/c", launch.ExecutablePath, "exec", "--json", "--skip-git-repo-check", "--sandbox", "workspace-write", "--ask-for-approval", "never", "hello"], startInfo.ArgumentList);
     }
 
     private static ProcessStartInfo InvokeBuildStartInfo(

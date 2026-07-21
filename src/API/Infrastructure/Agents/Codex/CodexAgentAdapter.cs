@@ -265,6 +265,8 @@ internal sealed class CodexAgentAdapter(
         timeoutCts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
 
         Task<string> stderrTask = process.StandardError.ReadToEndAsync(timeoutCts.Token);
+        var parser = new CodexNdjsonParser();
+        int parsedEventCount = 0;
 
         while (true)
         {
@@ -282,14 +284,25 @@ internal sealed class CodexAgentAdapter(
                 break;
             }
 
-            foreach (AgentEvent agentEvent in CodexNdjsonParser.ParseLine(line))
+            foreach (AgentEvent agentEvent in parser.ParseLine(line))
             {
+                parsedEventCount++;
                 yield return agentEvent;
             }
         }
 
         string stderr = await stderrTask;
-        if (!string.IsNullOrWhiteSpace(stderr) && process.ExitCode != 0)
+        if (parsedEventCount == 0 && !string.IsNullOrWhiteSpace(stderr))
+        {
+            logger.LogWarning(
+                "Codex agent produced no JSON events; stderr: {StdErr}",
+                TruncateForLog(stderr.Trim(), 500));
+
+            yield return new AgentErrorEvent(
+                "Agent.NoEvents",
+                $"Codex produced no output. {TruncateForLog(stderr.Trim(), 300)}");
+        }
+        else if (!string.IsNullOrWhiteSpace(stderr) && process.ExitCode != 0)
         {
             logger.LogWarning("Codex agent stderr for chat process: {StdErr}", stderr);
         }

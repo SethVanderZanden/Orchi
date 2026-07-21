@@ -80,7 +80,13 @@ Config (`appsettings.json`):
 "Agents": {
   "Codex": {
     "Executable": "codex",
-    "DefaultArgs": ["--skip-git-repo-check"],
+    "DefaultArgs": [
+      "--skip-git-repo-check",
+      "--sandbox",
+      "workspace-write",
+      "--ask-for-approval",
+      "never"
+    ],
     "TimeoutSeconds": 600
   }
 }
@@ -92,6 +98,7 @@ One process per user turn:
 
 ```bash
 codex exec --json [--skip-git-repo-check] \
+  [--sandbox workspace-write] [--ask-for-approval never] \
   [--model {slug}] \
   [-c model_context_window={tokens}] \
   [-c model_reasoning_effort={effort}] \
