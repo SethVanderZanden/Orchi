@@ -137,9 +137,9 @@ Context sizes map to Codex `-c model_context_window={tokens}`. Use presets that 
 Settings → Agents shows one-click preset buttons for Codex and a Docs link to the official page.
 Mode defaults pick agent + model + context per Orchi mode (e.g. orchestration → Codex / default).
 
-## CLI options catalogs (reasoning + approval)
+Orchi seeds Codex reasoning and approval presets on API startup and during first-time agent setup. First launch walks you through agent selection and a Codex approval policy (default: **on request**).
 
-Orchi keeps **user-populated catalogs** of Codex config knobs per agent. These are not auto-synced from the CLI — you add the values you care about under **Settings → Agents**.
+Spawn uses `--ask-for-approval {policy}` from the chat or mode default (not a duplicate `-c approval_policy` flag).
 
 | Kind | Codex `-c` key | Typical Codex presets |
 |------|----------------|------------------------|

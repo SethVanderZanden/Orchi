@@ -45,4 +45,12 @@ public interface IAgentCliOptionStore
         string kind,
         string optionId,
         CancellationToken cancellationToken);
+
+    Task EnsureBuiltInAsync(
+        string agentId,
+        string kind,
+        string optionId,
+        string label,
+        string cliValue,
+        CancellationToken cancellationToken);
 }

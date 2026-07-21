@@ -10,9 +10,7 @@ internal sealed class CodexAgentOptions
     [
         "--skip-git-repo-check",
         "--sandbox",
-        "workspace-write",
-        "--ask-for-approval",
-        "never"
+        "workspace-write"
     ];
 
     public string[] AdditionalSearchPaths { get; init; } = [];

@@ -8,7 +8,11 @@ import {
   updateUserPreferences
 } from '@/lib/user-preferences/api'
 import { needsAgentSetup } from '@/lib/user-preferences/enabled-agents'
-import type { PostMessageBehavior, UserPreferences } from '@/lib/user-preferences/types'
+import type {
+  AgentSetupPreferences,
+  PostMessageBehavior,
+  UserPreferences
+} from '@/lib/user-preferences/types'
 
 export function useUserPreferences(): {
   preferences: UserPreferences | undefined
@@ -18,7 +22,10 @@ export function useUserPreferences(): {
   needsAgentSetup: boolean
   isLoading: boolean
   setPostMessageBehavior: (behavior: PostMessageBehavior) => void
-  setEnabledAgentIds: (agentIds: string[]) => Promise<UserPreferences>
+  setEnabledAgentIds: (
+    agentIds: string[],
+    setup?: AgentSetupPreferences
+  ) => Promise<UserPreferences>
   setAutoKickOffReview: (enabled: boolean) => void
   isUpdating: boolean
 } {
@@ -50,7 +57,12 @@ export function useUserPreferences(): {
     setPostMessageBehavior: (behavior) => {
       mutation.mutate({ postMessageBehavior: behavior })
     },
-    setEnabledAgentIds: (agentIds) => mutation.mutateAsync({ enabledAgentIds: agentIds }),
+    setEnabledAgentIds: (agentIds, setup) =>
+      mutation.mutateAsync({
+        enabledAgentIds: agentIds,
+        codexApprovalPolicyId: setup?.codexApprovalPolicyId ?? undefined,
+        codexReasoningEffortId: setup?.codexReasoningEffortId ?? undefined
+      }),
     setAutoKickOffReview: (enabled) => {
       mutation.mutate({ autoKickOffReview: enabled })
     },

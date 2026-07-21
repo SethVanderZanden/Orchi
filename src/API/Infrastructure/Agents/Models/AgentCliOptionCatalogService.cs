@@ -1,4 +1,6 @@
 using Orchi.Api.Common.Results;
+using Orchi.Api.Infrastructure.Agents;
+using Orchi.Api.Infrastructure.Agents.Codex;
 using Orchi.Api.Infrastructure.Agents.Persistence;
 using Orchi.Api.Infrastructure.Caching;
 
@@ -52,6 +54,8 @@ public interface IAgentCliOptionCatalogService
         string kind,
         string optionId,
         CancellationToken cancellationToken);
+
+    Task EnsureBuiltInPresetsAsync(string agentId, CancellationToken cancellationToken);
 }
 
 public sealed class AgentCliOptionCatalogService(
@@ -216,6 +220,30 @@ public sealed class AgentCliOptionCatalogService(
         return option.CliValue;
     }
 
+    public async Task EnsureBuiltInPresetsAsync(string agentId, CancellationToken cancellationToken)
+    {
+        ValidateAgent(agentId);
+
+        if (!string.Equals(agentId, AgentIds.Codex, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        foreach (CodexBuiltInCatalog.Preset preset in CodexBuiltInCatalog.AllPresets)
+        {
+            await store.EnsureBuiltInAsync(
+                agentId,
+                preset.Kind,
+                preset.OptionId,
+                preset.Label,
+                preset.CliValue,
+                cancellationToken);
+        }
+
+        await InvalidateKindCacheAsync(agentId, AgentCliOptionKinds.ModelReasoningEffort, cancellationToken);
+        await InvalidateKindCacheAsync(agentId, AgentCliOptionKinds.ApprovalPolicy, cancellationToken);
+    }
+
     private static string RequireKnownKind(string kind)
     {
         if (string.IsNullOrWhiteSpace(kind))
@@ -244,13 +272,21 @@ public sealed class AgentCliOptionCatalogService(
         _ = adapterFactory.GetAdapter(agentId);
     }
 
-    private async Task InvalidateCacheAsync(
+    private async Task InvalidateKindCacheAsync(
         string agentId,
         string kind,
         CancellationToken cancellationToken)
     {
         await cache.RemoveAsync(OrchiCacheKeys.AgentCliOptions(agentId, kind, true), cancellationToken);
         await cache.RemoveAsync(OrchiCacheKeys.AgentCliOptions(agentId, kind, false), cancellationToken);
+    }
+
+    private async Task InvalidateCacheAsync(
+        string agentId,
+        string kind,
+        CancellationToken cancellationToken)
+    {
+        await InvalidateKindCacheAsync(agentId, kind, cancellationToken);
     }
 
     private static AgentCliOptionDto ToDto(StoredAgentCliOption option) =>

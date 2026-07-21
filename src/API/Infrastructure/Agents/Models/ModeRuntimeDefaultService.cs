@@ -1,5 +1,6 @@
 using Orchi.Api.Common.Results;
 using Orchi.Api.Infrastructure.Agents.Modes;
+using Orchi.Api.Infrastructure.Agents.Codex;
 using Orchi.Api.Infrastructure.Agents.Persistence;
 
 namespace Orchi.Api.Infrastructure.Agents.Models;
@@ -38,12 +39,13 @@ public interface IModeRuntimeDefaultService
     /// <summary>
     /// Seeds or remaps per-mode agent defaults from the user's enabled agents.
     /// When <paramref name="seedAllModes"/> is true (first agent setup), every mode is
-    /// written with the preferred enabled agent and null model/context/cli options.
+    /// written with the preferred enabled agent and optional Codex CLI defaults.
     /// Later changes only remap modes whose agent was disabled.
     /// </summary>
     Task ApplyEnabledAgentsAsync(
         IReadOnlyList<string> enabledAgentIds,
         bool seedAllModes,
+        AgentSetupOptions? setupOptions,
         CancellationToken cancellationToken);
 }
 
@@ -237,6 +239,7 @@ public sealed class ModeRuntimeDefaultService(
     public async Task ApplyEnabledAgentsAsync(
         IReadOnlyList<string> enabledAgentIds,
         bool seedAllModes,
+        AgentSetupOptions? setupOptions,
         CancellationToken cancellationToken)
     {
         if (enabledAgentIds.Count == 0)
@@ -244,25 +247,100 @@ public sealed class ModeRuntimeDefaultService(
             return;
         }
 
+        bool codexEnabled = enabledAgentIds.Contains(AgentIds.Codex, StringComparer.OrdinalIgnoreCase);
+        if (codexEnabled)
+        {
+            await cliOptionCatalog.EnsureBuiltInPresetsAsync(AgentIds.Codex, cancellationToken);
+        }
+
+        string? codexApprovalPolicyId = ResolveCodexApprovalPolicyId(setupOptions);
+        string? codexReasoningEffortId = ResolveCodexReasoningEffortId(setupOptions);
+
         IReadOnlyList<StoredModeRuntimeDefault> existing = await store.ListAsync(cancellationToken);
         var existingByMode = existing.ToDictionary(row => row.Mode, StringComparer.OrdinalIgnoreCase);
 
         foreach (string modeId in ModeOrder)
         {
             string preferredAgentId = PickDefaultAgentId(modeId, enabledAgentIds);
+            bool usesCodex = string.Equals(preferredAgentId, AgentIds.Codex, StringComparison.OrdinalIgnoreCase);
 
             if (!existingByMode.TryGetValue(modeId, out StoredModeRuntimeDefault? row))
             {
-                await store.UpsertAsync(modeId, preferredAgentId, null, null, null, null, cancellationToken);
+                await store.UpsertAsync(
+                    modeId,
+                    preferredAgentId,
+                    null,
+                    null,
+                    usesCodex ? codexReasoningEffortId : null,
+                    usesCodex ? codexApprovalPolicyId : null,
+                    cancellationToken);
                 continue;
             }
 
             bool agentStillEnabled = enabledAgentIds.Contains(row.AgentId, StringComparer.OrdinalIgnoreCase);
             if (seedAllModes || !agentStillEnabled)
             {
-                await store.UpsertAsync(modeId, preferredAgentId, null, null, null, null, cancellationToken);
+                string? approvalPolicyId = usesCodex
+                    ? ResolveApprovalPolicyForUpsert(seedAllModes, setupOptions, row.ApprovalPolicyId)
+                    : null;
+                string? reasoningEffortId = usesCodex
+                    ? ResolveReasoningEffortForUpsert(setupOptions, row.ReasoningEffortId)
+                    : null;
+
+                await store.UpsertAsync(
+                    modeId,
+                    preferredAgentId,
+                    null,
+                    null,
+                    reasoningEffortId,
+                    approvalPolicyId,
+                    cancellationToken);
             }
         }
+    }
+
+    private static string? ResolveApprovalPolicyForUpsert(
+        bool seedAllModes,
+        AgentSetupOptions? setupOptions,
+        string? existingApprovalPolicyId)
+    {
+        if (!string.IsNullOrWhiteSpace(setupOptions?.CodexApprovalPolicyId))
+        {
+            return setupOptions.CodexApprovalPolicyId.Trim();
+        }
+
+        if (seedAllModes)
+        {
+            return CodexBuiltInCatalog.DefaultApprovalPolicyId;
+        }
+
+        return existingApprovalPolicyId;
+    }
+
+    private static string? ResolveReasoningEffortForUpsert(
+        AgentSetupOptions? setupOptions,
+        string? existingReasoningEffortId)
+    {
+        if (!string.IsNullOrWhiteSpace(setupOptions?.CodexReasoningEffortId))
+        {
+            return setupOptions.CodexReasoningEffortId.Trim();
+        }
+
+        return existingReasoningEffortId;
+    }
+
+    private static string? ResolveCodexApprovalPolicyId(AgentSetupOptions? setupOptions)
+    {
+        string? requested = setupOptions?.CodexApprovalPolicyId?.Trim();
+        return string.IsNullOrWhiteSpace(requested)
+            ? CodexBuiltInCatalog.DefaultApprovalPolicyId
+            : requested;
+    }
+
+    private static string? ResolveCodexReasoningEffortId(AgentSetupOptions? setupOptions)
+    {
+        string? requested = setupOptions?.CodexReasoningEffortId?.Trim();
+        return string.IsNullOrWhiteSpace(requested) ? null : requested;
     }
 
     internal static string BuiltInDefaultAgentId(string modeId)

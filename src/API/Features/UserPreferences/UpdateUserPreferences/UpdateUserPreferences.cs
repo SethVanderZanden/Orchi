@@ -3,6 +3,7 @@ using Orchi.Api.Common.Abstractions;
 using Orchi.Api.Common.Http;
 using Orchi.Api.Common.Results;
 using Orchi.Api.Entities;
+using Orchi.Api.Infrastructure.Agents.Models;
 using Orchi.Api.Infrastructure.UserPreferences;
 
 namespace Orchi.Api.Features.UserPreferences.UpdateUserPreferences;
@@ -12,7 +13,8 @@ public static class UpdateUserPreferences
     public sealed record Command(
         PostMessageBehavior? PostMessageBehavior,
         IReadOnlyList<string>? EnabledAgentIds,
-        bool? AutoKickOffReview) : ICommand<Response>;
+        bool? AutoKickOffReview,
+        AgentSetupOptions? AgentSetup) : ICommand<Response>;
 
     public sealed record Response(
         PostMessageBehavior PostMessageBehavior,
@@ -29,6 +31,7 @@ public static class UpdateUserPreferences
                 command.PostMessageBehavior,
                 command.EnabledAgentIds,
                 command.AutoKickOffReview,
+                command.AgentSetup,
                 cancellationToken);
 
             if (result.IsFailure)
@@ -48,7 +51,9 @@ public static class UpdateUserPreferences
     public sealed record Request(
         PostMessageBehavior? PostMessageBehavior = null,
         IReadOnlyList<string>? EnabledAgentIds = null,
-        bool? AutoKickOffReview = null);
+        bool? AutoKickOffReview = null,
+        string? CodexApprovalPolicyId = null,
+        string? CodexReasoningEffortId = null);
 
     public sealed class Validator : AbstractValidator<Command>
     {
@@ -58,8 +63,9 @@ public static class UpdateUserPreferences
                 .Must(command =>
                     command.PostMessageBehavior is not null ||
                     command.EnabledAgentIds is not null ||
-                    command.AutoKickOffReview is not null)
-                .WithMessage("Provide postMessageBehavior, enabledAgentIds, and/or autoKickOffReview.");
+                    command.AutoKickOffReview is not null ||
+                    command.AgentSetup is not null)
+                .WithMessage("Provide postMessageBehavior, enabledAgentIds, autoKickOffReview, and/or agent setup options.");
 
             When(
                 command => command.PostMessageBehavior is not null,
@@ -97,10 +103,27 @@ public static class UpdateUserPreferences
             CancellationToken cancellationToken)
         {
             Result<Response> result = await handler.Handle(
-                new Command(request.PostMessageBehavior, request.EnabledAgentIds, request.AutoKickOffReview),
+                new Command(
+                    request.PostMessageBehavior,
+                    request.EnabledAgentIds,
+                    request.AutoKickOffReview,
+                    BuildAgentSetup(request)),
                 cancellationToken);
 
             return result.ToProblem();
         }
+    }
+
+    private static AgentSetupOptions? BuildAgentSetup(Request request)
+    {
+        if (string.IsNullOrWhiteSpace(request.CodexApprovalPolicyId)
+            && string.IsNullOrWhiteSpace(request.CodexReasoningEffortId))
+        {
+            return null;
+        }
+
+        return new AgentSetupOptions(
+            request.CodexApprovalPolicyId,
+            request.CodexReasoningEffortId);
     }
 }

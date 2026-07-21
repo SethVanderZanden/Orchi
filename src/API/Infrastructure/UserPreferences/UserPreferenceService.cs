@@ -19,6 +19,7 @@ public interface IUserPreferenceService
         PostMessageBehavior? postMessageBehavior,
         IReadOnlyList<string>? enabledAgentIds,
         bool? autoKickOffReview,
+        AgentSetupOptions? agentSetup,
         CancellationToken cancellationToken);
 }
 
@@ -37,6 +38,7 @@ public sealed class UserPreferenceService(
         PostMessageBehavior? postMessageBehavior,
         IReadOnlyList<string>? enabledAgentIds,
         bool? autoKickOffReview,
+        AgentSetupOptions? agentSetup,
         CancellationToken cancellationToken)
     {
         if (postMessageBehavior is null && enabledAgentIds is null && autoKickOffReview is null)
@@ -76,9 +78,11 @@ public sealed class UserPreferenceService(
 
         if (normalizedAgents is not null)
         {
+            AgentSetupOptions? setupForSeed = seedAllModes ? agentSetup : null;
             await modeRuntimeDefaultService.ApplyEnabledAgentsAsync(
                 normalizedAgents,
                 seedAllModes,
+                setupForSeed,
                 cancellationToken);
         }
 
