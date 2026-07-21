@@ -106,6 +106,8 @@ codex exec --json [--skip-git-repo-check] \
 
 Orchi does **not** pass `-c approval_policy=…`. `codex exec` is non-interactive and defaults to `approval_policy=never`; overriding with `on-request` or `untrusted` can stall until the Orchi timeout because exec cannot surface approval prompts ([non-interactive docs](https://developers.openai.com/codex/noninteractive)).
 
+Orchi closes the child process stdin immediately after spawn. Codex treats a piped stdin as extra prompt input and blocks until EOF; API hosts often inherit an open stdin pipe, which otherwise leaves chats stuck on "…" with no JSONL events.
+
 Working directory is the chat workspace path. Model, context, reasoning effort, and approval policy come from the chat (mode defaults or composer overrides). Extra `-c` keys are assembled from `ChatSession.CliConfigOverrides` via `AgentCliConfigArgs`.
 
 ## JSONL event mapping
@@ -115,10 +117,12 @@ Parser: `src/API/Infrastructure/Agents/Codex/CodexNdjsonParser.cs`
 | Codex `type` | Orchi `AgentEvent` |
 |--------------|--------------------|
 | `thread.started` | `AgentSessionStartedEvent` (`thread_id`) |
+| `turn.started` | `AgentToolEvent` (`Working…`) |
 | `item.completed` + `agent_message` / `assistant_message` | `AgentTextDeltaEvent` |
 | `item.started` + tool-like items | `AgentToolEvent` |
 | `turn.completed` | `AgentCompletedEvent` |
-| `turn.failed` / `error` | `AgentErrorEvent` |
+| `turn.failed` / fatal errors | `AgentErrorEvent` |
+| `error` (transient reconnect) | ignored (wait for `turn.failed`) |
 
 ## Models and context sizes
 

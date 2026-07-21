@@ -82,6 +82,30 @@ public class CodexNdjsonParserTests
     }
 
     [Fact]
+    public void ParseLine_TurnStarted_ReturnsWorkingToolEvent()
+    {
+        const string line = """
+            {"type":"turn.started"}
+            """;
+
+        var parser = new CodexNdjsonParser();
+        AgentToolEvent tool =
+            Assert.IsType<AgentToolEvent>(Assert.Single(parser.ParseLine(line)));
+        Assert.Equal("Working…", tool.Label);
+    }
+
+    [Fact]
+    public void ParseLine_TransientError_IsIgnored()
+    {
+        const string line = """
+            {"type":"error","message":"Reconnecting... 2/5"}
+            """;
+
+        var parser = new CodexNdjsonParser();
+        Assert.Empty(parser.ParseLine(line));
+    }
+
+    [Fact]
     public void ParseLine_TurnCompleted_ReturnsCompletedEvent()
     {
         const string line = """

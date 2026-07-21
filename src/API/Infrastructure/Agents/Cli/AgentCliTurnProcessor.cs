@@ -111,6 +111,17 @@ internal sealed class AgentCliTurnProcessor(ILogger<AgentCliTurnProcessor> logge
             Process process = Process.Start(startInfo)
                 ?? throw new InvalidOperationException($"Failed to start {displayName} executable '{executablePath}'.");
 
+            // Codex (and similar CLIs) block when stdin is a pipe until EOF. Headless API hosts
+            // often inherit an open stdin pipe, which leaves the agent idle with no JSON output.
+            try
+            {
+                process.StandardInput.Close();
+            }
+            catch (Exception ex)
+            {
+                logger.LogDebug(ex, "Failed to close stdin for {Agent} chat {ChatId}", displayName, chatId);
+            }
+
             return new ProcessStartResult(process, null);
         }
         catch (Exception ex)
