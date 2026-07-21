@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using Orchi.Api.Infrastructure.Agents;
 
 using Orchi.Api.Infrastructure.Agents.Cursor;
@@ -11,6 +12,8 @@ namespace Orchi.Api.Tests.Infrastructure.Agents.Cursor;
 public class CursorAgentExecutableResolverTests
 
 {
+    private static CursorCliArgumentBuilder CreateArgumentBuilder(CursorAgentOptions options) =>
+        new(Options.Create(options));
 
     [Fact]
 
@@ -474,7 +477,7 @@ public class CursorAgentExecutableResolverTests
 
 
 
-        IReadOnlyList<string> arguments = CursorAgentAdapter.BuildArguments(options, session, "hello");
+        IReadOnlyList<string> arguments = CreateArgumentBuilder(options).BuildArguments(session, "hello", [], null);
 
 
 
@@ -508,15 +511,11 @@ public class CursorAgentExecutableResolverTests
 
         string indexPath = @"C:\cursor-agent\versions\2026.07.01\index.js";
 
-        IReadOnlyList<string> arguments = CursorAgentAdapter.BuildArguments(
-
-            options,
-
+        IReadOnlyList<string> arguments = CreateArgumentBuilder(options).BuildArguments(
             session,
-
             "hello",
-
-            entryScript: indexPath);
+            [],
+            indexPath);
 
 
 
@@ -560,15 +559,11 @@ public class CursorAgentExecutableResolverTests
 
 
 
-        IReadOnlyList<string> arguments = CursorAgentAdapter.BuildArguments(
-
-            options,
-
+        IReadOnlyList<string> arguments = CreateArgumentBuilder(options).BuildArguments(
             session,
-
             "hello",
-
-            ["--mode=plan"]);
+            ["--mode=plan"],
+            null);
 
 
 

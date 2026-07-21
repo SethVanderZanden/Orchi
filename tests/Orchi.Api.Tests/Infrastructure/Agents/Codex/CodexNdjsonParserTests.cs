@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using Orchi.Api.Infrastructure.Agents;
 using Orchi.Api.Infrastructure.Agents.Codex;
 
@@ -5,6 +6,8 @@ namespace Orchi.Api.Tests.Infrastructure.Agents.Codex;
 
 public class CodexNdjsonParserTests
 {
+    private static CodexCliArgumentBuilder CreateArgumentBuilder(CodexAgentOptions? options = null) =>
+        new(Options.Create(options ?? new CodexAgentOptions()));
     [Fact]
     public void ParseLine_ThreadStarted_ReturnsSessionStartedEvent()
     {
@@ -116,10 +119,11 @@ public class CodexNdjsonParserTests
             ExternalSessionId = "thread-abc"
         };
 
-        IReadOnlyList<string> args = CodexAgentAdapter.BuildArguments(
-            new CodexAgentOptions(),
+        IReadOnlyList<string> args = CreateArgumentBuilder().BuildArguments(
             session,
-            "do the thing");
+            "do the thing",
+            [],
+            entryScript: null);
 
         Assert.Equal(
             [
@@ -130,10 +134,10 @@ public class CodexNdjsonParserTests
                 "workspace-write",
                 "--model",
                 "gpt-5.4",
-                "-c",
-                "model_context_window=272000",
                 "--ask-for-approval",
                 "on-request",
+                "-c",
+                "model_context_window=272000",
                 "resume",
                 "thread-abc",
                 "do the thing"
@@ -155,10 +159,11 @@ public class CodexNdjsonParserTests
         session.CliConfigOverrides["model_reasoning_effort"] = "high";
         session.CliConfigOverrides["approval_policy"] = "on-request";
 
-        IReadOnlyList<string> args = CodexAgentAdapter.BuildArguments(
-            new CodexAgentOptions(),
+        IReadOnlyList<string> args = CreateArgumentBuilder().BuildArguments(
             session,
-            "do the thing");
+            "do the thing",
+            [],
+            entryScript: null);
 
         Assert.Equal(
             [

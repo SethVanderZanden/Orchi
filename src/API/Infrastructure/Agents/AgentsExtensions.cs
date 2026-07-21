@@ -1,4 +1,5 @@
 using Orchi.Api.Infrastructure.Caching;
+using Orchi.Api.Infrastructure.Agents.Cli;
 using Orchi.Api.Infrastructure.Agents.Codex;
 using Orchi.Api.Infrastructure.Agents.Cursor;
 using Orchi.Api.Infrastructure.Agents.Modes;
@@ -79,6 +80,14 @@ public static class AgentsExtensions
         services.AddSingleton<IOrchestrationWorkflowService, OrchestrationWorkflowService>();
         services.AddSingleton<IAgentTurnCompletionNotifier, AgentTurnCompletionNotifier>();
         services.AddSingleton<AgentSessionManager>();
+        services.AddSingleton<AgentCliTurnProcessor>();
+        services.AddSingleton<CodexCliArgumentBuilder>();
+        services.AddSingleton<CodexAgentLaunchResolverService>();
+        services.AddSingleton<IAgentCliProcessorProfile, CodexAgentCliProcessorProfile>();
+        services.AddSingleton<CursorCliArgumentBuilder>();
+        services.AddSingleton<CursorAgentLaunchResolverService>();
+        services.AddSingleton<IAgentCliProcessorProfile, CursorAgentCliProcessorProfile>();
+        services.AddSingleton<IAgentCliProcessorFactory, AgentCliProcessorFactory>();
         services.AddSingleton<IAgentAdapter, CursorAgentAdapter>();
         services.AddSingleton<IAgentAdapter, CodexAgentAdapter>();
         services.AddSingleton<IAgentAdapterFactory, AgentAdapterFactory>();

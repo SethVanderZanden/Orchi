@@ -1,9 +1,10 @@
 using System.Text.Json;
 using Orchi.Api.Infrastructure.Agents;
+using Orchi.Api.Infrastructure.Agents.Cli;
 
 namespace Orchi.Api.Infrastructure.Agents.Cursor;
 
-internal static class CursorNdjsonParser
+internal sealed class CursorNdjsonParser : IAgentStreamLineParser
 {
     private static readonly string[] DetailKeys =
     [
@@ -17,7 +18,7 @@ internal static class CursorNdjsonParser
         "relativePath"
     ];
 
-    public static IEnumerable<AgentEvent> ParseLine(string line)
+    public IEnumerable<AgentEvent> ParseLine(string line)
     {
         if (string.IsNullOrWhiteSpace(line))
         {

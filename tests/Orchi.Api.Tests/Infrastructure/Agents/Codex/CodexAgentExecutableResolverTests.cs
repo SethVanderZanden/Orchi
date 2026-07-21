@@ -1,5 +1,7 @@
 using System.Diagnostics;
+using Microsoft.Extensions.Options;
 using Orchi.Api.Infrastructure.Agents;
+using Orchi.Api.Infrastructure.Agents.Cli;
 using Orchi.Api.Infrastructure.Agents.Codex;
 using Orchi.Api.Infrastructure.Agents.Cursor;
 
@@ -198,15 +200,16 @@ public class CodexAgentExecutableResolverTests
         };
 
         string codexJsPath = @"C:\npm\node_modules\@openai\codex\bin\codex.js";
-        IReadOnlyList<string> arguments = CodexAgentAdapter.BuildArguments(
-            options,
+        var builder = new CodexCliArgumentBuilder(Options.Create(options));
+        IReadOnlyList<string> arguments = builder.BuildArguments(
             session,
             "hello",
-            entryScript: codexJsPath);
+            [],
+            codexJsPath);
 
         Assert.Equal(
             [
-                codexJsPath, "exec", "--json", "--skip-git-repo-check", "--sandbox", "workspace-write", "--ask-for-approval", "on-request", "hello"
+                codexJsPath, "exec", "--json", "--skip-git-repo-check", "--ask-for-approval", "on-request", "hello"
             ],
             arguments);
     }
@@ -214,7 +217,7 @@ public class CodexAgentExecutableResolverTests
     [Fact]
     public void BuildStartInfo_CmdShim_UsesCmdExeOnWindows()
     {
-        var launch = new CodexAgentLaunchSpec(@"C:\Program Files\nodejs\codex.cmd", null);
+        var launch = new AgentLaunchSpec(@"C:\Program Files\nodejs\codex.cmd", null);
         var options = new CodexAgentOptions();
         var session = new ChatSession
         {
@@ -228,26 +231,16 @@ public class CodexAgentExecutableResolverTests
             return;
         }
 
-        ProcessStartInfo startInfo = InvokeBuildStartInfo(launch, options, session, "hello");
+        var builder = new CodexCliArgumentBuilder(Options.Create(options));
+        IReadOnlyList<string> arguments = builder.BuildArguments(session, "hello", [], null);
+        ProcessStartInfo startInfo = AgentProcessStartInfoBuilder.Build(
+            launch,
+            session.WorkspacePath,
+            arguments,
+            useWindowsCmdShim: true);
 
         Assert.Equal("cmd.exe", startInfo.FileName);
         Assert.Equal(["/c", launch.ExecutablePath, "exec", "--json", "--skip-git-repo-check", "--sandbox", "workspace-write", "--ask-for-approval", "on-request", "hello"], startInfo.ArgumentList);
-    }
-
-    private static ProcessStartInfo InvokeBuildStartInfo(
-        CodexAgentLaunchSpec launch,
-        CodexAgentOptions options,
-        ChatSession session,
-        string prompt)
-    {
-        var method = typeof(CodexAgentAdapter).GetMethod(
-            "BuildStartInfo",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-        Assert.NotNull(method);
-
-        return (ProcessStartInfo)method.Invoke(
-            null,
-            [launch, options, session, prompt, Array.Empty<string>()])!;
     }
 
     private static string CreateTempDirectory()

@@ -1,8 +1,9 @@
 using System.Text.Json;
+using Orchi.Api.Infrastructure.Agents.Cli;
 
 namespace Orchi.Api.Infrastructure.Agents.Codex;
 
-internal sealed class CodexNdjsonParser
+internal sealed class CodexNdjsonParser : IAgentStreamLineParser
 {
     private readonly Dictionary<string, string> _agentMessageTextByItemId = new(StringComparer.Ordinal);
 
@@ -259,7 +260,7 @@ internal sealed class CodexNdjsonParser
             string? tool = toolElement.GetString();
             if (!string.IsNullOrWhiteSpace(tool))
             {
-                return $"Collab {tool.Replace('_', ' ', StringComparison.Ordinal)}";
+                return $"Collab {tool.Replace("_", " ", StringComparison.Ordinal)}";
             }
         }
 
