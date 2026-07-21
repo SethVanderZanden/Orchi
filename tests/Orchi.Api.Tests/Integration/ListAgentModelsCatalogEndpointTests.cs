@@ -115,6 +115,26 @@ public class ListAgentModelsCatalogEndpointTests : IClassFixture<TestWebApplicat
     }
 
     [Fact]
+    public async Task ListAgentModels_WithoutIncludeDisabled_DefaultsToEnabledOnly()
+    {
+        await _client.PostAsJsonAsync(
+            "/agents/cursor/models",
+            new AddAgentModel.Request("gpt-5.3-codex"));
+
+        await _client.PatchAsJsonAsync(
+            "/agents/cursor/models",
+            new UpdateAgentModel.Request("gpt-5.3-codex", false));
+
+        HttpResponseMessage listResponse = await _client.GetAsync("/agents/cursor/models");
+
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+
+        ListAgentModels.Response? body = await listResponse.Content.ReadFromJsonAsync<ListAgentModels.Response>();
+        Assert.NotNull(body);
+        Assert.DoesNotContain(body.Models, model => model.Id == "gpt-5.3-codex");
+    }
+
+    [Fact]
     public async Task ListAgentModels_UnsupportedAgent_ReturnsValidationError()
     {
         HttpResponseMessage response = await _client.GetAsync("/agents/unknown/models");
