@@ -209,7 +209,7 @@ public class CodexAgentExecutableResolverTests
 
         Assert.Equal(
             [
-                codexJsPath, "exec", "--json", "--skip-git-repo-check", "-c", "approval_policy=\"on-request\"", "hello"
+                codexJsPath, "exec", "--json", "--skip-git-repo-check", "hello"
             ],
             arguments);
     }
@@ -240,7 +240,7 @@ public class CodexAgentExecutableResolverTests
             useWindowsCmdShim: true);
 
         Assert.Equal("cmd.exe", startInfo.FileName);
-        Assert.Equal(["/c", launch.ExecutablePath, "exec", "--json", "--skip-git-repo-check", "--sandbox", "workspace-write", "-c", "approval_policy=\"on-request\"", "hello"], startInfo.ArgumentList);
+        Assert.Equal(["/c", launch.ExecutablePath, "exec", "--json", "--skip-git-repo-check", "--sandbox", "workspace-write", "hello"], startInfo.ArgumentList);
     }
 
     private static string CreateTempDirectory()

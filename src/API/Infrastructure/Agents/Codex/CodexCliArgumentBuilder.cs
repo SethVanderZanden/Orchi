@@ -34,14 +34,12 @@ internal sealed class CodexCliArgumentBuilder(IOptions<CodexAgentOptions> option
             arguments.Add(session.ModelId);
         }
 
+        // Orchi always spawns `codex exec` (headless). Exec defaults to approval_policy=never
+        // and rejects interactive approval prompts; passing on-request/untrusted can stall
+        // until TimeoutSeconds. See https://developers.openai.com/codex/noninteractive
         IReadOnlyDictionary<string, string> configOverrides =
             ExcludeApprovalPolicy(session.CliConfigOverrides);
         AgentCliConfigArgs.AppendOverrides(arguments, configOverrides);
-
-        AgentCliConfigArgs.AppendOverride(
-            arguments,
-            AgentCliOptionKinds.ApprovalPolicy,
-            ResolveApprovalPolicy(session));
 
         if (session.ContextSizeTokens is int tokens and > 0
             && !session.CliConfigOverrides.ContainsKey("model_context_window"))
@@ -72,17 +70,6 @@ internal sealed class CodexCliArgumentBuilder(IOptions<CodexAgentOptions> option
         return overrides
             .Where(pair => !string.Equals(pair.Key, AgentCliOptionKinds.ApprovalPolicy, StringComparison.Ordinal))
             .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
-    }
-
-    private static string ResolveApprovalPolicy(ChatSession session)
-    {
-        if (session.CliConfigOverrides.TryGetValue(AgentCliOptionKinds.ApprovalPolicy, out string? value)
-            && !string.IsNullOrWhiteSpace(value))
-        {
-            return value.Trim().Trim('"');
-        }
-
-        return CodexBuiltInCatalog.DefaultApprovalPolicyId;
     }
 
     private static void AppendNonWhiteSpaceArgs(List<string> arguments, IReadOnlyList<string> extraCliArgs)

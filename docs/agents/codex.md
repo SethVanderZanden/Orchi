@@ -15,7 +15,7 @@ Desktop  →  AgentSessionManager  →  CodexAgentAdapter  →  codex exec --jso
 | Kitchen idea | Orchi |
 |--------------|-------|
 | Chef | `CodexAgentAdapter` (`AgentId => "codex"`) |
-| Recipe card | `--model` + `-c model_context_window=N` + `-c model_reasoning_effort=…` + `-c approval_policy=…` |
+| Recipe card | `--model` + `-c model_context_window=N` + `-c model_reasoning_effort=…` (no `approval_policy`; exec is headless) |
 | Ticket number | `thread_id` stored as `ExternalSessionId` |
 | Plated courses | `AgentTextDeltaEvent`, `AgentToolEvent`, `AgentCompletedEvent` |
 
@@ -100,10 +100,11 @@ codex exec --json [--skip-git-repo-check] \
   [--model {slug}] \
   [-c model_context_window={tokens}] \
   [-c model_reasoning_effort={effort}] \
-  [-c approval_policy={policy}] \
   [resume {threadId}] \
   "{composedPrompt}"
 ```
+
+Orchi does **not** pass `-c approval_policy=…`. `codex exec` is non-interactive and defaults to `approval_policy=never`; overriding with `on-request` or `untrusted` can stall until the Orchi timeout because exec cannot surface approval prompts ([non-interactive docs](https://developers.openai.com/codex/noninteractive)).
 
 Working directory is the chat workspace path. Model, context, reasoning effort, and approval policy come from the chat (mode defaults or composer overrides). Extra `-c` keys are assembled from `ChatSession.CliConfigOverrides` via `AgentCliConfigArgs`.
 
@@ -135,9 +136,9 @@ Context sizes map to Codex `-c model_context_window={tokens}`. Use presets that 
 Settings → Agents shows one-click preset buttons for Codex and a Docs link to the official page.
 Mode defaults pick agent + model + context per Orchi mode (e.g. orchestration → Codex / default).
 
-Orchi seeds Codex reasoning and approval presets on API startup and during first-time agent setup. First launch walks you through agent selection and a Codex approval policy (default: **on request**).
+Orchi seeds Codex reasoning presets on API startup and during first-time agent setup. First launch walks you through agent selection and a Codex approval policy preference (default: **never / automatic** for headless exec).
 
-Spawn uses `-c approval_policy={policy}` from the chat or mode default.
+The approval policy in Settings applies to interactive Codex usage documentation only; Orchi spawns `codex exec`, which always runs with Codex's headless default (`approval_policy=never`).
 
 | Kind | Codex `-c` key | Typical Codex presets |
 |------|----------------|------------------------|

@@ -18,5 +18,5 @@ internal static class CodexBuiltInCatalog
         new(AgentCliOptionKinds.ApprovalPolicy, "never", "Never (automatic)", "never")
     ];
 
-    internal const string DefaultApprovalPolicyId = "on-request";
+    internal const string DefaultApprovalPolicyId = "never";
 }
