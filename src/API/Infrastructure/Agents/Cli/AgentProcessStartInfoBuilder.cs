@@ -14,6 +14,7 @@ internal static class AgentProcessStartInfoBuilder
         var startInfo = new ProcessStartInfo
         {
             WorkingDirectory = workingDirectory,
+            RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             StandardOutputEncoding = Encoding.UTF8,

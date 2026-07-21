@@ -240,6 +240,7 @@ public class CodexAgentExecutableResolverTests
             useWindowsCmdShim: true);
 
         Assert.Equal("cmd.exe", startInfo.FileName);
+        Assert.True(startInfo.RedirectStandardInput);
         Assert.Equal(["/c", launch.ExecutablePath, "exec", "--json", "--skip-git-repo-check", "--sandbox", "workspace-write", "hello"], startInfo.ArgumentList);
     }
 

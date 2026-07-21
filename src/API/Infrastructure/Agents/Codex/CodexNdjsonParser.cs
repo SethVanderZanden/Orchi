@@ -55,6 +55,10 @@ internal sealed class CodexNdjsonParser : IAgentStreamLineParser
 
                     break;
 
+                case "turn.started":
+                    yield return new AgentToolEvent("Working…");
+                    break;
+
                 case "turn.completed":
                     yield return new AgentCompletedEvent(ExternalSessionId: null, FullText: string.Empty);
                     break;
@@ -65,10 +69,8 @@ internal sealed class CodexNdjsonParser : IAgentStreamLineParser
                         ReadErrorMessage(root) ?? "Codex turn failed.");
                     break;
 
+                // Transient reconnect/status errors; turn.failed carries the final failure.
                 case "error":
-                    yield return new AgentErrorEvent(
-                        "Agent.Error",
-                        ReadErrorMessage(root) ?? "Codex reported an error.");
                     break;
             }
         }
