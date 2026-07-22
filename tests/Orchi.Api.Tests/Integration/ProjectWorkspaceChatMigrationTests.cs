@@ -171,7 +171,8 @@ public class ProjectWorkspaceChatMigrationTests : IAsyncLifetime
         HttpResponseMessage getChat = await _client.GetAsync($"/chats/{created.Id}");
         Assert.Equal(HttpStatusCode.OK, getChat.StatusCode);
 
-        ChatDetailResponse? detail = await getChat.Content.ReadFromJsonAsync<ChatDetailResponse>();
+        ChatDetailResponse? detail =
+            await getChat.Content.ReadFromJsonAsync<ChatDetailResponse>(HttpResponseExtensions.JsonOptions);
         Assert.NotNull(detail);
         Assert.Null(detail.ProjectId);
         Assert.Null(detail.WorkspaceId);

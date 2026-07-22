@@ -77,14 +77,16 @@ public class ChatPersistenceEndpointTests : IAsyncLifetime
         HttpResponseMessage listResponse = await secondClient.GetAsync("/chats");
         Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
 
-        ChatSummaryResponse[]? chats = await listResponse.Content.ReadFromJsonAsync<ChatSummaryResponse[]>();
+        ChatSummaryResponse[]? chats =
+            await listResponse.Content.ReadFromJsonAsync<ChatSummaryResponse[]>(HttpResponseExtensions.JsonOptions);
         Assert.NotNull(chats);
         Assert.Contains(chats, chat => chat.Id == created.Id);
 
         HttpResponseMessage getResponse = await secondClient.GetAsync($"/chats/{created.Id}");
         Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
 
-        ChatDetailResponse? detail = await getResponse.Content.ReadFromJsonAsync<ChatDetailResponse>();
+        ChatDetailResponse? detail =
+            await getResponse.Content.ReadFromJsonAsync<ChatDetailResponse>(HttpResponseExtensions.JsonOptions);
         Assert.NotNull(detail);
         Assert.Equal(created.Id, detail.Id);
     }

@@ -152,6 +152,6 @@ public class UpdateChatModeEndpointTests : IClassFixture<TestWebApplicationFacto
     {
         HttpResponseMessage response = await _client.GetAsync($"/chats/{chatId}");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        return await response.Content.ReadFromJsonAsync<ChatDetailResponse>();
+        return await response.Content.ReadFromJsonAsync<ChatDetailResponse>(HttpResponseExtensions.JsonOptions);
     }
 }

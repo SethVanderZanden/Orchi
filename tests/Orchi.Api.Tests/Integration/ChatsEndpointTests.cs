@@ -33,7 +33,8 @@ public class ChatsEndpointTests : IClassFixture<TestWebApplicationFactory>, IAsy
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        ChatSummaryResponse[]? chats = await response.Content.ReadFromJsonAsync<ChatSummaryResponse[]>();
+        ChatSummaryResponse[]? chats =
+            await response.Content.ReadFromJsonAsync<ChatSummaryResponse[]>(HttpResponseExtensions.JsonOptions);
         Assert.NotNull(chats);
         Assert.Empty(chats);
     }
@@ -57,7 +58,8 @@ public class ChatsEndpointTests : IClassFixture<TestWebApplicationFactory>, IAsy
         Assert.NotNull(created.ProjectId);
 
         HttpResponseMessage listResponse = await _client.GetAsync("/chats");
-        ChatSummaryResponse[]? chats = await listResponse.Content.ReadFromJsonAsync<ChatSummaryResponse[]>();
+        ChatSummaryResponse[]? chats =
+            await listResponse.Content.ReadFromJsonAsync<ChatSummaryResponse[]>(HttpResponseExtensions.JsonOptions);
 
         Assert.NotNull(chats);
         Assert.Single(chats);
@@ -83,7 +85,8 @@ public class ChatsEndpointTests : IClassFixture<TestWebApplicationFactory>, IAsy
         Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
 
         ChatSummaryResponse[]? chats =
-            await (await _client.GetAsync("/chats")).Content.ReadFromJsonAsync<ChatSummaryResponse[]>();
+            await (await _client.GetAsync("/chats")).Content.ReadFromJsonAsync<ChatSummaryResponse[]>(
+                HttpResponseExtensions.JsonOptions);
 
         Assert.NotNull(chats);
         Assert.Empty(chats);
@@ -108,7 +111,8 @@ public class ChatsEndpointTests : IClassFixture<TestWebApplicationFactory>, IAsy
         Assert.Equal(HttpStatusCode.NoContent, shutdownResponse.StatusCode);
 
         ChatSummaryResponse[]? chats =
-            await (await _client.GetAsync("/chats")).Content.ReadFromJsonAsync<ChatSummaryResponse[]>();
+            await (await _client.GetAsync("/chats")).Content.ReadFromJsonAsync<ChatSummaryResponse[]>(
+                HttpResponseExtensions.JsonOptions);
 
         Assert.NotNull(chats);
         Assert.Single(chats);
@@ -117,7 +121,8 @@ public class ChatsEndpointTests : IClassFixture<TestWebApplicationFactory>, IAsy
         HttpResponseMessage getResponse = await _client.GetAsync($"/chats/{created.Id}");
         Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
 
-        ChatDetailResponse? detail = await getResponse.Content.ReadFromJsonAsync<ChatDetailResponse>();
+        ChatDetailResponse? detail =
+            await getResponse.Content.ReadFromJsonAsync<ChatDetailResponse>(HttpResponseExtensions.JsonOptions);
         Assert.NotNull(detail);
         Assert.Equal(created.Id, detail.Id);
         Assert.Equal(created.ProjectId, detail.ProjectId);
