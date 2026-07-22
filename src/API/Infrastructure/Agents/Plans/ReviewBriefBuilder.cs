@@ -27,8 +27,10 @@ public static partial class ReviewBriefBuilder
 
             ## Instructions
 
-            Review the implementation against the original plan above using the git diff injected into your prompt context.
-            Produce one or more actionable review plans for the reviewer.
+            Review the git diff against the original plan above.
+            Focus on oversights, over-engineering, and missed patterns — not a restatement of the changes.
+            Lead with a Review TLDR. Keep the review short and scannable.
+            Produce one or more review plans using the exact format in your context section.
             """;
     }
 
