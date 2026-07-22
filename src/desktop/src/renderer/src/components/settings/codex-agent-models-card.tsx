@@ -150,9 +150,7 @@ export function CodexAgentModelsCard({
                   onClick={() => handleAddPreset(preset.id, preset.label)}
                   className={cn(
                     'rounded-lg border px-3 py-2.5 text-left transition-colors',
-                    enabled
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border hover:bg-accent/40',
+                    enabled ? 'border-primary bg-primary/5' : 'border-border hover:bg-accent/40',
                     isBusy && 'pointer-events-none opacity-70'
                   )}
                 >

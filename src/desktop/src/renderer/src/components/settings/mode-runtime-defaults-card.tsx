@@ -351,8 +351,8 @@ export function ModeRuntimeDefaultsCard(): React.JSX.Element {
         <CardTitle>Mode defaults</CardTitle>
         <CardDescription>
           Choose agent, model, context size, and (for Codex) reasoning effort and approval policy
-          for each chat mode. Codex pairs look like “5.6 Terra Medium” — model plus reasoning.
-          New chats and mode switches use these defaults.
+          for each chat mode. Codex pairs look like “5.6 Terra Medium” — model plus reasoning. New
+          chats and mode switches use these defaults.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">

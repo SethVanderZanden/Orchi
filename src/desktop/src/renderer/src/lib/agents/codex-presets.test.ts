@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  formatCodexRuntimeLabel,
-  MODE_DEFAULT_SETUP_MODES
-} from '@/lib/agents/codex-presets'
+import { formatCodexRuntimeLabel, MODE_DEFAULT_SETUP_MODES } from '@/lib/agents/codex-presets'
 import { formatModelReasoningLabel } from '@/lib/agents/format-runtime-label'
 import { resolveAgentSettingsStrategy } from '@/lib/agents/settings/resolve-agent-settings-strategy'
 

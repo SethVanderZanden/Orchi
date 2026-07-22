@@ -160,13 +160,18 @@ function ModeDefaultSetupRow({
                 value={draft.agentId}
                 onValueChange={(agentId) => {
                   const nextUsesCodex = agentId === 'codex'
-                  const suggestion = MODE_DEFAULT_SETUP_MODES.find((mode) => mode.mode === draft.mode)
+                  const suggestion = MODE_DEFAULT_SETUP_MODES.find(
+                    (mode) => mode.mode === draft.mode
+                  )
                   onChange({
                     ...draft,
                     agentId,
-                    modelId: nextUsesCodex ? (suggestion?.suggestedModelId ?? DEFAULT_CODEX_MODEL_ID) : null,
+                    modelId: nextUsesCodex
+                      ? (suggestion?.suggestedModelId ?? DEFAULT_CODEX_MODEL_ID)
+                      : null,
                     reasoningEffortId: nextUsesCodex
-                      ? (suggestion?.suggestedReasoningEffortId ?? DEFAULT_CODEX_REASONING_EFFORT_ID)
+                      ? (suggestion?.suggestedReasoningEffortId ??
+                        DEFAULT_CODEX_REASONING_EFFORT_ID)
                       : null,
                     approvalPolicyId: nextUsesCodex
                       ? (draft.approvalPolicyId ?? DEFAULT_CODEX_APPROVAL_POLICY_ID)
@@ -277,7 +282,7 @@ export function AgentSetupWizardDialog({
   const [modeDrafts, setModeDrafts] = useState<ModeDraft[]>([])
   const [error, setError] = useState<string | null>(null)
   const [savingDefaults, setSavingDefaults] = useState(false)
-  const [openKey, setOpenKey] = useState(open ? 'open' : 'closed')
+  const [openGeneration, setOpenGeneration] = useState(0)
   const [prevOpen, setPrevOpen] = useState(open)
 
   if (open !== prevOpen) {
@@ -288,9 +293,11 @@ export function AgentSetupWizardDialog({
       setApprovalPolicyId(DEFAULT_CODEX_APPROVAL_POLICY_ID)
       setModeDrafts([])
       setError(null)
-      setOpenKey(`open:${Date.now()}`)
+      setOpenGeneration((current) => current + 1)
     }
   }
+
+  const openKey = open ? `open:${openGeneration}` : 'closed'
 
   const codexSelected = selectedAgentIds.includes('codex')
   const busy = isUpdating || savingDefaults
@@ -504,8 +511,8 @@ export function AgentSetupWizardDialog({
               <DialogTitle>Set mode defaults</DialogTitle>
               <DialogDescription>
                 Pick the model (and Codex reasoning) for Orchestrator, Implementation/default, and
-                Review. For Codex, Terra + Medium shows as “5.6 Terra Medium” — the same pairing
-                you choose in the Codex app.
+                Review. For Codex, Terra + Medium shows as “5.6 Terra Medium” — the same pairing you
+                choose in the Codex app.
               </DialogDescription>
             </DialogHeader>
 
@@ -568,11 +575,7 @@ export function AgentSetupWizardDialog({
               void completeSetup()
             }}
           >
-            {busy
-              ? 'Saving…'
-              : step === 'mode-defaults'
-                ? 'Finish'
-                : 'Continue'}
+            {busy ? 'Saving…' : step === 'mode-defaults' ? 'Finish' : 'Continue'}
           </Button>
         </DialogFooter>
       </DialogContent>

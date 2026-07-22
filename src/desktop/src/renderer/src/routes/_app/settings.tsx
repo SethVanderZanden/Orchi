@@ -77,11 +77,7 @@ function SettingsPage(): React.JSX.Element {
               <EnabledAgentsCard />
               <ModeRuntimeDefaultsCard />
               {agents.map((agent) => (
-                <AgentSettingsSection
-                  key={agent.id}
-                  agentId={agent.id}
-                  agentLabel={agent.label}
-                />
+                <AgentSettingsSection key={agent.id} agentId={agent.id} agentLabel={agent.label} />
               ))}
             </TabsContent>
 
