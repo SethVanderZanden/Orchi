@@ -205,11 +205,11 @@ You can also shoot off a review for any branch against another branch (pull-requ
 2. API: `POST /projects/{projectId}/reviews/from-branches` with `{ headBranch, baseBranch?, fetch? }`
 3. Orchi optionally runs `git fetch --prune --all`, lists branches via `GET /projects/{id}/branches?fetch=true`, creates a worktree on the head branch, writes `.orchi/review-branch-*.md`, opens a `review` chat, and the desktop auto-sends `Begin review.`
 
-The review brief embeds `<!-- orchi-branch-review head: … base: … -->`. `ReviewDiffContributor` detects that marker and injects **`git diff base...head`** (three-dot / merge-base) instead of `git diff HEAD`.
+The review brief embeds `<!-- orchi-branch-review head: … base: … -->`. Diff capture uses **review diff adapters** (`IReviewDiffAdapter`): `BranchPairReviewDiffAdapter` wins when that marker is present and injects **`git diff base...head`**; otherwise `WorkspaceHeadReviewDiffAdapter` keeps the existing workspace `git diff HEAD` path. `ReviewDiffContributor` stays thin and only appends whatever the resolver returns. `IWorkspaceDiffProvider` remains the low-level git helper (including caching).
 
 ```
 Pick head + base  →  fetch/list branches  →  worktree on head  →  review chat + auto-send
-  →  git diff base...head in <context>  →  orchi-review-plan blocks
+  →  BranchPairReviewDiffAdapter → git diff base...head in <context>  →  orchi-review-plan blocks
 ```
 
 ### Artifact files (Strategy + Factory)

@@ -53,9 +53,10 @@ public static partial class ReviewBriefBuilder
             ## Instructions
 
             This is a pull-request style review. There is no orchestration implementation plan.
-            Review the changes introduced by the head branch relative to the base branch using the three-dot git diff injected into your prompt context.
-            Focus on correctness, regressions, pattern fit, tests/validation, and risky edge cases.
-            Produce one or more actionable review plans for the reviewer.
+            Review the three-dot git diff (`{baseBranch}...{headBranch}`) in your context.
+            Focus on oversights, over-engineering, and missed patterns — not a restatement of the changes.
+            Lead with a Review TLDR. Keep the review short and scannable.
+            Produce one or more review plans using the exact format in your context section.
             """;
     }
 

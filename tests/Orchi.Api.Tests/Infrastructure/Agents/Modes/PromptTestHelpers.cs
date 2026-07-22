@@ -48,11 +48,21 @@ internal static class PromptTestHelpers
         return new PromptSectionPipeline([
             new ModeSectionContributor(factory),
             new SessionContextContributor(),
-            new ReviewDiffContributor(new FakeWorkspaceDiffProvider()),
+            new ReviewDiffContributor(CreateReviewDiffAdapterResolver()),
             new SessionTaskContributor(CreateArtifactTaskFactory()),
             new ParentChatContributor(),
             new GlobalRulesContributor(),
             new MessageContributor(),
+        ]);
+    }
+
+    private static IReviewDiffAdapterResolver CreateReviewDiffAdapterResolver(
+        IWorkspaceDiffProvider? diffProvider = null)
+    {
+        IWorkspaceDiffProvider provider = diffProvider ?? new FakeWorkspaceDiffProvider();
+        return new ReviewDiffAdapterResolver([
+            new BranchPairReviewDiffAdapter(provider),
+            new WorkspaceHeadReviewDiffAdapter(provider),
         ]);
     }
 

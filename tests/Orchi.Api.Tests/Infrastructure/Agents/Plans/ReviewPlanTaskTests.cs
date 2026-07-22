@@ -11,7 +11,7 @@ public class ReviewPlanTaskTests
 
         string task = ReviewPlanTask.Build(reviewPath);
 
-        Assert.Contains($"Review the implementation described in `{reviewPath}`", task);
+        Assert.Contains($"Review `{reviewPath}`", task);
         Assert.Contains("Output one or more review plans", task);
         Assert.Contains("git diff", task, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Review TLDR", task);
