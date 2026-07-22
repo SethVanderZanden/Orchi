@@ -14,6 +14,8 @@ public class ReviewPlanTaskTests
         Assert.Contains($"Review the implementation described in `{reviewPath}`", task);
         Assert.Contains("Output one or more review plans", task);
         Assert.Contains("git diff", task, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Review TLDR", task);
+        Assert.Contains("do not restate the changelog", task);
         Assert.Contains($"delete `{reviewPath}`", task);
         Assert.Contains("If blocked, keep the review brief file", task);
     }
