@@ -21,11 +21,15 @@ public class ReviewAgentModeStrategyTests
         _strategy.ContributeSections(context, document);
 
         Assert.Contains("You are in Review Mode.", document.Identity);
-        Assert.Contains("post-implementation code review planning mode", document.Identity);
+        Assert.Contains("concise git-diff review", document.Identity);
         Assert.Contains("Do not modify code unless the user explicitly asks", document.Rules);
-        Assert.Contains("missing information needed", document.Rules);
+        Assert.Contains("Review TLDR", document.Rules);
+        Assert.Contains("exactly what is missing", document.Rules);
         Assert.Contains("<!-- orchi-review-plan:kebab-case-id -->", document.Context);
-        Assert.Contains("Plan comparison and drift checks", document.Context);
+        Assert.Contains("## Review TLDR", document.Context);
+        Assert.Contains("### Oversights", document.Context);
+        Assert.Contains("### Over-engineering", document.Context);
+        Assert.Contains("### Missed patterns", document.Context);
         Assert.Null(document.Message);
     }
 

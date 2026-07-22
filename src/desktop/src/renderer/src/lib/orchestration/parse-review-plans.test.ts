@@ -10,11 +10,13 @@ Some intro text.
 <!-- orchi-review-plan:auth-refactor -->
 # Auth Refactor Review
 
-## Summary
-Review auth changes.
+## Review TLDR
+- Verdict: ship with fixes
+- Check JWT expiry edge case
 
-## Plan comparison and drift checks
-Check JWT implementation.
+## Findings
+### Oversights
+- Missing refresh-token test
 <!-- /orchi-review-plan -->
 `
 
@@ -24,7 +26,7 @@ Check JWT implementation.
     expect(plans[0]).toEqual({
       planId: 'auth-refactor',
       title: 'Auth Refactor Review',
-      contentMarkdown: expect.stringContaining('Plan comparison and drift checks')
+      contentMarkdown: expect.stringContaining('Review TLDR')
     })
   })
 
