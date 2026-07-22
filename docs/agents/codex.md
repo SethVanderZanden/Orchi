@@ -19,7 +19,7 @@ Desktop  →  AgentSessionManager  →  CodexAgentAdapter  →  codex exec --jso
 | Ticket number | `thread_id` stored as `ExternalSessionId` |
 | Plated courses | `AgentTextDeltaEvent`, `AgentToolEvent`, `AgentCompletedEvent` |
 
-**Aha:** one chat picks the chef and the recipe knobs; Orchi turns those into Codex `-c` overrides without you typing the CLI by hand.
+**Aha:** one chat picks the chef and the recipe knobs; Orchi turns those into Codex `-c` overrides without you typing the CLI by hand. In Codex you see “5.6 Terra Medium”; in Orchi that is **model** `gpt-5.6-terra` + **reasoning** `medium`.
 
 Everything below is the same idea with adapters, catalogs, and JSONL.
 
@@ -126,7 +126,22 @@ Parser: `src/API/Infrastructure/Agents/Codex/CodexNdjsonParser.cs`
 
 ## Models and context sizes
 
-Codex has no Orchi CLI model sync — add model slugs under **Settings → Agents**.
+Codex has no Orchi CLI model sync. On API startup (and when you enable Codex), Orchi seeds
+GPT-5.6 **Sol / Terra / Luna** with Codex-style labels (`5.6 Terra`, …) plus reasoning
+presets including `none` and `max`.
+
+In Codex itself you pick combined names like **“5.6 Terra Medium”** — that is model
+`gpt-5.6-terra` plus reasoning effort `medium`. Orchi stores those as two fields and shows
+the combined label in mode defaults and the first-run setup wizard.
+
+| Preset | Model id (`--model`) | Typical use |
+|--------|----------------------|-------------|
+| 5.6 Sol | `gpt-5.6-sol` | Complex / high-value work |
+| 5.6 Terra | `gpt-5.6-terra` | Everyday orchestration & review (default) |
+| 5.6 Luna | `gpt-5.6-luna` | Fast, clear, high-volume tasks |
+
+Settings → Agents uses an agent settings **strategy**: Cursor gets CLI sync; Codex gets
+curated presets + reasoning/approval cards (no empty sync button).
 
 Context sizes map to Codex `-c model_context_window={tokens}`. Use presets that match the
 [Codex advanced config](https://developers.openai.com/codex/config-advanced) catalog defaults:
@@ -138,22 +153,29 @@ Context sizes map to Codex `-c model_context_window={tokens}`. Use presets that 
 | `large` | 400000 | Larger window (clamped per-model by Codex `max_context_window`) |
 
 Settings → Agents shows one-click preset buttons for Codex and a Docs link to the official page.
-Mode defaults pick agent + model + context per Orchi mode (e.g. orchestration → Codex / default).
+Mode defaults pick agent + model + context + reasoning per Orchi mode (e.g. orchestration → Codex / Terra Medium).
 
-Orchi seeds Codex reasoning presets on API startup and during first-time agent setup. First launch walks you through agent selection and a Codex approval policy preference (default: **never / automatic** for headless exec).
+First launch walks you through:
+
+1. Agent selection (Cursor / Codex)
+2. Codex approval policy (if Codex is enabled)
+3. Mode defaults for **Orchestrator**, **Implementation/default**, and **Review**
+
+Orchi seeds Codex reasoning and model presets on API startup and during first-time agent setup.
 
 The approval policy in Settings applies to interactive Codex usage documentation only; Orchi spawns `codex exec`, which always runs with Codex's headless default (`approval_policy=never`).
 
 | Kind | Codex `-c` key | Typical Codex presets |
 |------|----------------|------------------------|
-| `model_reasoning_effort` | `model_reasoning_effort` | `minimal`, `low`, `medium`, `high`, `xhigh` |
+| `model_reasoning_effort` | `model_reasoning_effort` | `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max` |
 | `approval_policy` | `approval_policy` | `untrusted`, `on-request`, `never` |
 
 API surface: `GET/POST /agents/{agentId}/cli-options/{kind}`, plus enable/disable and delete by option id.
+`POST /agents/{agentId}/models` accepts optional `label` for friendly display names.
 
 When a chat (or mode default) selects an option id, `AgentSessionManager` hydrates `CliConfigOverrides` with the catalog’s `CliValue`. Mode defaults and the chat composer expose the same catalogs as dropdowns.
 
-Official reference: [Codex advanced configuration](https://developers.openai.com/codex/config-advanced) (also mirrored at learn.chatgpt.com docs for `config.toml`).
+Official reference: [Codex models](https://developers.openai.com/codex/models) and [Codex advanced configuration](https://developers.openai.com/codex/config-advanced).
 
 ## Further reading
 

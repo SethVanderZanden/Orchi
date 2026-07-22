@@ -58,7 +58,7 @@ public class AgentModelCatalogServiceTests
         await using ServiceProvider provider = BuildProvider();
         IAgentModelCatalogService catalog = provider.GetRequiredService<IAgentModelCatalogService>();
 
-        Result<AgentModelDto> added = await catalog.AddManualAsync("cursor", "custom-model", CancellationToken.None);
+        Result<AgentModelDto> added = await catalog.AddManualAsync("cursor", "custom-model", label: null, CancellationToken.None);
         Assert.True(added.IsSuccess);
 
         bool enabled = await catalog.IsEnabledModelAsync("cursor", "custom-model", CancellationToken.None);
@@ -74,7 +74,7 @@ public class AgentModelCatalogServiceTests
 
         listProvider.Models = [new AgentModelListEntry("cli-model", "cli-model", false, false)];
         await catalog.SyncAsync("cursor", CancellationToken.None);
-        await catalog.AddManualAsync("cursor", "manual-model", CancellationToken.None);
+        await catalog.AddManualAsync("cursor", "manual-model", label: null, CancellationToken.None);
 
         Result removedCli = await catalog.RemoveAsync("cursor", "cli-model", CancellationToken.None);
         Assert.True(removedCli.IsSuccess);

@@ -30,6 +30,14 @@ export function needsAgentSetup(enabledAgentIds: string[] | undefined): boolean 
   return (enabledAgentIds?.length ?? 0) === 0
 }
 
+/** Prefer this over `needsAgentSetup(undefined)` when the preferences query may have failed. */
+export function needsAgentSetupAfterLoad(
+  isSuccess: boolean,
+  enabledAgentIds: string[] | undefined
+): boolean {
+  return isSuccess && needsAgentSetup(enabledAgentIds)
+}
+
 export function filterAgentsByEnabled<T extends { id: string }>(
   agents: T[],
   enabledAgentIds: string[]

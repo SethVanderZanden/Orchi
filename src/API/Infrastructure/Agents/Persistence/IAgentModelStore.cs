@@ -36,6 +36,14 @@ public interface IAgentModelStore
     Task<StoredAgentModel> AddManualAsync(
         string agentId,
         string modelId,
+        string? label,
+        CancellationToken cancellationToken);
+
+    Task EnsureBuiltInAsync(
+        string agentId,
+        string modelId,
+        string label,
+        bool isDefault,
         CancellationToken cancellationToken);
 
     Task<StoredAgentModel?> UpdateEnabledAsync(

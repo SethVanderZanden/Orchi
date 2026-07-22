@@ -35,11 +35,15 @@ export async function syncAgentModels(agentId: string): Promise<AgentModelSyncRe
   return (await response.json()) as AgentModelSyncResponse
 }
 
-export async function addAgentModel(agentId: string, modelId: string): Promise<AgentModel> {
+export async function addAgentModel(
+  agentId: string,
+  modelId: string,
+  label?: string
+): Promise<AgentModel> {
   const response = await fetch(`${getApiBaseUrl()}/agents/${encodeURIComponent(agentId)}/models`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ modelId })
+    body: JSON.stringify({ modelId, label: label?.trim() || undefined })
   })
 
   if (!response.ok) {

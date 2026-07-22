@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { BookOpen, ExternalLink, RefreshCw, Trash2 } from 'lucide-react'
+import { BookOpen, ExternalLink, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -8,19 +8,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
-import { resolveAgentSettingsStrategy } from '@/lib/agents/settings/resolve-agent-settings-strategy'
 import {
   addAgentModel,
   listAgentModels,
   removeAgentModel,
-  syncAgentModels,
   updateAgentModelEnabled
 } from '@/lib/chat/agent-models-api'
+import { CODEX_MODEL_PRESETS } from '@/lib/agents/codex-presets'
+import { resolveAgentSettingsStrategy } from '@/lib/agents/settings/resolve-agent-settings-strategy'
 import { agentKeys } from '@/lib/query-keys'
+import { cn } from '@/lib/utils'
 
 const ONE_HOUR_MS = 60 * 60 * 1000
 
-type AgentModelsCardProps = {
+type CodexAgentModelsCardProps = {
   agentId: string
   agentLabel?: string
 }
@@ -36,12 +37,14 @@ function openExternalDocs(href: string): void {
   window.open(href, '_blank', 'noopener,noreferrer')
 }
 
-export function AgentModelsCard({ agentId, agentLabel }: AgentModelsCardProps): React.JSX.Element {
+export function CodexAgentModelsCard({
+  agentId,
+  agentLabel
+}: CodexAgentModelsCardProps): React.JSX.Element {
   const queryClient = useQueryClient()
-  const [manualSlug, setManualSlug] = useState('')
   const strategy = resolveAgentSettingsStrategy(agentId)
-  const docs = strategy.modelsDocs
-  const supportsSync = strategy.capabilities.has('modelSync')
+  const [manualSlug, setManualSlug] = useState('')
+  const [manualLabel, setManualLabel] = useState('')
 
   const modelsQuery = useQuery({
     queryKey: agentKeys.models(agentId, true),
@@ -49,19 +52,12 @@ export function AgentModelsCard({ agentId, agentLabel }: AgentModelsCardProps): 
     staleTime: ONE_HOUR_MS
   })
 
-  const syncMutation = useMutation({
-    mutationFn: () => syncAgentModels(agentId),
-    onSuccess: () => {
-      invalidateAgentModelQueries(queryClient, agentId)
-      toast.success('Models synced')
-    },
-    onError: (error: Error) => toast.error(error.message)
-  })
-
   const addMutation = useMutation({
-    mutationFn: (modelId: string) => addAgentModel(agentId, modelId),
+    mutationFn: ({ modelId, label }: { modelId: string; label?: string }) =>
+      addAgentModel(agentId, modelId, label),
     onSuccess: () => {
       setManualSlug('')
+      setManualLabel('')
       invalidateAgentModelQueries(queryClient, agentId)
       toast.success('Model added')
     },
@@ -87,12 +83,8 @@ export function AgentModelsCard({ agentId, agentLabel }: AgentModelsCardProps): 
   })
 
   const models = modelsQuery.data?.models ?? []
-  const lastSyncedAt = modelsQuery.data?.lastSyncedAt
-  const isBusy =
-    syncMutation.isPending ||
-    addMutation.isPending ||
-    toggleMutation.isPending ||
-    removeMutation.isPending
+  const enabledIds = new Set(models.filter((model) => model.isEnabled).map((model) => model.id))
+  const isBusy = addMutation.isPending || toggleMutation.isPending || removeMutation.isPending
 
   function handleAddManual(): void {
     const slug = manualSlug.trim()
@@ -100,7 +92,25 @@ export function AgentModelsCard({ agentId, agentLabel }: AgentModelsCardProps): 
       return
     }
 
-    addMutation.mutate(slug)
+    addMutation.mutate({
+      modelId: slug,
+      label: manualLabel.trim() || undefined
+    })
+  }
+
+  function handleAddPreset(modelId: string, label: string): void {
+    const existing = models.find((model) => model.id === modelId)
+    if (existing?.isEnabled) {
+      toast.message(`${label} is already enabled`)
+      return
+    }
+
+    if (existing && !existing.isEnabled) {
+      toggleMutation.mutate({ modelId, enabled: true })
+      return
+    }
+
+    addMutation.mutate({ modelId, label })
   }
 
   return (
@@ -109,35 +119,53 @@ export function AgentModelsCard({ agentId, agentLabel }: AgentModelsCardProps): 
         <div className="space-y-1">
           <CardTitle className="text-base">{agentLabel ?? agentId} models</CardTitle>
           <CardDescription>
-            Sync models from the CLI when available, choose which appear in chat, add manual slugs,
-            or remove models you do not need.
+            Codex has no CLI model sync. Enable GPT-5.6 Sol / Terra / Luna (same names as Codex),
+            then pick reasoning effort separately — e.g. Terra + Medium reads as “5.6 Terra Medium”.
           </CardDescription>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {docs ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => openExternalDocs(docs.href)}
-              aria-label={`Open ${docs.label} documentation`}
-            >
-              <BookOpen className="size-4" />
-              Docs
-              <ExternalLink className="size-3.5 opacity-70" />
-            </Button>
-          ) : null}
+        {strategy.modelsDocs ? (
           <Button
-            variant="secondary"
+            variant="outline"
             size="sm"
-            disabled={isBusy}
-            onClick={() => syncMutation.mutate()}
+            onClick={() => openExternalDocs(strategy.modelsDocs!.href)}
+            aria-label={`Open ${strategy.modelsDocs.label} documentation`}
           >
-            <RefreshCw className={cnIcon(syncMutation.isPending)} />
-            Sync now
+            <BookOpen className="size-4" />
+            Docs
+            <ExternalLink className="size-3.5 opacity-70" />
           </Button>
-        </div>
+        ) : null}
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label>GPT-5.6 presets</Label>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {CODEX_MODEL_PRESETS.map((preset) => {
+              const enabled = enabledIds.has(preset.id)
+              return (
+                <button
+                  key={preset.id}
+                  type="button"
+                  disabled={isBusy}
+                  onClick={() => handleAddPreset(preset.id, preset.label)}
+                  className={cn(
+                    'rounded-lg border px-3 py-2.5 text-left transition-colors',
+                    enabled
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:bg-accent/40',
+                    isBusy && 'pointer-events-none opacity-70'
+                  )}
+                >
+                  <span className="block text-sm font-medium">{preset.label}</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    {enabled ? 'Enabled' : 'Add'} · {preset.id}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
         {modelsQuery.isLoading ? (
           <p className="text-sm text-muted-foreground">Loading models…</p>
         ) : modelsQuery.error ? (
@@ -153,7 +181,7 @@ export function AgentModelsCard({ agentId, agentLabel }: AgentModelsCardProps): 
           </div>
         ) : models.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No models yet. Sync from the CLI or add a manual slug.
+            No models yet. Enable a GPT-5.6 preset above or add a custom slug.
           </p>
         ) : (
           <ul className="divide-y rounded-lg border">
@@ -177,7 +205,8 @@ export function AgentModelsCard({ agentId, agentLabel }: AgentModelsCardProps): 
                     <span className="block truncate text-xs text-muted-foreground">
                       {model.id}
                       {model.source === 'manual' ? ' · manual' : ''}
-                      {model.isDefault ? ' · CLI default' : ''}
+                      {model.source === 'built-in' ? ' · built-in' : ''}
+                      {model.isDefault ? ' · suggested default' : ''}
                     </span>
                   </span>
                 </label>
@@ -195,38 +224,40 @@ export function AgentModelsCard({ agentId, agentLabel }: AgentModelsCardProps): 
           </ul>
         )}
 
-        {lastSyncedAt ? (
-          <p className="text-xs text-muted-foreground">
-            Last synced {new Date(lastSyncedAt).toLocaleString()}
-          </p>
-        ) : null}
-
         <Separator />
 
-        <div className="space-y-2">
-          <Label htmlFor={`manual-model-slug-${agentId}`}>Add manual slug</Label>
-          <Input
-            id={`manual-model-slug-${agentId}`}
-            value={manualSlug}
-            onChange={(event) => setManualSlug(event.target.value)}
-            placeholder="e.g. claude-sonnet-4"
-            disabled={isBusy}
-          />
-          <div className="flex justify-end">
-            <Button
-              variant="secondary"
-              disabled={!manualSlug.trim() || isBusy}
-              onClick={handleAddManual}
-            >
-              Add
-            </Button>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor={`manual-model-slug-${agentId}`}>Custom slug</Label>
+            <Input
+              id={`manual-model-slug-${agentId}`}
+              value={manualSlug}
+              onChange={(event) => setManualSlug(event.target.value)}
+              placeholder={strategy.manualModelPlaceholder}
+              disabled={isBusy}
+            />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor={`manual-model-label-${agentId}`}>Display label (optional)</Label>
+            <Input
+              id={`manual-model-label-${agentId}`}
+              value={manualLabel}
+              onChange={(event) => setManualLabel(event.target.value)}
+              placeholder="e.g. 5.6 Terra"
+              disabled={isBusy}
+            />
+          </div>
+        </div>
+        <div className="flex justify-end">
+          <Button
+            variant="secondary"
+            disabled={!manualSlug.trim() || isBusy}
+            onClick={handleAddManual}
+          >
+            Add
+          </Button>
         </div>
       </CardContent>
     </Card>
   )
-}
-
-function cnIcon(spinning: boolean): string {
-  return spinning ? 'size-4 animate-spin' : 'size-4'
 }

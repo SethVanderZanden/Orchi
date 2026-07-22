@@ -229,7 +229,7 @@ public sealed class AgentCliOptionCatalogService(
             return;
         }
 
-        foreach (CodexBuiltInCatalog.Preset preset in CodexBuiltInCatalog.AllPresets)
+        foreach (CodexBuiltInCatalog.CliOptionPreset preset in CodexBuiltInCatalog.AllCliOptionPresets)
         {
             await store.EnsureBuiltInAsync(
                 agentId,

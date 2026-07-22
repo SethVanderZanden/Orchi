@@ -7,7 +7,7 @@ import {
   getUserPreferences,
   updateUserPreferences
 } from '@/lib/user-preferences/api'
-import { needsAgentSetup } from '@/lib/user-preferences/enabled-agents'
+import { needsAgentSetupAfterLoad } from '@/lib/user-preferences/enabled-agents'
 import type {
   AgentSetupPreferences,
   PostMessageBehavior,
@@ -21,6 +21,8 @@ export function useUserPreferences(): {
   autoKickOffReview: boolean
   needsAgentSetup: boolean
   isLoading: boolean
+  isError: boolean
+  preferencesError: string | undefined
   setPostMessageBehavior: (behavior: PostMessageBehavior) => void
   setEnabledAgentIds: (
     agentIds: string[],
@@ -52,8 +54,12 @@ export function useUserPreferences(): {
     postMessageBehavior: query.data?.postMessageBehavior ?? DEFAULT_POST_MESSAGE_BEHAVIOR,
     enabledAgentIds,
     autoKickOffReview: query.data?.autoKickOffReview ?? DEFAULT_AUTO_KICK_OFF_REVIEW,
-    needsAgentSetup: needsAgentSetup(query.data?.enabledAgentIds),
+    // Only treat an empty list as needing setup after a successful fetch.
+    // Failed / unloaded queries must not re-open the mandatory wizard every launch.
+    needsAgentSetup: needsAgentSetupAfterLoad(query.isSuccess, query.data?.enabledAgentIds),
     isLoading: query.isLoading,
+    isError: query.isError,
+    preferencesError: query.error instanceof Error ? query.error.message : undefined,
     setPostMessageBehavior: (behavior) => {
       mutation.mutate({ postMessageBehavior: behavior })
     },

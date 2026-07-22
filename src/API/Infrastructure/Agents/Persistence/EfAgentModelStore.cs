@@ -132,6 +132,63 @@ public sealed class EfAgentModelStore(IDbContextFactory<AppDbContext> dbContextF
     public async Task<StoredAgentModel> AddManualAsync(
         string agentId,
         string modelId,
+        string? label,
+        CancellationToken cancellationToken)
+    {
+        await using AppDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        AgentModel? existing = await db.AgentModels
+            .FirstOrDefaultAsync(
+                model => model.AgentId == agentId && model.ModelId == modelId,
+                cancellationToken);
+
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        string resolvedLabel = string.IsNullOrWhiteSpace(label) ? modelId : label.Trim();
+
+        if (existing is not null)
+        {
+            if (string.Equals(existing.Source, AgentModelSource.Manual, StringComparison.OrdinalIgnoreCase))
+            {
+                if (!string.IsNullOrWhiteSpace(label) &&
+                    !string.Equals(existing.Label, resolvedLabel, StringComparison.Ordinal))
+                {
+                    existing.Label = resolvedLabel;
+                    existing.UpdatedAt = now;
+                    await db.SaveChangesAsync(cancellationToken);
+                }
+
+                return ToStored(existing);
+            }
+
+            existing.Source = AgentModelSource.Manual;
+            existing.IsEnabled = true;
+            existing.Label = resolvedLabel;
+            existing.UpdatedAt = now;
+            await db.SaveChangesAsync(cancellationToken);
+            return ToStored(existing);
+        }
+
+        var entity = new AgentModel
+        {
+            AgentId = agentId,
+            ModelId = modelId,
+            Label = resolvedLabel,
+            IsEnabled = true,
+            Source = AgentModelSource.Manual,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+
+        db.AgentModels.Add(entity);
+        await db.SaveChangesAsync(cancellationToken);
+        return ToStored(entity);
+    }
+
+    public async Task EnsureBuiltInAsync(
+        string agentId,
+        string modelId,
+        string label,
+        bool isDefault,
         CancellationToken cancellationToken)
     {
         await using AppDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -145,32 +202,44 @@ public sealed class EfAgentModelStore(IDbContextFactory<AppDbContext> dbContextF
 
         if (existing is not null)
         {
-            if (string.Equals(existing.Source, AgentModelSource.Manual, StringComparison.OrdinalIgnoreCase))
+            bool dirty = false;
+
+            if (string.Equals(existing.Source, AgentModelSource.BuiltIn, StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(existing.Label, label, StringComparison.Ordinal))
             {
-                return ToStored(existing);
+                existing.Label = label;
+                dirty = true;
             }
 
-            existing.Source = AgentModelSource.Manual;
-            existing.IsEnabled = true;
-            existing.UpdatedAt = now;
-            await db.SaveChangesAsync(cancellationToken);
-            return ToStored(existing);
+            if (existing.IsDefault != isDefault &&
+                string.Equals(existing.Source, AgentModelSource.BuiltIn, StringComparison.OrdinalIgnoreCase))
+            {
+                existing.IsDefault = isDefault;
+                dirty = true;
+            }
+
+            if (dirty)
+            {
+                existing.UpdatedAt = now;
+                await db.SaveChangesAsync(cancellationToken);
+            }
+
+            return;
         }
 
-        var entity = new AgentModel
+        db.AgentModels.Add(new AgentModel
         {
             AgentId = agentId,
             ModelId = modelId,
-            Label = modelId,
+            Label = label,
             IsEnabled = true,
-            Source = AgentModelSource.Manual,
+            IsDefault = isDefault,
+            Source = AgentModelSource.BuiltIn,
             CreatedAt = now,
             UpdatedAt = now
-        };
+        });
 
-        db.AgentModels.Add(entity);
         await db.SaveChangesAsync(cancellationToken);
-        return ToStored(entity);
     }
 
     public async Task<StoredAgentModel?> UpdateEnabledAsync(
