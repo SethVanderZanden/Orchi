@@ -47,7 +47,8 @@ export const gitHostingKeys = {
 
 export const projectBranchKeys = {
   all: ['project-branches'] as const,
-  list: (projectId: string) => [...projectBranchKeys.all, projectId] as const
+  list: (projectId: string, fetchRemote = false) =>
+    [...projectBranchKeys.all, projectId, { fetch: fetchRemote }] as const
 }
 
 export const userPreferenceKeys = {

@@ -5,6 +5,13 @@ public static class OrchiCacheKeys
     public static string WorkspaceDiff(string normalizedWorkspacePath, string gitHeadRevision) =>
         $"workspace-diff:{NormalizePath(normalizedWorkspacePath)}:{gitHeadRevision}";
 
+    public static string WorkspaceBranchDiff(
+        string normalizedWorkspacePath,
+        string baseBranch,
+        string headBranch,
+        string gitHeadRevision) =>
+        $"workspace-branch-diff:{NormalizePath(normalizedWorkspacePath)}:{baseBranch}:{headBranch}:{gitHeadRevision}";
+
     public static string CursorExecutable(string configFingerprint) =>
         $"cursor-exec:{configFingerprint}";
 

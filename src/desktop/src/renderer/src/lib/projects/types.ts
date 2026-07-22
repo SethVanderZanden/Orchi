@@ -103,4 +103,5 @@ export type UpdateWorkspaceRequest = {
 export type ProjectBranch = {
   name: string
   isCurrent: boolean
+  isRemote?: boolean
 }

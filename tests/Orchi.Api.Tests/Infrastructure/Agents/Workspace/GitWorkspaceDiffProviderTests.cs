@@ -58,6 +58,28 @@ public class GitWorkspaceDiffProviderTests : IDisposable
     }
 
     [Fact]
+    public void GetBranchDiff_ReturnsThreeDotDiff()
+    {
+        if (!IsGitAvailable())
+        {
+            return;
+        }
+
+        InitializeRepoWithCommit();
+        RunGit("checkout", "-b", "feature");
+        File.WriteAllText(Path.Combine(_workspacePath, "feature.txt"), "feature\n");
+        RunGit("add", "feature.txt");
+        RunGit("-c", "user.email=test@example.com", "-c", "user.name=Test", "commit", "-m", "feature");
+        RunGit("checkout", "-");
+
+        string? baseBranch = RunGitOutput("branch", "--show-current").Trim();
+        string diff = _provider.GetBranchDiff(_workspacePath, baseBranch, "feature");
+
+        Assert.Contains("feature.txt", diff);
+        Assert.Contains("...", diff);
+    }
+
+    [Fact]
     public void Truncate_AppendsNoticeWhenDiffTooLarge()
     {
         string large = new string('a', GitWorkspaceDiffProvider.MaxDiffChars + 10);
@@ -93,6 +115,27 @@ public class GitWorkspaceDiffProviderTests : IDisposable
 
         process.Start();
         process.WaitForExit();
+    }
+
+    private string RunGitOutput(params string[] args)
+    {
+        using var process = new System.Diagnostics.Process();
+        process.StartInfo.FileName = "git";
+        process.StartInfo.WorkingDirectory = _workspacePath;
+        process.StartInfo.RedirectStandardOutput = true;
+        process.StartInfo.RedirectStandardError = true;
+        process.StartInfo.UseShellExecute = false;
+        process.StartInfo.CreateNoWindow = true;
+
+        foreach (string arg in args)
+        {
+            process.StartInfo.ArgumentList.Add(arg);
+        }
+
+        process.Start();
+        string stdout = process.StandardOutput.ReadToEnd();
+        process.WaitForExit();
+        return stdout;
     }
 
     private static bool IsGitAvailable()

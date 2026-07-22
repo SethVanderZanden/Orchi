@@ -11,7 +11,12 @@ internal sealed class FakeWorkspaceDiffProvider : IWorkspaceDiffProvider
 {
     public string Diff { get; init; } = "diff --git a/file.txt b/file.txt";
 
+    public string BranchDiff { get; init; } = "diff --git a/branch.txt b/branch.txt";
+
     public string GetDiff(string workspacePath) => Diff;
+
+    public string GetBranchDiff(string workspacePath, string baseBranch, string headBranch) =>
+        $"{BranchDiff}\n# {baseBranch}...{headBranch}";
 }
 
 internal static class PromptTestHelpers
