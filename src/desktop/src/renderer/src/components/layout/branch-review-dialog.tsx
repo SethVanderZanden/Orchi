@@ -29,11 +29,7 @@ type BranchReviewDialogProps = {
   onError: (message: string) => void
 }
 
-function resolveBranchSelection(
-  selected: string,
-  candidates: string[],
-  preferred: string
-): string {
+function resolveBranchSelection(selected: string, candidates: string[], preferred: string): string {
   if (selected && candidates.includes(selected)) {
     return selected
   }
