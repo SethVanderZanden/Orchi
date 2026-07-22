@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { RefreshCw } from 'lucide-react'
 
@@ -29,6 +29,22 @@ type BranchReviewDialogProps = {
   onError: (message: string) => void
 }
 
+function resolveBranchSelection(
+  selected: string,
+  candidates: string[],
+  preferred: string
+): string {
+  if (selected && candidates.includes(selected)) {
+    return selected
+  }
+
+  if (preferred && candidates.includes(preferred)) {
+    return preferred
+  }
+
+  return candidates[0] ?? ''
+}
+
 export function BranchReviewDialog({
   open,
   onOpenChange,
@@ -42,12 +58,12 @@ export function BranchReviewDialog({
   const { sendMessage, loadChat } = useChat()
   const { openChat } = useChatTabs()
   const [headBranch, setHeadBranch] = useState('')
-  const [baseBranch, setBaseBranch] = useState(defaultBaseBranch)
-  const [fetchOnLoad, setFetchOnLoad] = useState(true)
+  const [baseBranch, setBaseBranch] = useState('')
+  const [shouldFetch, setShouldFetch] = useState(true)
 
   const branchesQuery = useQuery({
-    queryKey: projectBranchKeys.list(projectId, fetchOnLoad),
-    queryFn: () => listProjectBranches(projectId, { fetch: fetchOnLoad }),
+    queryKey: projectBranchKeys.list(projectId, shouldFetch),
+    queryFn: () => listProjectBranches(projectId, { fetch: shouldFetch }),
     enabled: open,
     retry: false
   })
@@ -57,42 +73,26 @@ export function BranchReviewDialog({
     [branchesQuery.data]
   )
 
-  useEffect(() => {
-    if (!open) {
-      return
+  const currentBranchName = branchesQuery.data?.find((branch) => branch.isCurrent)?.name ?? ''
+  const preferredHead = preferredHeadBranch?.trim() || currentBranchName
+  const selectedHead = resolveBranchSelection(headBranch, branchNames, preferredHead)
+  const selectedBase = resolveBranchSelection(baseBranch, branchNames, defaultBaseBranch)
+
+  function handleOpenChange(nextOpen: boolean): void {
+    if (nextOpen) {
+      setHeadBranch('')
+      setBaseBranch('')
+      setShouldFetch(true)
     }
-
-    setBaseBranch(defaultBaseBranch)
-    setFetchOnLoad(true)
-  }, [defaultBaseBranch, open])
-
-  useEffect(() => {
-    if (!open || branchNames.length === 0) {
-      return
-    }
-
-    const preferred =
-      preferredHeadBranch && branchNames.includes(preferredHeadBranch)
-        ? preferredHeadBranch
-        : (branchesQuery.data?.find((branch) => branch.isCurrent)?.name ?? branchNames[0] ?? '')
-
-    setHeadBranch((current) => (current && branchNames.includes(current) ? current : preferred))
-
-    setBaseBranch((current) => {
-      if (current && branchNames.includes(current)) {
-        return current
-      }
-
-      return branchNames.includes(defaultBaseBranch) ? defaultBaseBranch : (branchNames[0] ?? '')
-    })
-  }, [branchNames, branchesQuery.data, defaultBaseBranch, open, preferredHeadBranch])
+    onOpenChange(nextOpen)
+  }
 
   const submitMutation = useMutation({
     mutationFn: () =>
       kickOffBranchReview(projectId, {
-        headBranch: headBranch.trim(),
-        baseBranch: baseBranch.trim(),
-        fetch: fetchOnLoad
+        headBranch: selectedHead.trim(),
+        baseBranch: selectedBase.trim(),
+        fetch: shouldFetch
       }),
     onSuccess: async (response) => {
       const reviewChat: ChatThread = {
@@ -128,7 +128,7 @@ export function BranchReviewDialog({
       try {
         await sendMessage(reviewChat.id, response.kickoffMessage, { skipPostMessageBehavior: true })
         onSuccess(`Review started for ${response.headBranch} vs ${response.baseBranch}.`)
-        onOpenChange(false)
+        handleOpenChange(false)
       } catch (error) {
         onError(error instanceof Error ? error.message : 'Failed to send review kickoff.')
       }
@@ -137,19 +137,19 @@ export function BranchReviewDialog({
   })
 
   const sameBranch =
-    headBranch.trim().length > 0 &&
-    baseBranch.trim().length > 0 &&
-    headBranch.trim().toLowerCase() === baseBranch.trim().toLowerCase()
+    selectedHead.trim().length > 0 &&
+    selectedBase.trim().length > 0 &&
+    selectedHead.trim().toLowerCase() === selectedBase.trim().toLowerCase()
 
   const canSubmit =
     !submitMutation.isPending &&
     !branchesQuery.isFetching &&
-    headBranch.trim().length > 0 &&
-    baseBranch.trim().length > 0 &&
+    selectedHead.trim().length > 0 &&
+    selectedBase.trim().length > 0 &&
     !sameBranch
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Review branch</DialogTitle>
@@ -173,7 +173,7 @@ export function BranchReviewDialog({
               className="h-8 gap-1.5 px-2.5 text-xs font-normal"
               disabled={branchesQuery.isFetching || submitMutation.isPending}
               onClick={() => {
-                setFetchOnLoad(true)
+                setShouldFetch(true)
                 void branchesQuery.refetch()
               }}
             >
@@ -194,7 +194,7 @@ export function BranchReviewDialog({
             <Label htmlFor="branch-review-head">Head branch (to review)</Label>
             <NativeSelect
               id="branch-review-head"
-              value={headBranch}
+              value={selectedHead}
               onChange={(change) => setHeadBranch(change.target.value)}
               disabled={submitMutation.isPending || branchNames.length === 0}
             >
@@ -210,7 +210,7 @@ export function BranchReviewDialog({
             <Label htmlFor="branch-review-base">Base branch</Label>
             <NativeSelect
               id="branch-review-base"
-              value={baseBranch}
+              value={selectedBase}
               onChange={(change) => setBaseBranch(change.target.value)}
               disabled={submitMutation.isPending || branchNames.length === 0}
             >
@@ -230,7 +230,7 @@ export function BranchReviewDialog({
         <DialogFooter>
           <Button
             variant="outline"
-            onClick={() => onOpenChange(false)}
+            onClick={() => handleOpenChange(false)}
             disabled={submitMutation.isPending}
           >
             Cancel
