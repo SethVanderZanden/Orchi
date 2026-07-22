@@ -26,9 +26,13 @@ try {
         "dotnet run --project src/API"
     }
 
+    $apiPort = if ($usingIsolatedDev) { $config.DevPort } else { $config.RuntimePort }
+    $healthUrl = "http://localhost:$apiPort/health"
+    $desktopCmd = "npx wait-on $healthUrl -t 120000 && npm run dev --prefix src/desktop"
+
     npx concurrently -n api,desktop -c blue,green `
         $apiCmd `
-        "npm run dev --prefix src/desktop"
+        $desktopCmd
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }
