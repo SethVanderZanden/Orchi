@@ -27,4 +27,23 @@ public sealed class CachingWorkspaceDiffProvider(
             .GetAwaiter()
             .GetResult();
     }
+
+    public string GetBranchDiff(string workspacePath, string baseBranch, string headBranch)
+    {
+        string? headRevision = GitWorkspaceDiffProvider.TryGetHeadRevision(workspacePath);
+        string normalizedPath = Path.GetFullPath(workspacePath);
+        string cacheKey = OrchiCacheKeys.WorkspaceBranchDiff(
+            normalizedPath,
+            baseBranch.Trim(),
+            headBranch.Trim(),
+            headRevision ?? "unknown");
+
+        return cache.GetOrCreateAsync(
+                cacheKey,
+                _ => ValueTask.FromResult(inner.GetBranchDiff(workspacePath, baseBranch, headBranch)),
+                cache.CreateWorkspaceDiffEntryOptions())
+            .AsTask()
+            .GetAwaiter()
+            .GetResult();
+    }
 }

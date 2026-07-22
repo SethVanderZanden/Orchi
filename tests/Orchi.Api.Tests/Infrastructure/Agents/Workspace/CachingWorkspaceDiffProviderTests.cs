@@ -55,6 +55,12 @@ public class CachingWorkspaceDiffProviderTests
             return diff;
         }
 
+        public string GetBranchDiff(string workspacePath, string baseBranch, string headBranch)
+        {
+            CallCount++;
+            return $"{diff}\n# {baseBranch}...{headBranch}";
+        }
+
         private static string InitializeGitWorkspace()
         {
             if (!IsGitAvailable())

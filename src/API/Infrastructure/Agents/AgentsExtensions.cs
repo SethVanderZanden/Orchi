@@ -119,6 +119,9 @@ public static class AgentsExtensions
             new CachingWorkspaceDiffProvider(
                 sp.GetRequiredService<GitWorkspaceDiffProvider>(),
                 sp.GetRequiredService<OrchiHybridCacheService>()));
+        services.AddSingleton<IReviewDiffAdapter, BranchPairReviewDiffAdapter>();
+        services.AddSingleton<IReviewDiffAdapter, WorkspaceHeadReviewDiffAdapter>();
+        services.AddSingleton<IReviewDiffAdapterResolver, ReviewDiffAdapterResolver>();
         services.AddHostedService<AgentSessionShutdownService>();
 
         return services;

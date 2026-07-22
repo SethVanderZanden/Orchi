@@ -197,6 +197,21 @@ Implementation child completes  →  auto review kickoff  →  .orchi/review-*.m
 
 The orchestration parent highlights review-ready plan cards and opens the review panel when review plans appear.
 
+#### Branch / PR review (without orchestration)
+
+You can also shoot off a review for any branch against another branch (pull-request style), without an implementation child:
+
+1. Desktop: **Git → Review branch…** (or finder command **Review branch**)
+2. API: `POST /projects/{projectId}/reviews/from-branches` with `{ headBranch, baseBranch?, fetch? }`
+3. Orchi optionally runs `git fetch --prune --all`, lists branches via `GET /projects/{id}/branches?fetch=true`, creates a worktree on the head branch, writes `.orchi/review-branch-*.md`, opens a `review` chat, and the desktop auto-sends `Begin review.`
+
+The review brief embeds `<!-- orchi-branch-review head: … base: … -->`. Diff capture uses **review diff adapters** (`IReviewDiffAdapter`): `BranchPairReviewDiffAdapter` wins when that marker is present and injects **`git diff base...head`**; otherwise `WorkspaceHeadReviewDiffAdapter` keeps the existing workspace `git diff HEAD` path. `ReviewDiffContributor` stays thin and only appends whatever the resolver returns. `IWorkspaceDiffProvider` remains the low-level git helper (including caching).
+
+```
+Pick head + base  →  fetch/list branches  →  worktree on head  →  review chat + auto-send
+  →  BranchPairReviewDiffAdapter → git diff base...head in <context>  →  orchi-review-plan blocks
+```
+
 ### Artifact files (Strategy + Factory)
 
 Plan and review briefs share the same write operation but use different path templates under `.orchi/`:
@@ -257,6 +272,7 @@ Configure under `Cache` in `appsettings.json`. `Cache:Distributed:Enabled` is `f
 3. **Kick off plan** — `POST /chats/{parentChatId}/plans/kickoff` (orchestration chats only); writes plan file, creates child chat, and instructs the agent to delete the plan file after validation
 4. **Kick off all / workflow** — `POST /chats/{parentChatId}/orchestration/kickoff-all`; backend runs sequenced and parallel kickoffs, emits orchestration SSE events
 5. **Kick off review** — `POST /chats/{implementationChildChatId}/review/kickoff` (also auto-triggered by orchestration workflow after implementation completes); writes review brief, creates review child chat
+5b. **Kick off branch review** — `POST /projects/{projectId}/reviews/from-branches`; fetch/list branches, worktree on head, write branch review brief, create review chat (desktop auto-sends kickoff)
 6. **Close chat** — `DELETE /chats/{id}` → kills process, soft-deletes chat in database
 7. **App shutdown** — `POST /chats/shutdown` (called from Electron `before-quit`) → kills active sessions (persisted chats remain in database)
 

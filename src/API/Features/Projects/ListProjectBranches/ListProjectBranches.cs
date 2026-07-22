@@ -10,7 +10,7 @@ namespace Orchi.Api.Features.Projects.ListProjectBranches;
 
 public static class ListProjectBranches
 {
-    public sealed record Query(Guid ProjectId) : IQuery<IReadOnlyList<ProjectBranchResponse>>;
+    public sealed record Query(Guid ProjectId, bool Fetch) : IQuery<IReadOnlyList<ProjectBranchResponse>>;
 
     internal sealed class Handler(IProjectStore projectStore, IGitWorkspaceService gitWorkspaceService)
         : IQueryHandler<Query, IReadOnlyList<ProjectBranchResponse>>
@@ -37,12 +37,20 @@ public static class ListProjectBranches
 
             try
             {
+                if (query.Fetch)
+                {
+                    await gitWorkspaceService.FetchAsync(workspace.Path, cancellationToken);
+                }
+
                 IReadOnlyList<GitBranchInfo> branches = await gitWorkspaceService.ListBranchesAsync(
                     workspace.Path,
-                    cancellationToken);
+                    cancellationToken,
+                    includeRemotes: true);
 
                 return Result.Success<IReadOnlyList<ProjectBranchResponse>>(
-                    branches.Select(branch => new ProjectBranchResponse(branch.Name, branch.IsCurrent)).ToArray());
+                    branches
+                        .Select(branch => new ProjectBranchResponse(branch.Name, branch.IsCurrent, branch.IsRemote))
+                        .ToArray());
             }
             catch (InvalidOperationException ex)
             {
@@ -64,11 +72,12 @@ public static class ListProjectBranches
 
         private static async Task<IResult> Handle(
             Guid projectId,
+            bool? fetch,
             IQueryHandler<Query, IReadOnlyList<ProjectBranchResponse>> handler,
             CancellationToken cancellationToken)
         {
             Result<IReadOnlyList<ProjectBranchResponse>> result = await handler.Handle(
-                new Query(projectId),
+                new Query(projectId, fetch == true),
                 cancellationToken);
 
             return result.ToProblem();

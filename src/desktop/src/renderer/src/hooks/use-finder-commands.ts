@@ -4,6 +4,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { openWorkspaceInPreferredEditor } from '@/lib/preferences/open-in-editor'
 import { usePreferredEditor } from '@/hooks/use-preferred-editor'
 import type { AppFinderCommand } from '@/lib/app-commands/finder-commands'
+import { requestOpenBranchReview } from '@/lib/branch-review/events'
 import { getOpenInEditorLabel } from '@/lib/preferences/preferred-editor'
 import { useChat } from '@/providers/chat-context'
 import { useChatTabs } from '@/providers/chat-tabs-provider'
@@ -92,6 +93,13 @@ export function useFinderCommands(onComplete: () => void): AppFinderCommand[] {
           complete(async () => {
             await openWorkspaceInPreferredEditor(activeWorkspacePath)
           })
+      },
+      {
+        id: 'review-branch',
+        label: 'Review branch',
+        keywords: ['review', 'branch', 'pr', 'pull', 'request', 'git', 'diff'],
+        disabled: !activeChat?.projectId,
+        onSelect: () => complete(() => requestOpenBranchReview())
       },
       {
         id: 'close-tab',
@@ -188,6 +196,7 @@ export function useFinderCommands(onComplete: () => void): AppFinderCommand[] {
   }, [
     activateAdjacentTab,
     activateTabAtIndex,
+    activeChat?.projectId,
     activeTabId,
     activeWorkspacePath,
     addProject,

@@ -88,7 +88,7 @@ public class PromptSectionPipelineTests
 
         OrchiPromptDocument document = _pipeline.Build(context);
 
-        Assert.Contains("Review the implementation described in `.orchi/review-auth.md`", document.Task);
+        Assert.Contains("Review `.orchi/review-auth.md`", document.Task);
         Assert.Contains("delete `.orchi/review-auth.md`", document.Task);
     }
 

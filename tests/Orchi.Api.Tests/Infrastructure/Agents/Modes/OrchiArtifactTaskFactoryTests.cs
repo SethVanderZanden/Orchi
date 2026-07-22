@@ -36,7 +36,7 @@ public class OrchiArtifactTaskFactoryTests
         string? task = _factory.ResolveTaskFromPath(".orchi/review-auth-refactor.md");
 
         Assert.NotNull(task);
-        Assert.Contains("Review the implementation described in `.orchi/review-auth-refactor.md`", task);
+        Assert.Contains("Review `.orchi/review-auth-refactor.md`", task);
         Assert.Contains("delete `.orchi/review-auth-refactor.md`", task);
     }
 

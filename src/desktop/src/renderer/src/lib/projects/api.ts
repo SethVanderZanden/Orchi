@@ -186,13 +186,60 @@ export async function deleteWorkspace(workspaceId: string): Promise<void> {
   }
 }
 
-export async function listProjectBranches(projectId: string): Promise<ProjectBranch[]> {
-  const response = await fetch(`${getApiBaseUrl()}/projects/${projectId}/branches`)
+export async function listProjectBranches(
+  projectId: string,
+  options?: { fetch?: boolean }
+): Promise<ProjectBranch[]> {
+  const params = new URLSearchParams()
+  if (options?.fetch) {
+    params.set('fetch', 'true')
+  }
+
+  const query = params.toString()
+  const response = await fetch(
+    `${getApiBaseUrl()}/projects/${projectId}/branches${query ? `?${query}` : ''}`
+  )
   if (!response.ok) {
     throw new Error(await readErrorMessage(response))
   }
 
   return (await response.json()) as ProjectBranch[]
+}
+
+export type KickOffBranchReviewRequest = {
+  headBranch: string
+  baseBranch?: string | null
+  fetch?: boolean
+}
+
+export type KickOffBranchReviewResponse = {
+  reviewChatId: string
+  reviewFilePath: string
+  headBranch: string
+  baseBranch: string
+  initialPrompt: string
+  kickoffMessage: string
+}
+
+export async function kickOffBranchReview(
+  projectId: string,
+  request: KickOffBranchReviewRequest
+): Promise<KickOffBranchReviewResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/projects/${projectId}/reviews/from-branches`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      headBranch: request.headBranch,
+      baseBranch: request.baseBranch ?? null,
+      fetch: request.fetch ?? true
+    })
+  })
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response))
+  }
+
+  return (await response.json()) as KickOffBranchReviewResponse
 }
 
 export type CreateWorktreeRequest = {

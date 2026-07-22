@@ -21,14 +21,31 @@ public sealed partial class GitWorkspaceService(IProcessRunner processRunner) : 
             && string.Equals(result.StdOut.Trim(), "true", StringComparison.OrdinalIgnoreCase);
     }
 
+    public async Task FetchAsync(string workspacePath, CancellationToken cancellationToken)
+    {
+        if (!await IsGitRepositoryAsync(workspacePath, cancellationToken))
+        {
+            throw new InvalidOperationException($"Not a git repository: {workspacePath}");
+        }
+
+        // Best-effort: offline remotes should not block local branch listing.
+        _ = await RunGitAsync(workspacePath, ["fetch", "--prune", "--all"], cancellationToken);
+    }
+
     public async Task<IReadOnlyList<GitBranchInfo>> ListBranchesAsync(
         string workspacePath,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool includeRemotes = true)
     {
-        ProcessRunResult result = await RunGitAsync(
-            workspacePath,
-            ["branch", "--format=%(refname:short)%09%(HEAD)"],
-            cancellationToken);
+        var args = new List<string> { "branch" };
+        if (includeRemotes)
+        {
+            args.Add("--all");
+        }
+
+        args.Add("--format=%(refname)%09%(refname:short)%09%(HEAD)");
+
+        ProcessRunResult result = await RunGitAsync(workspacePath, args, cancellationToken);
 
         if (!result.Succeeded)
         {
@@ -36,15 +53,40 @@ public sealed partial class GitWorkspaceService(IProcessRunner processRunner) : 
         }
 
         var branches = new List<GitBranchInfo>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
         foreach (string line in result.StdOut.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
             string[] parts = line.Split('\t');
-            string name = parts[0];
-            bool isCurrent = parts.Length > 1 && parts[1].Contains('*', StringComparison.Ordinal);
-            branches.Add(new GitBranchInfo(name, isCurrent));
+            if (parts.Length < 2)
+            {
+                continue;
+            }
+
+            string fullRef = parts[0];
+            string name = parts[1];
+            if (string.Equals(name, "HEAD", StringComparison.OrdinalIgnoreCase) ||
+                name.EndsWith("/HEAD", StringComparison.OrdinalIgnoreCase) ||
+                fullRef.EndsWith("/HEAD", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (!seen.Add(name))
+            {
+                continue;
+            }
+
+            bool isCurrent = parts.Length > 2 && parts[2].Contains('*', StringComparison.Ordinal);
+            bool isRemote = fullRef.StartsWith("refs/remotes/", StringComparison.OrdinalIgnoreCase);
+
+            branches.Add(new GitBranchInfo(name, isCurrent, isRemote));
         }
 
-        return branches;
+        return branches
+            .OrderBy(branch => branch.IsRemote)
+            .ThenBy(branch => branch.Name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 
     public async Task<string?> GetCurrentBranchAsync(string workspacePath, CancellationToken cancellationToken)
@@ -61,6 +103,57 @@ public sealed partial class GitWorkspaceService(IProcessRunner processRunner) : 
 
         string branch = result.StdOut.Trim();
         return string.IsNullOrWhiteSpace(branch) ? null : branch;
+    }
+
+    public async Task<string?> ResolveBranchRefAsync(
+        string workspacePath,
+        string branchName,
+        CancellationToken cancellationToken)
+    {
+        string trimmed = branchName.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            return null;
+        }
+
+        ProcessRunResult local = await RunGitAsync(
+            workspacePath,
+            ["rev-parse", "--verify", "--quiet", $"refs/heads/{trimmed}"],
+            cancellationToken);
+        if (local.Succeeded)
+        {
+            return trimmed;
+        }
+
+        ProcessRunResult asIs = await RunGitAsync(
+            workspacePath,
+            ["rev-parse", "--verify", "--quiet", trimmed],
+            cancellationToken);
+        if (asIs.Succeeded)
+        {
+            return trimmed;
+        }
+
+        ProcessRunResult remote = await RunGitAsync(
+            workspacePath,
+            ["rev-parse", "--verify", "--quiet", $"refs/remotes/{trimmed}"],
+            cancellationToken);
+        if (remote.Succeeded)
+        {
+            return trimmed;
+        }
+
+        // Allow bare name that only exists as origin/<name>
+        ProcessRunResult origin = await RunGitAsync(
+            workspacePath,
+            ["rev-parse", "--verify", "--quiet", $"refs/remotes/origin/{trimmed}"],
+            cancellationToken);
+        if (origin.Succeeded)
+        {
+            return $"origin/{trimmed}";
+        }
+
+        return null;
     }
 
     public async Task CommitAsync(string workspacePath, string message, CancellationToken cancellationToken)
@@ -161,6 +254,61 @@ public sealed partial class GitWorkspaceService(IProcessRunner processRunner) : 
         }
 
         return new GitWorktreeCreateResult(worktreePath, branch, baseBranch);
+    }
+
+    public async Task<GitWorktreeCreateResult> CreateWorktreeForExistingBranchAsync(
+        string repositoryPath,
+        string worktreeId,
+        string headBranch,
+        string baseBranch,
+        CancellationToken cancellationToken)
+    {
+        if (!await IsGitRepositoryAsync(repositoryPath, cancellationToken))
+        {
+            throw new InvalidOperationException($"Not a git repository: {repositoryPath}");
+        }
+
+        string? headRef = await ResolveBranchRefAsync(repositoryPath, headBranch, cancellationToken);
+        if (headRef is null)
+        {
+            throw new InvalidOperationException($"Branch '{headBranch}' was not found.");
+        }
+
+        string? baseRef = await ResolveBranchRefAsync(repositoryPath, baseBranch, cancellationToken);
+        if (baseRef is null)
+        {
+            throw new InvalidOperationException($"Base branch '{baseBranch}' was not found.");
+        }
+
+        string safeId = SanitizeSegment(worktreeId);
+        string worktreesRoot = Path.Combine(repositoryPath, ".orchi", "worktrees");
+        Directory.CreateDirectory(worktreesRoot);
+        string worktreePath = Path.Combine(worktreesRoot, safeId);
+
+        if (Directory.Exists(worktreePath))
+        {
+            throw new InvalidOperationException($"Worktree path already exists: {worktreePath}");
+        }
+
+        // Prefer attaching an existing local branch; otherwise create a local review branch from the ref.
+        ProcessRunResult attachLocal = await RunGitAsync(
+            repositoryPath,
+            ["worktree", "add", worktreePath, headRef],
+            cancellationToken);
+
+        if (!attachLocal.Succeeded)
+        {
+            string localReviewBranch = $"orchi/review-{safeId}";
+            ProcessRunResult createFromRef = await RunGitAsync(
+                repositoryPath,
+                ["worktree", "add", "-b", localReviewBranch, worktreePath, headRef],
+                cancellationToken);
+            EnsureSuccess(createFromRef, "git worktree add");
+            return new GitWorktreeCreateResult(worktreePath, localReviewBranch, baseRef);
+        }
+
+        string? checkedOut = await GetCurrentBranchAsync(worktreePath, cancellationToken);
+        return new GitWorktreeCreateResult(worktreePath, checkedOut ?? headRef, baseRef);
     }
 
     public async Task<string> GetStatusPorcelainAsync(string workspacePath, CancellationToken cancellationToken)

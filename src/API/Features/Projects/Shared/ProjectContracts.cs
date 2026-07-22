@@ -151,4 +151,17 @@ public sealed record WorkspaceResponse(
     string? BaseBranch,
     DateTimeOffset CreatedAt);
 
-public sealed record ProjectBranchResponse(string Name, bool IsCurrent);
+public sealed record ProjectBranchResponse(string Name, bool IsCurrent, bool IsRemote = false);
+
+public sealed record KickOffBranchReviewRequest(
+    string HeadBranch,
+    string? BaseBranch = null,
+    bool? Fetch = null);
+
+public sealed record KickOffBranchReviewResponse(
+    Guid ReviewChatId,
+    string ReviewFilePath,
+    string HeadBranch,
+    string BaseBranch,
+    string InitialPrompt,
+    string KickoffMessage);

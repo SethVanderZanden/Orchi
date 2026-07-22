@@ -51,6 +51,56 @@ public sealed class GitWorkspaceDiffProvider : IWorkspaceDiffProvider
         return "No changes detected (git diff HEAD and git show HEAD are empty).";
     }
 
+    public string GetBranchDiff(string workspacePath, string baseBranch, string headBranch)
+    {
+        if (string.IsNullOrWhiteSpace(workspacePath) || !Directory.Exists(workspacePath))
+        {
+            return "Workspace path is missing or does not exist.";
+        }
+
+        if (!IsGitRepository(workspacePath))
+        {
+            return "No git repository detected in workspace.";
+        }
+
+        string baseRef = baseBranch.Trim();
+        string headRef = headBranch.Trim();
+        if (string.IsNullOrWhiteSpace(baseRef) || string.IsNullOrWhiteSpace(headRef))
+        {
+            return "Base and head branches are required for a branch review diff.";
+        }
+
+        string range = $"{baseRef}...{headRef}";
+        string threeDot = RunGit(workspacePath, "diff", "--no-color", range);
+        if (!string.IsNullOrWhiteSpace(threeDot) && !LooksLikeGitError(threeDot))
+        {
+            return FormatSection($"git diff {range}", Truncate(threeDot));
+        }
+
+        string twoDotRange = $"{baseRef}..{headRef}";
+        string twoDot = RunGit(workspacePath, "diff", "--no-color", twoDotRange);
+        if (!string.IsNullOrWhiteSpace(twoDot) && !LooksLikeGitError(twoDot))
+        {
+            return FormatSection($"git diff {twoDotRange}", Truncate(twoDot));
+        }
+
+        if (!string.IsNullOrWhiteSpace(threeDot))
+        {
+            return $"Failed to compute branch diff for {range}: {threeDot.Trim()}";
+        }
+
+        return $"No changes detected between `{baseRef}` and `{headRef}`.";
+    }
+
+    private static bool LooksLikeGitError(string output)
+    {
+        string trimmed = output.Trim();
+        return trimmed.StartsWith("fatal:", StringComparison.OrdinalIgnoreCase) ||
+               trimmed.StartsWith("error:", StringComparison.OrdinalIgnoreCase) ||
+               trimmed.Contains("unknown revision", StringComparison.OrdinalIgnoreCase) ||
+               trimmed.Contains("bad revision", StringComparison.OrdinalIgnoreCase);
+    }
+
     private static bool IsGitRepository(string workspacePath)
     {
         string output = RunGit(workspacePath, "rev-parse", "--is-inside-work-tree");

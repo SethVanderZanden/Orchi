@@ -11,7 +11,12 @@ internal sealed class FakeWorkspaceDiffProvider : IWorkspaceDiffProvider
 {
     public string Diff { get; init; } = "diff --git a/file.txt b/file.txt";
 
+    public string BranchDiff { get; init; } = "diff --git a/branch.txt b/branch.txt";
+
     public string GetDiff(string workspacePath) => Diff;
+
+    public string GetBranchDiff(string workspacePath, string baseBranch, string headBranch) =>
+        $"{BranchDiff}\n# {baseBranch}...{headBranch}";
 }
 
 internal static class PromptTestHelpers
@@ -43,11 +48,21 @@ internal static class PromptTestHelpers
         return new PromptSectionPipeline([
             new ModeSectionContributor(factory),
             new SessionContextContributor(),
-            new ReviewDiffContributor(new FakeWorkspaceDiffProvider()),
+            new ReviewDiffContributor(CreateReviewDiffAdapterResolver()),
             new SessionTaskContributor(CreateArtifactTaskFactory()),
             new ParentChatContributor(),
             new GlobalRulesContributor(),
             new MessageContributor(),
+        ]);
+    }
+
+    private static IReviewDiffAdapterResolver CreateReviewDiffAdapterResolver(
+        IWorkspaceDiffProvider? diffProvider = null)
+    {
+        IWorkspaceDiffProvider provider = diffProvider ?? new FakeWorkspaceDiffProvider();
+        return new ReviewDiffAdapterResolver([
+            new BranchPairReviewDiffAdapter(provider),
+            new WorkspaceHeadReviewDiffAdapter(provider),
         ]);
     }
 
