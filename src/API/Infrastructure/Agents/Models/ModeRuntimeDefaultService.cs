@@ -1,4 +1,5 @@
 using Orchi.Api.Common.Results;
+using Orchi.Api.Infrastructure.Agents;
 using Orchi.Api.Infrastructure.Agents.Modes;
 using Orchi.Api.Infrastructure.Agents.Codex;
 using Orchi.Api.Infrastructure.Agents.Persistence;
@@ -251,10 +252,12 @@ public sealed class ModeRuntimeDefaultService(
         if (codexEnabled)
         {
             await cliOptionCatalog.EnsureBuiltInPresetsAsync(AgentIds.Codex, cancellationToken);
+            await modelCatalogService.EnsureBuiltInModelsAsync(AgentIds.Codex, cancellationToken);
         }
 
         string? codexApprovalPolicyId = ResolveCodexApprovalPolicyId(setupOptions);
-        string? codexReasoningEffortId = ResolveCodexReasoningEffortId(setupOptions);
+        string? codexReasoningEffortId = ResolveCodexReasoningEffortId(setupOptions, seedAllModes);
+        string? codexModelId = seedAllModes && codexEnabled ? CodexBuiltInCatalog.DefaultModelId : null;
 
         IReadOnlyList<StoredModeRuntimeDefault> existing = await store.ListAsync(cancellationToken);
         var existingByMode = existing.ToDictionary(row => row.Mode, StringComparer.OrdinalIgnoreCase);
@@ -269,7 +272,7 @@ public sealed class ModeRuntimeDefaultService(
                 await store.UpsertAsync(
                     modeId,
                     preferredAgentId,
-                    null,
+                    usesCodex ? codexModelId : null,
                     null,
                     usesCodex ? codexReasoningEffortId : null,
                     usesCodex ? codexApprovalPolicyId : null,
@@ -284,19 +287,35 @@ public sealed class ModeRuntimeDefaultService(
                     ? ResolveApprovalPolicyForUpsert(seedAllModes, setupOptions, row.ApprovalPolicyId)
                     : null;
                 string? reasoningEffortId = usesCodex
-                    ? ResolveReasoningEffortForUpsert(setupOptions, row.ReasoningEffortId)
+                    ? ResolveReasoningEffortForUpsert(setupOptions, row.ReasoningEffortId, seedAllModes)
+                    : null;
+                string? modelId = usesCodex
+                    ? ResolveModelIdForUpsert(seedAllModes, row.ModelId, codexModelId)
                     : null;
 
                 await store.UpsertAsync(
                     modeId,
                     preferredAgentId,
-                    null,
+                    modelId,
                     null,
                     reasoningEffortId,
                     approvalPolicyId,
                     cancellationToken);
             }
         }
+    }
+
+    private static string? ResolveModelIdForUpsert(
+        bool seedAllModes,
+        string? existingModelId,
+        string? seededModelId)
+    {
+        if (seedAllModes)
+        {
+            return seededModelId;
+        }
+
+        return existingModelId;
     }
 
     private static string? ResolveApprovalPolicyForUpsert(
@@ -319,11 +338,17 @@ public sealed class ModeRuntimeDefaultService(
 
     private static string? ResolveReasoningEffortForUpsert(
         AgentSetupOptions? setupOptions,
-        string? existingReasoningEffortId)
+        string? existingReasoningEffortId,
+        bool seedAllModes)
     {
         if (!string.IsNullOrWhiteSpace(setupOptions?.CodexReasoningEffortId))
         {
             return setupOptions.CodexReasoningEffortId.Trim();
+        }
+
+        if (seedAllModes)
+        {
+            return CodexBuiltInCatalog.DefaultReasoningEffortId;
         }
 
         return existingReasoningEffortId;
@@ -337,10 +362,15 @@ public sealed class ModeRuntimeDefaultService(
             : requested;
     }
 
-    private static string? ResolveCodexReasoningEffortId(AgentSetupOptions? setupOptions)
+    private static string? ResolveCodexReasoningEffortId(AgentSetupOptions? setupOptions, bool seedAllModes)
     {
         string? requested = setupOptions?.CodexReasoningEffortId?.Trim();
-        return string.IsNullOrWhiteSpace(requested) ? null : requested;
+        if (!string.IsNullOrWhiteSpace(requested))
+        {
+            return requested;
+        }
+
+        return seedAllModes ? CodexBuiltInCatalog.DefaultReasoningEffortId : null;
     }
 
     internal static string BuiltInDefaultAgentId(string modeId)

@@ -16,7 +16,10 @@ public interface IAgentModelCatalogService
     Task<Result<AgentModelDto>> AddManualAsync(
         string agentId,
         string modelId,
+        string? label,
         CancellationToken cancellationToken);
+
+    Task EnsureBuiltInModelsAsync(string agentId, CancellationToken cancellationToken);
 
     Task<Result<AgentModelDto>> UpdateEnabledAsync(
         string agentId,

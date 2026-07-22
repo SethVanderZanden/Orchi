@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { filterAgentsByEnabled, needsAgentSetup } from '@/lib/user-preferences/enabled-agents'
+import {
+  filterAgentsByEnabled,
+  needsAgentSetup,
+  needsAgentSetupAfterLoad
+} from '@/lib/user-preferences/enabled-agents'
 
 describe('needsAgentSetup', () => {
   it('is true when no agents are enabled (fresh preferences)', () => {
@@ -11,6 +15,18 @@ describe('needsAgentSetup', () => {
   it('is false once at least one agent is enabled', () => {
     expect(needsAgentSetup(['cursor'])).toBe(false)
     expect(needsAgentSetup(['codex', 'cursor'])).toBe(false)
+  })
+})
+
+describe('needsAgentSetupAfterLoad', () => {
+  it('stays false until preferences load successfully', () => {
+    expect(needsAgentSetupAfterLoad(false, undefined)).toBe(false)
+    expect(needsAgentSetupAfterLoad(false, [])).toBe(false)
+  })
+
+  it('requires setup only after a successful empty load', () => {
+    expect(needsAgentSetupAfterLoad(true, [])).toBe(true)
+    expect(needsAgentSetupAfterLoad(true, ['codex'])).toBe(false)
   })
 })
 

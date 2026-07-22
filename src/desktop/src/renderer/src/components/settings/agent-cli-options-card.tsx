@@ -20,11 +20,13 @@ import { agentKeys } from '@/lib/query-keys'
 const ONE_HOUR_MS = 60 * 60 * 1000
 
 const CODEX_REASONING_PRESETS = [
+  { id: 'none', label: 'None', cliValue: 'none' },
   { id: 'minimal', label: 'Minimal', cliValue: 'minimal' },
   { id: 'low', label: 'Low', cliValue: 'low' },
   { id: 'medium', label: 'Medium', cliValue: 'medium' },
   { id: 'high', label: 'High', cliValue: 'high' },
-  { id: 'xhigh', label: 'Extra high', cliValue: 'xhigh' }
+  { id: 'xhigh', label: 'Extra high', cliValue: 'xhigh' },
+  { id: 'max', label: 'Max', cliValue: 'max' }
 ] as const
 
 const CODEX_APPROVAL_PRESETS = [

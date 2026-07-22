@@ -1,4 +1,6 @@
 using Orchi.Api.Common.Results;
+using Orchi.Api.Infrastructure.Agents;
+using Orchi.Api.Infrastructure.Agents.Codex;
 using Orchi.Api.Infrastructure.Agents.Persistence;
 using Orchi.Api.Infrastructure.Caching;
 
@@ -66,6 +68,7 @@ public sealed class AgentModelCatalogService(
     public async Task<Result<AgentModelDto>> AddManualAsync(
         string agentId,
         string modelId,
+        string? label,
         CancellationToken cancellationToken)
     {
         ValidateAgent(agentId);
@@ -77,9 +80,31 @@ public sealed class AgentModelCatalogService(
         }
 
         string trimmed = modelId.Trim();
-        StoredAgentModel stored = await store.AddManualAsync(agentId, trimmed, cancellationToken);
+        StoredAgentModel stored = await store.AddManualAsync(agentId, trimmed, label, cancellationToken);
         await InvalidateCacheAsync(agentId, cancellationToken);
         return Result.Success(ToDto(stored));
+    }
+
+    public async Task EnsureBuiltInModelsAsync(string agentId, CancellationToken cancellationToken)
+    {
+        ValidateAgent(agentId);
+
+        if (!string.Equals(agentId, AgentIds.Codex, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        foreach (CodexBuiltInCatalog.ModelPreset preset in CodexBuiltInCatalog.ModelPresets)
+        {
+            await store.EnsureBuiltInAsync(
+                agentId,
+                preset.ModelId,
+                preset.Label,
+                preset.IsDefault,
+                cancellationToken);
+        }
+
+        await InvalidateCacheAsync(agentId, cancellationToken);
     }
 
     public async Task<Result<AgentModelDto>> UpdateEnabledAsync(

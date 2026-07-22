@@ -16,7 +16,7 @@ public static class AddAgentModel
         bool IsEnabled,
         string Source);
 
-    public sealed record Command(string AgentId, string ModelId) : ICommand<ModelResponse>;
+    public sealed record Command(string AgentId, string ModelId, string? Label) : ICommand<ModelResponse>;
 
     internal sealed class Handler(IAgentModelCatalogService catalogService)
         : ICommandHandler<Command, ModelResponse>
@@ -28,6 +28,7 @@ public static class AddAgentModel
                 Result<AgentModelDto> result = await catalogService.AddManualAsync(
                     command.AgentId,
                     command.ModelId,
+                    command.Label,
                     cancellationToken);
 
                 if (result.IsFailure)
@@ -55,7 +56,7 @@ public static class AddAgentModel
         }
     }
 
-    public sealed record Request(string ModelId);
+    public sealed record Request(string ModelId, string? Label = null);
 
     public sealed class Validator : AbstractValidator<Command>
     {
@@ -84,7 +85,7 @@ public static class AddAgentModel
             CancellationToken cancellationToken)
         {
             Result<ModelResponse> result = await handler.Handle(
-                new Command(agentId, request.ModelId),
+                new Command(agentId, request.ModelId, request.Label),
                 cancellationToken);
 
             if (result.IsSuccess)

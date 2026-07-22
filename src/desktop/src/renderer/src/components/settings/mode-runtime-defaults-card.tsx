@@ -15,6 +15,8 @@ import { Label } from '@/components/ui/label'
 import { DEFAULT_MODEL_VALUE } from '@/components/chat/chat-model-selector'
 import { DEFAULT_CONTEXT_SIZE_VALUE } from '@/components/chat/chat-context-size-selector'
 import { DEFAULT_CLI_OPTION_VALUE } from '@/components/chat/chat-cli-option-selector'
+import { formatModelReasoningLabel } from '@/lib/agents/format-runtime-label'
+import { resolveAgentSettingsStrategy } from '@/lib/agents/settings/resolve-agent-settings-strategy'
 import { listAgents, listAgentContextSizes } from '@/lib/chat/agent-context-sizes-api'
 import { listAgentCliOptions } from '@/lib/chat/agent-cli-options-api'
 import { listAgentModels } from '@/lib/chat/agent-models-api'
@@ -81,13 +83,15 @@ function ModeDefaultRow({
   const reasoningQuery = useQuery({
     queryKey: agentKeys.cliOptions(row.agentId, 'model_reasoning_effort', false),
     queryFn: () => listAgentCliOptions(row.agentId, 'model_reasoning_effort', false),
-    staleTime: ONE_HOUR_MS
+    staleTime: ONE_HOUR_MS,
+    enabled: resolveAgentSettingsStrategy(row.agentId).capabilities.has('reasoningEffort')
   })
 
   const approvalQuery = useQuery({
     queryKey: agentKeys.cliOptions(row.agentId, 'approval_policy', false),
     queryFn: () => listAgentCliOptions(row.agentId, 'approval_policy', false),
-    staleTime: ONE_HOUR_MS
+    staleTime: ONE_HOUR_MS,
+    enabled: resolveAgentSettingsStrategy(row.agentId).capabilities.has('approvalPolicy')
   })
 
   const updateMutation = useMutation({
@@ -100,6 +104,9 @@ function ModeDefaultRow({
   const contextSizes = contextQuery.data?.contextSizes ?? []
   const reasoningOptions = reasoningQuery.data?.options ?? []
   const approvalOptions = approvalQuery.data?.options ?? []
+  const strategy = resolveAgentSettingsStrategy(row.agentId)
+  const showReasoning = strategy.capabilities.has('reasoningEffort')
+  const showApproval = strategy.capabilities.has('approvalPolicy')
   const agentLabel = agents.find((agent) => agent.id === row.agentId)?.label ?? row.agentId
   const modelLabel = models.find((model) => model.id === row.modelId)?.label ?? 'Default (CLI)'
   const contextLabel =
@@ -108,6 +115,11 @@ function ModeDefaultRow({
     reasoningOptions.find((option) => option.id === row.reasoningEffortId)?.label ?? 'Default (CLI)'
   const approvalLabel =
     approvalOptions.find((option) => option.id === row.approvalPolicyId)?.label ?? 'Default (CLI)'
+  const combinedRuntimeLabel = formatModelReasoningLabel(
+    row.agentId,
+    row.modelId ? modelLabel : null,
+    showReasoning && row.reasoningEffortId ? reasoningLabel : null
+  )
 
   function currentPatch(overrides: Partial<RuntimePatch> = {}): RuntimePatch {
     return {
@@ -124,7 +136,10 @@ function ModeDefaultRow({
     <div className="space-y-2 rounded-lg border p-3">
       <div>
         <p className="text-sm font-medium">{row.label}</p>
-        <p className="text-xs text-muted-foreground">{row.mode}</p>
+        <p className="text-xs text-muted-foreground">
+          {row.mode}
+          {showReasoning ? ` · ${combinedRuntimeLabel}` : null}
+        </p>
       </div>
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         <div className="space-y-1">
@@ -234,73 +249,77 @@ function ModeDefaultRow({
           </DropdownMenu>
         </div>
 
-        <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">Reasoning</Label>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 w-full justify-between gap-1.5 text-xs font-normal"
-                disabled={updateMutation.isPending || reasoningQuery.isLoading}
-              >
-                <span className="truncate">{reasoningLabel}</span>
-                <ChevronDown className="size-3.5 opacity-60" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto">
-              <DropdownMenuRadioGroup
-                value={toCliRadio(row.reasoningEffortId)}
-                onValueChange={(value) =>
-                  updateMutation.mutate(currentPatch({ reasoningEffortId: fromCliRadio(value) }))
-                }
-              >
-                <DropdownMenuRadioItem value={DEFAULT_CLI_OPTION_VALUE}>
-                  Default (CLI)
-                </DropdownMenuRadioItem>
-                {reasoningOptions.map((option) => (
-                  <DropdownMenuRadioItem key={option.id} value={option.id}>
-                    {option.label}
+        {showReasoning ? (
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Reasoning</Label>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-full justify-between gap-1.5 text-xs font-normal"
+                  disabled={updateMutation.isPending || reasoningQuery.isLoading}
+                >
+                  <span className="truncate">{reasoningLabel}</span>
+                  <ChevronDown className="size-3.5 opacity-60" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto">
+                <DropdownMenuRadioGroup
+                  value={toCliRadio(row.reasoningEffortId)}
+                  onValueChange={(value) =>
+                    updateMutation.mutate(currentPatch({ reasoningEffortId: fromCliRadio(value) }))
+                  }
+                >
+                  <DropdownMenuRadioItem value={DEFAULT_CLI_OPTION_VALUE}>
+                    Default (CLI)
                   </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+                  {reasoningOptions.map((option) => (
+                    <DropdownMenuRadioItem key={option.id} value={option.id}>
+                      {option.label}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        ) : null}
 
-        <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">Approval</Label>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 w-full justify-between gap-1.5 text-xs font-normal"
-                disabled={updateMutation.isPending || approvalQuery.isLoading}
-              >
-                <span className="truncate">{approvalLabel}</span>
-                <ChevronDown className="size-3.5 opacity-60" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto">
-              <DropdownMenuRadioGroup
-                value={toCliRadio(row.approvalPolicyId)}
-                onValueChange={(value) =>
-                  updateMutation.mutate(currentPatch({ approvalPolicyId: fromCliRadio(value) }))
-                }
-              >
-                <DropdownMenuRadioItem value={DEFAULT_CLI_OPTION_VALUE}>
-                  Default (CLI)
-                </DropdownMenuRadioItem>
-                {approvalOptions.map((option) => (
-                  <DropdownMenuRadioItem key={option.id} value={option.id}>
-                    {option.label}
+        {showApproval ? (
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Approval</Label>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-full justify-between gap-1.5 text-xs font-normal"
+                  disabled={updateMutation.isPending || approvalQuery.isLoading}
+                >
+                  <span className="truncate">{approvalLabel}</span>
+                  <ChevronDown className="size-3.5 opacity-60" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto">
+                <DropdownMenuRadioGroup
+                  value={toCliRadio(row.approvalPolicyId)}
+                  onValueChange={(value) =>
+                    updateMutation.mutate(currentPatch({ approvalPolicyId: fromCliRadio(value) }))
+                  }
+                >
+                  <DropdownMenuRadioItem value={DEFAULT_CLI_OPTION_VALUE}>
+                    Default (CLI)
                   </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+                  {approvalOptions.map((option) => (
+                    <DropdownMenuRadioItem key={option.id} value={option.id}>
+                      {option.label}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        ) : null}
       </div>
     </div>
   )
@@ -331,8 +350,9 @@ export function ModeRuntimeDefaultsCard(): React.JSX.Element {
       <CardHeader>
         <CardTitle>Mode defaults</CardTitle>
         <CardDescription>
-          Choose agent, model, context size, reasoning effort, and approval policy for each chat
-          mode. New chats and mode switches use these defaults.
+          Choose agent, model, context size, and (for Codex) reasoning effort and approval policy
+          for each chat mode. Codex pairs look like “5.6 Terra Medium” — model plus reasoning. New
+          chats and mode switches use these defaults.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">

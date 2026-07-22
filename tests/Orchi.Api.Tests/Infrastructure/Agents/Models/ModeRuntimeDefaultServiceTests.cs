@@ -44,7 +44,7 @@ public class ModeRuntimeDefaultServiceTests
         IModeRuntimeDefaultService service = provider.GetRequiredService<IModeRuntimeDefaultService>();
         IAgentModelCatalogService catalog = provider.GetRequiredService<IAgentModelCatalogService>();
 
-        await catalog.AddManualAsync("cursor", "gpt-5.3-codex", CancellationToken.None);
+        await catalog.AddManualAsync("cursor", "gpt-5.3-codex", label: null, CancellationToken.None);
 
         Result<ModeRuntimeDefaultDto> updated = await service.UpdateAsync(
             AgentModeIds.Implementation,
@@ -112,7 +112,7 @@ public class ModeRuntimeDefaultServiceTests
         IModeRuntimeDefaultService service = provider.GetRequiredService<IModeRuntimeDefaultService>();
         IAgentModelCatalogService catalog = provider.GetRequiredService<IAgentModelCatalogService>();
 
-        await catalog.AddManualAsync("codex", "composer-2.5-fast", CancellationToken.None);
+        await catalog.AddManualAsync("codex", "composer-2.5-fast", label: null, CancellationToken.None);
         await service.UpdateAsync(
             AgentModeIds.Review,
             "codex",
@@ -183,7 +183,7 @@ public class ModeRuntimeDefaultServiceTests
     }
 
     [Fact]
-    public async Task ApplyEnabledAgentsAsync_SeedAllModes_WritesPreferredAgentsWithNullModels()
+    public async Task ApplyEnabledAgentsAsync_SeedAllModes_WritesPreferredAgentsWithCodexDefaults()
     {
         await using ServiceProvider provider = BuildProvider();
         IModeRuntimeDefaultService service = provider.GetRequiredService<IModeRuntimeDefaultService>();
@@ -194,7 +194,8 @@ public class ModeRuntimeDefaultServiceTests
             await service.ListAsync(CancellationToken.None);
 
         Assert.All(defaults, dto => Assert.Equal("codex", dto.AgentId));
-        Assert.All(defaults, dto => Assert.Null(dto.ModelId));
+        Assert.All(defaults, dto => Assert.Equal("gpt-5.6-terra", dto.ModelId));
+        Assert.All(defaults, dto => Assert.Equal("medium", dto.ReasoningEffortId));
         Assert.All(defaults, dto => Assert.Null(dto.ContextSizeId));
     }
 
@@ -205,7 +206,7 @@ public class ModeRuntimeDefaultServiceTests
         IModeRuntimeDefaultService service = provider.GetRequiredService<IModeRuntimeDefaultService>();
         IAgentModelCatalogService catalog = provider.GetRequiredService<IAgentModelCatalogService>();
 
-        await catalog.AddManualAsync("cursor", "claude-4.6-sonnet-medium-thinking", CancellationToken.None);
+        await catalog.AddManualAsync("cursor", "claude-4.6-sonnet-medium-thinking", label: null, CancellationToken.None);
         await service.UpdateAsync(
             AgentModeIds.Default,
             "cursor",

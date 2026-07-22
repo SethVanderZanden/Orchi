@@ -1,9 +1,7 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
-import { AgentModelsCard } from '@/components/settings/agent-models-card'
-import { AgentContextSizesCard } from '@/components/settings/agent-context-sizes-card'
-import { AgentCliOptionsCard } from '@/components/settings/agent-cli-options-card'
+import { AgentSettingsSection } from '@/components/settings/agent-settings-section'
 import { AutoKickOffReviewCard } from '@/components/settings/auto-kick-off-review-card'
 import { EnabledAgentsCard } from '@/components/settings/enabled-agents-card'
 import { ModeRuntimeDefaultsCard } from '@/components/settings/mode-runtime-defaults-card'
@@ -79,20 +77,7 @@ function SettingsPage(): React.JSX.Element {
               <EnabledAgentsCard />
               <ModeRuntimeDefaultsCard />
               {agents.map((agent) => (
-                <div key={agent.id} className="flex flex-col gap-8">
-                  <AgentModelsCard agentId={agent.id} agentLabel={agent.label} />
-                  <AgentContextSizesCard agentId={agent.id} agentLabel={agent.label} />
-                  <AgentCliOptionsCard
-                    agentId={agent.id}
-                    agentLabel={agent.label}
-                    kind="model_reasoning_effort"
-                  />
-                  <AgentCliOptionsCard
-                    agentId={agent.id}
-                    agentLabel={agent.label}
-                    kind="approval_policy"
-                  />
-                </div>
+                <AgentSettingsSection key={agent.id} agentId={agent.id} agentLabel={agent.label} />
               ))}
             </TabsContent>
 
