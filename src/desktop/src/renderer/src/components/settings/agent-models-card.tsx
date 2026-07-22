@@ -109,8 +109,9 @@ export function AgentModelsCard({ agentId, agentLabel }: AgentModelsCardProps): 
         <div className="space-y-1">
           <CardTitle className="text-base">{agentLabel ?? agentId} models</CardTitle>
           <CardDescription>
-            Sync models from the CLI when available, choose which appear in chat, add manual slugs,
-            or remove models you do not need.
+            {supportsSync
+              ? 'Sync models from the CLI when available, choose which appear in chat, add manual slugs, or remove models you do not need.'
+              : 'Choose which models appear in chat, add manual slugs, or remove models you do not need.'}
           </CardDescription>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -126,15 +127,17 @@ export function AgentModelsCard({ agentId, agentLabel }: AgentModelsCardProps): 
               <ExternalLink className="size-3.5 opacity-70" />
             </Button>
           ) : null}
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={isBusy}
-            onClick={() => syncMutation.mutate()}
-          >
-            <RefreshCw className={cnIcon(syncMutation.isPending)} />
-            Sync now
-          </Button>
+          {supportsSync ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={isBusy}
+              onClick={() => syncMutation.mutate()}
+            >
+              <RefreshCw className={cnIcon(syncMutation.isPending)} />
+              Sync now
+            </Button>
+          ) : null}
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -209,7 +212,7 @@ export function AgentModelsCard({ agentId, agentLabel }: AgentModelsCardProps): 
             id={`manual-model-slug-${agentId}`}
             value={manualSlug}
             onChange={(event) => setManualSlug(event.target.value)}
-            placeholder="e.g. claude-sonnet-4"
+            placeholder={strategy.manualModelPlaceholder}
             disabled={isBusy}
           />
           <div className="flex justify-end">

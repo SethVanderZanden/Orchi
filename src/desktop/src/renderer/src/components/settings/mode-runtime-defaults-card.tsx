@@ -83,13 +83,15 @@ function ModeDefaultRow({
   const reasoningQuery = useQuery({
     queryKey: agentKeys.cliOptions(row.agentId, 'model_reasoning_effort', false),
     queryFn: () => listAgentCliOptions(row.agentId, 'model_reasoning_effort', false),
-    staleTime: ONE_HOUR_MS
+    staleTime: ONE_HOUR_MS,
+    enabled: resolveAgentSettingsStrategy(row.agentId).capabilities.has('reasoningEffort')
   })
 
   const approvalQuery = useQuery({
     queryKey: agentKeys.cliOptions(row.agentId, 'approval_policy', false),
     queryFn: () => listAgentCliOptions(row.agentId, 'approval_policy', false),
-    staleTime: ONE_HOUR_MS
+    staleTime: ONE_HOUR_MS,
+    enabled: resolveAgentSettingsStrategy(row.agentId).capabilities.has('approvalPolicy')
   })
 
   const updateMutation = useMutation({
