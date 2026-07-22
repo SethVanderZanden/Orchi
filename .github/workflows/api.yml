@@ -1,0 +1,29 @@
+name: API
+
+on:
+  push:
+    paths:
+      - 'src/API/**'
+      - 'tests/Orchi.Api.Tests/**'
+      - 'Orchi.slnx'
+      - '.github/workflows/api.yml'
+  pull_request:
+    paths:
+      - 'src/API/**'
+      - 'tests/Orchi.Api.Tests/**'
+      - 'Orchi.slnx'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          cache: true
+          cache-dependency-path: |
+            **/*.csproj
+      - run: dotnet restore Orchi.slnx
+      - run: dotnet build Orchi.slnx --no-restore
+      - run: dotnet test tests/Orchi.Api.Tests --no-build --verbosity normal

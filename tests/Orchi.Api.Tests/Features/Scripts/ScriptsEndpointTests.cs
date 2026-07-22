@@ -70,13 +70,16 @@ public class ScriptsEndpointTests : IClassFixture<TestWebApplicationFactory>, IA
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
-        ScriptResponse? script = await response.Content.ReadFromJsonAsync<ScriptResponse>();
-        Assert.NotNull(script);
-        Assert.Contains("git.commit", script.StepsJson, StringComparison.Ordinal);
-        Assert.Contains("git.push", script.StepsJson, StringComparison.Ordinal);
-        Assert.Contains("git.createPullRequest", script.StepsJson, StringComparison.Ordinal);
-        Assert.Equal("agentFinish", script.Bindings[0].Event);
-        Assert.Equal("implementation", script.Bindings[0].ModeFilter);
+        ScriptResponse[]? scripts = await response.Content.ReadFromJsonAsync<ScriptResponse[]>();
+        Assert.NotNull(scripts);
+        Assert.Equal(2, scripts.Length);
+
+        ScriptResponse finishScript = scripts[1];
+        Assert.Contains("git.commit", finishScript.StepsJson, StringComparison.Ordinal);
+        Assert.Contains("git.push", finishScript.StepsJson, StringComparison.Ordinal);
+        Assert.Contains("git.createPullRequest", finishScript.StepsJson, StringComparison.Ordinal);
+        Assert.Equal("agentFinish", finishScript.Bindings[0].Event);
+        Assert.Equal("implementation", finishScript.Bindings[0].ModeFilter);
     }
 
     [Fact]
