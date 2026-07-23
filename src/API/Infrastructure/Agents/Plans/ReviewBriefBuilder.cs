@@ -84,6 +84,16 @@ public static partial class ReviewBriefBuilder
         return $"branch-{slug}";
     }
 
+    public static string ToBranchReviewWorktreeId(string reviewId, Guid uniqueSuffix)
+    {
+        string candidate = $"{reviewId}-{uniqueSuffix:N}";
+        return candidate.Length <= MaxWorktreeIdLength
+            ? candidate
+            : candidate[..MaxWorktreeIdLength];
+    }
+
+    public const int MaxWorktreeIdLength = 48;
+
     [GeneratedRegex(@"[^a-z0-9]+")]
     private static partial Regex InvalidPlanIdChars();
 }

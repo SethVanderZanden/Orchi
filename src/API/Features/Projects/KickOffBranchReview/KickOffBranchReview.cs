@@ -69,7 +69,7 @@ public static class KickOffBranchReview
                 }
 
                 string reviewId = ReviewBriefBuilder.ToBranchReviewId(headBranch);
-                string worktreeId = $"{reviewId}-{Guid.NewGuid():N}"[..48];
+                string worktreeId = ReviewBriefBuilder.ToBranchReviewWorktreeId(reviewId, Guid.NewGuid());
 
                 GitWorktreeCreateResult worktree = await gitWorkspaceService.CreateWorktreeForExistingBranchAsync(
                     primary.Path,
