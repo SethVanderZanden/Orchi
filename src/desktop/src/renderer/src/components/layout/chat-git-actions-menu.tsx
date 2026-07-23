@@ -1,9 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronDown, GitCommit } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { BranchReviewDialog } from '@/components/layout/branch-review-dialog'
 import { GitCommitDialog } from '@/components/layout/git-commit-dialog'
 import { GitPullRequestDialog } from '@/components/layout/git-pull-request-dialog'
 import { Button } from '@/components/ui/button'
@@ -13,7 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
-import { OPEN_BRANCH_REVIEW_EVENT } from '@/lib/branch-review/events'
+import { requestOpenBranchReview } from '@/lib/branch-review/events'
 import { getGitHostReadiness } from '@/lib/git/api'
 import {
   getCreatePullRequestDisabledReason,
@@ -32,7 +31,7 @@ type ChatGitActionsMenuProps = {
   workspaceBranch: string | null
 }
 
-type ActiveDialog = 'commit' | 'pullRequest' | 'branchReview' | null
+type ActiveDialog = 'commit' | 'pullRequest' | null
 
 export function ChatGitActionsMenu({
   chatId,
@@ -64,21 +63,6 @@ export function ChatGitActionsMenu({
     readiness: readinessQuery.data
   })
 
-  useEffect(() => {
-    function handleOpenBranchReview(): void {
-      if (!projectId) {
-        toast.error('Open a project chat to review a branch.')
-        return
-      }
-
-      setError(null)
-      setActiveDialog('branchReview')
-    }
-
-    window.addEventListener(OPEN_BRANCH_REVIEW_EVENT, handleOpenBranchReview)
-    return () => window.removeEventListener(OPEN_BRANCH_REVIEW_EVENT, handleOpenBranchReview)
-  }, [projectId])
-
   function openCommitDialog(mode: GitCommitDialogMode): void {
     setError(null)
     setCommitMode(mode)
@@ -96,11 +80,12 @@ export function ChatGitActionsMenu({
 
   function openBranchReviewDialog(): void {
     if (!projectId) {
+      toast.error('Open a project chat to review a branch.')
       return
     }
 
     setError(null)
-    setActiveDialog('branchReview')
+    requestOpenBranchReview({ projectId })
   }
 
   function handleGitSuccess(message: string): void {
@@ -189,18 +174,6 @@ export function ChatGitActionsMenu({
           gitHostProvider={gitHostProvider}
           headBranch={workspaceBranch}
           onSuccess={handlePullRequestSuccess}
-          onError={handleGitError}
-        />
-      ) : null}
-
-      {projectId ? (
-        <BranchReviewDialog
-          open={activeDialog === 'branchReview'}
-          onOpenChange={(open) => setActiveDialog(open ? 'branchReview' : null)}
-          projectId={projectId}
-          defaultBaseBranch={defaultBaseBranch}
-          preferredHeadBranch={workspaceBranch}
-          onSuccess={handleGitSuccess}
           onError={handleGitError}
         />
       ) : null}

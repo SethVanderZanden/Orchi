@@ -1,4 +1,4 @@
-import { ChevronDown, Columns2, FileText, Trash2, X } from 'lucide-react'
+import { ChevronDown, Columns2, FileText, GitBranch, Trash2, X } from 'lucide-react'
 
 import { ShortcutHint } from '@/components/app-header/shortcut-hint'
 import { ChatGitActionsMenu } from '@/components/layout/chat-git-actions-menu'
@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { PageHeader } from '@/components/ui/page-header'
+import { requestOpenBranchReview } from '@/lib/branch-review/events'
 import type { ChatThread } from '@/lib/chat/types'
 import type { GitHostProvider } from '@/lib/git/types'
 
@@ -98,6 +99,28 @@ export function ChatWorkspaceHeader({
       endContent={
         <>
           <OpenInEditorMenu workspacePath={workspacePath} />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5 px-3 text-sm font-normal"
+            disabled={projectId == null}
+            title={
+              projectId == null
+                ? 'Assign a project to review a branch.'
+                : 'Compare two branches and start a review chat'
+            }
+            aria-label="Review branch"
+            onClick={() => {
+              if (!projectId) {
+                return
+              }
+              requestOpenBranchReview({ projectId })
+            }}
+          >
+            <GitBranch className="size-3.5" />
+            Review branch
+          </Button>
           <ChatGitActionsMenu
             chatId={chatId}
             projectId={projectId}

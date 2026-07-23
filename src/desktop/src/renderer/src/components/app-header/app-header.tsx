@@ -3,6 +3,7 @@ import { useMatch, useNavigate } from '@tanstack/react-router'
 import {
   ChevronDown,
   FolderPlus,
+  GitBranch,
   MessageSquare,
   MoreHorizontal,
   Search,
@@ -24,6 +25,7 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { useAppShortcuts } from '@/hooks/use-app-shortcuts'
+import { requestOpenBranchReview } from '@/lib/branch-review/events'
 import { getRecentChats } from '@/lib/chat-finder/build-chat-finder-groups'
 import { cn } from '@/lib/utils'
 import { useChat } from '@/providers/chat-context'
@@ -34,12 +36,15 @@ export function AppHeader(): React.JSX.Element {
   const navigate = useNavigate()
   const settingsMatch = useMatch({ from: '/_app/settings', shouldThrow: false })
   const isSettingsActive = Boolean(settingsMatch)
-  const { createAndOpenTab, openChat, isCreatingTab, finderOpen, setFinderOpen } = useChatTabs()
-  const { chats, getChatStatusVariant } = useChat()
-  const { addProject, pickDirectory, isPendingProjects } = useProjects()
+  const { activeTabId, createAndOpenTab, openChat, isCreatingTab, finderOpen, setFinderOpen } =
+    useChatTabs()
+  const { chats, getChat, getChatStatusVariant } = useChat()
+  const { addProject, pickDirectory, isPendingProjects, projects } = useProjects()
   const [isAddingProject, setIsAddingProject] = useState(false)
 
   const recentChats = getRecentChats(chats)
+  const activeChat = activeTabId ? getChat(activeTabId) : null
+  const canReviewBranch = Boolean(activeChat?.projectId) || projects.length === 1
 
   useAppShortcuts()
 
@@ -153,6 +158,22 @@ export function AppHeader(): React.JSX.Element {
               >
                 <FolderPlus className="size-4" />
                 Add project
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={!canReviewBranch}
+                title={
+                  canReviewBranch
+                    ? 'Compare two branches and start a review chat'
+                    : 'Open a project chat to review a branch.'
+                }
+                onClick={() =>
+                  requestOpenBranchReview(
+                    activeChat?.projectId ? { projectId: activeChat.projectId } : undefined
+                  )
+                }
+              >
+                <GitBranch className="size-4" />
+                Review branch…
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
