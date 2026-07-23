@@ -28,10 +28,7 @@ internal sealed class CursorAgentLaunchResolverService(
             return new AgentLaunchResolveResult(false, null, result.ErrorMessage);
         }
 
-        return new AgentLaunchResolveResult(
-            true,
-            new AgentLaunchSpec(result.Launch.ExecutablePath, result.Launch.EntryScript),
-            null);
+        return new AgentLaunchResolveResult(true, result.Launch, null);
     }
 
     private static string BuildExecutableConfigFingerprint(CursorAgentOptions config)

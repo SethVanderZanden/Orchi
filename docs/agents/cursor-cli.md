@@ -52,7 +52,7 @@ Prefer the **node bundle** or **`agent.exe`** over `.cmd`/`.ps1` wrappers — th
 
 - Optional: add custom search directories via `AdditionalSearchPaths`
 
-Implementation: `src/API/Infrastructure/Agents/Cursor/CursorAgentExecutableResolver.cs`
+Implementation: `AgentCliPathLocator` (shared PATH lookup) + `src/API/Infrastructure/Agents/Cursor/CursorAgentExecutableResolver.cs`
 
 ## Spawn command
 
