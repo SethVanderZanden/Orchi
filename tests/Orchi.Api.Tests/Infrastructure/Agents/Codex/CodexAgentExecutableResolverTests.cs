@@ -108,6 +108,49 @@ public class CodexAgentExecutableResolverTests
     }
 
     [Fact]
+    public void Resolve_PrefersPathCmdOverNestedNpmVendorBinary()
+    {
+        // Regression: digging into @openai/codex-win32-*/vendor/.../codex.exe produced
+        // MAX_PATH failures ("The filename or extension is too long") with deep worktrees.
+        string tempDirectory = CreateTempDirectory();
+        string cmdPath = Path.Combine(tempDirectory, "codex.cmd");
+        string nestedVendorExe = Path.Combine(
+            tempDirectory,
+            "node_modules",
+            "@openai",
+            "codex",
+            "node_modules",
+            "@openai",
+            "codex-win32-x64",
+            "vendor",
+            "x86_64-pc-windows-msvc",
+            "bin",
+            "codex.exe");
+        Directory.CreateDirectory(Path.GetDirectoryName(nestedVendorExe)!);
+        File.WriteAllText(cmdPath, "@echo off");
+        File.WriteAllText(nestedVendorExe, string.Empty);
+
+        var environment = new FakeExecutableEnvironment
+        {
+            IsWindows = true,
+            PathDirectories = { tempDirectory },
+            ExistingFiles = { cmdPath, nestedVendorExe }
+        };
+
+        var options = new CodexAgentOptions { Executable = "codex" };
+
+        CodexAgentExecutableResolver.ResolveResult result =
+            CodexAgentExecutableResolver.Resolve(options, environment);
+
+        Assert.True(result.Success);
+        Assert.NotNull(result.Launch);
+        Assert.Equal(cmdPath, result.Launch.ExecutablePath);
+        Assert.True(result.Launch.UsesCmdShim);
+        Assert.DoesNotContain("vendor", result.Launch.ExecutablePath, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("codex-win32", result.Launch.ExecutablePath, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void Resolve_PrefersNativeExeOverNpmNodeBundle()
     {
         string tempDirectory = CreateTempDirectory();
@@ -194,10 +237,10 @@ public class CodexAgentExecutableResolverTests
     }
 
     [Fact]
-    public void Resolve_PrefersNpmPlatformNativeBinaryOverNodeBundle()
+    public void Resolve_DoesNotPreferNestedNpmPlatformBinaryOverPathCmd()
     {
         string tempDirectory = CreateTempDirectory();
-        string nodePath = Path.Combine(tempDirectory, "node.exe");
+        string cmdPath = Path.Combine(tempDirectory, "codex.cmd");
         string nativeExePath = Path.Combine(
             tempDirectory,
             "node_modules",
@@ -217,7 +260,7 @@ public class CodexAgentExecutableResolverTests
             "codex.js");
         Directory.CreateDirectory(Path.GetDirectoryName(nativeExePath)!);
         Directory.CreateDirectory(Path.GetDirectoryName(codexJsPath)!);
-        File.WriteAllText(nodePath, string.Empty);
+        File.WriteAllText(cmdPath, "@echo off");
         File.WriteAllText(nativeExePath, string.Empty);
         File.WriteAllText(codexJsPath, string.Empty);
 
@@ -225,7 +268,7 @@ public class CodexAgentExecutableResolverTests
         {
             IsWindows = true,
             PathDirectories = { tempDirectory },
-            ExistingFiles = { nodePath, nativeExePath, codexJsPath }
+            ExistingFiles = { cmdPath, nativeExePath, codexJsPath }
         };
 
         var options = new CodexAgentOptions { Executable = "codex" };
@@ -235,8 +278,9 @@ public class CodexAgentExecutableResolverTests
 
         Assert.True(result.Success);
         Assert.NotNull(result.Launch);
-        Assert.Equal(nativeExePath, result.Launch.ExecutablePath);
+        Assert.Equal(cmdPath, result.Launch.ExecutablePath);
         Assert.Null(result.Launch.EntryScript);
+        Assert.True(result.Launch.UsesCmdShim);
     }
 
     [Fact]
