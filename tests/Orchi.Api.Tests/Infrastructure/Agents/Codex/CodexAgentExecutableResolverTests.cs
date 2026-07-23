@@ -108,7 +108,174 @@ public class CodexAgentExecutableResolverTests
     }
 
     [Fact]
-    public void Resolve_PrefersNpmNodeBundleOverCmdShim()
+    public void Resolve_PrefersNativeExeOverNpmNodeBundle()
+    {
+        string tempDirectory = CreateTempDirectory();
+        string nodePath = Path.Combine(tempDirectory, "node.exe");
+        string codexExePath = Path.Combine(tempDirectory, "codex.exe");
+        string codexJsPath = Path.Combine(
+            tempDirectory,
+            "node_modules",
+            "@openai",
+            "codex",
+            "bin",
+            "codex.js");
+        string cmdPath = Path.Combine(tempDirectory, "codex.cmd");
+        Directory.CreateDirectory(Path.GetDirectoryName(codexJsPath)!);
+        File.WriteAllText(nodePath, string.Empty);
+        File.WriteAllText(codexExePath, string.Empty);
+        File.WriteAllText(codexJsPath, string.Empty);
+        File.WriteAllText(cmdPath, string.Empty);
+
+        var environment = new FakeExecutableEnvironment
+        {
+            IsWindows = true,
+            PathDirectories = { tempDirectory },
+            ExistingFiles = { nodePath, codexExePath, codexJsPath, cmdPath }
+        };
+
+        var options = new CodexAgentOptions { Executable = "codex" };
+
+        CodexAgentExecutableResolver.ResolveResult result =
+            CodexAgentExecutableResolver.Resolve(options, environment);
+
+        Assert.True(result.Success);
+        Assert.NotNull(result.Launch);
+        Assert.Equal(codexExePath, result.Launch.ExecutablePath);
+        Assert.Null(result.Launch.EntryScript);
+        Assert.Equal("direct", result.Launch.LaunchKind);
+    }
+
+    [Fact]
+    public void Resolve_WindowsStandaloneInstaller_UsesLocalAppDataProgramsPath()
+    {
+        string tempDirectory = CreateTempDirectory();
+        string binDirectory = Path.Combine(tempDirectory, "Programs", "OpenAI", "Codex", "bin");
+        Directory.CreateDirectory(binDirectory);
+        string exePath = Path.Combine(binDirectory, "codex.exe");
+        File.WriteAllText(exePath, string.Empty);
+
+        // Stale npm node-bundle under Program Files should not win over the standalone installer.
+        string nodejsDirectory = Path.Combine(tempDirectory, "nodejs");
+        string nodePath = Path.Combine(nodejsDirectory, "node.exe");
+        string codexJsPath = Path.Combine(
+            nodejsDirectory,
+            "node_modules",
+            "@openai",
+            "codex",
+            "bin",
+            "codex.js");
+        Directory.CreateDirectory(Path.GetDirectoryName(codexJsPath)!);
+        File.WriteAllText(nodePath, string.Empty);
+        File.WriteAllText(codexJsPath, string.Empty);
+
+        var environment = new FakeExecutableEnvironment
+        {
+            IsWindows = true,
+            EnvironmentVariables =
+            {
+                ["LOCALAPPDATA"] = tempDirectory,
+                ["ProgramFiles"] = tempDirectory
+            },
+            ExistingFiles = { exePath, nodePath, codexJsPath },
+            ExistingDirectories = { binDirectory, nodejsDirectory }
+        };
+
+        var options = new CodexAgentOptions { Executable = "codex" };
+
+        CodexAgentExecutableResolver.ResolveResult result =
+            CodexAgentExecutableResolver.Resolve(options, environment);
+
+        Assert.True(result.Success);
+        Assert.NotNull(result.Launch);
+        Assert.Equal(exePath, result.Launch.ExecutablePath);
+        Assert.Null(result.Launch.EntryScript);
+        Assert.Equal("direct", result.Launch.LaunchKind);
+    }
+
+    [Fact]
+    public void Resolve_PrefersNpmPlatformNativeBinaryOverNodeBundle()
+    {
+        string tempDirectory = CreateTempDirectory();
+        string nodePath = Path.Combine(tempDirectory, "node.exe");
+        string nativeExePath = Path.Combine(
+            tempDirectory,
+            "node_modules",
+            "@openai",
+            "codex",
+            "node_modules",
+            "@openai",
+            "codex-win32-x64",
+            "bin",
+            "codex.exe");
+        string codexJsPath = Path.Combine(
+            tempDirectory,
+            "node_modules",
+            "@openai",
+            "codex",
+            "bin",
+            "codex.js");
+        Directory.CreateDirectory(Path.GetDirectoryName(nativeExePath)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(codexJsPath)!);
+        File.WriteAllText(nodePath, string.Empty);
+        File.WriteAllText(nativeExePath, string.Empty);
+        File.WriteAllText(codexJsPath, string.Empty);
+
+        var environment = new FakeExecutableEnvironment
+        {
+            IsWindows = true,
+            PathDirectories = { tempDirectory },
+            ExistingFiles = { nodePath, nativeExePath, codexJsPath }
+        };
+
+        var options = new CodexAgentOptions { Executable = "codex" };
+
+        CodexAgentExecutableResolver.ResolveResult result =
+            CodexAgentExecutableResolver.Resolve(options, environment);
+
+        Assert.True(result.Success);
+        Assert.NotNull(result.Launch);
+        Assert.Equal(nativeExePath, result.Launch.ExecutablePath);
+        Assert.Null(result.Launch.EntryScript);
+    }
+
+    [Fact]
+    public void Resolve_UsesNpmNodeBundleWhenOnlyNodeBundleExists()
+    {
+        string tempDirectory = CreateTempDirectory();
+        string nodePath = Path.Combine(tempDirectory, "node.exe");
+        string codexJsPath = Path.Combine(
+            tempDirectory,
+            "node_modules",
+            "@openai",
+            "codex",
+            "bin",
+            "codex.js");
+        Directory.CreateDirectory(Path.GetDirectoryName(codexJsPath)!);
+        File.WriteAllText(nodePath, string.Empty);
+        File.WriteAllText(codexJsPath, string.Empty);
+
+        var environment = new FakeExecutableEnvironment
+        {
+            IsWindows = true,
+            PathDirectories = { tempDirectory },
+            ExistingFiles = { nodePath, codexJsPath }
+        };
+
+        var options = new CodexAgentOptions { Executable = "codex" };
+
+        CodexAgentExecutableResolver.ResolveResult result =
+            CodexAgentExecutableResolver.Resolve(options, environment);
+
+        Assert.True(result.Success);
+        Assert.NotNull(result.Launch);
+        Assert.Equal(nodePath, result.Launch.ExecutablePath);
+        Assert.Equal(codexJsPath, result.Launch.EntryScript);
+        Assert.Equal("node-bundle", result.Launch.LaunchKind);
+    }
+
+    [Fact]
+    public void Resolve_CmdShim_PreferredOverNpmNodeBundle()
     {
         string tempDirectory = CreateTempDirectory();
         string nodePath = Path.Combine(tempDirectory, "node.exe");
@@ -139,9 +306,10 @@ public class CodexAgentExecutableResolverTests
 
         Assert.True(result.Success);
         Assert.NotNull(result.Launch);
-        Assert.Equal(nodePath, result.Launch.ExecutablePath);
-        Assert.Equal(codexJsPath, result.Launch.EntryScript);
-        Assert.Equal("node-bundle", result.Launch.LaunchKind);
+        Assert.Equal(cmdPath, result.Launch.ExecutablePath);
+        Assert.Null(result.Launch.EntryScript);
+        Assert.True(result.Launch.UsesCmdShim);
+        Assert.Equal("cmd-shim", result.Launch.LaunchKind);
     }
 
     [Fact]
@@ -186,6 +354,7 @@ public class CodexAgentExecutableResolverTests
         Assert.Null(result.Launch);
         Assert.Contains("Unable to locate Codex CLI executable", result.ErrorMessage, StringComparison.Ordinal);
         Assert.Contains("restart the Orchi API", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("OpenAI\\Codex\\bin\\codex.exe", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

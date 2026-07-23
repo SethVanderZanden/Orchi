@@ -127,11 +127,14 @@ internal sealed class AgentCliTurnProcessor(ILogger<AgentCliTurnProcessor> logge
         catch (Exception ex)
         {
             logger.LogError(ex, "Unable to start {Agent} for chat {ChatId}", displayName, chatId);
+            string detail = string.IsNullOrWhiteSpace(ex.Message) ? ex.GetType().Name : ex.Message.Trim();
             return new ProcessStartResult(
                 null,
                 new AgentErrorEvent(
                     "Agent.StartFailed",
-                    $"Unable to start {displayName} CLI ('{executablePath}'). Ensure it is installed and accessible."));
+                    $"Unable to start {displayName} CLI ('{executablePath}'): {detail}. " +
+                    "Ensure it is installed and accessible, the chat workspace path exists, " +
+                    "and restart the Orchi API after installing or updating the CLI."));
         }
     }
 
