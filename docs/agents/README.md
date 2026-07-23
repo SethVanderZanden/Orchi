@@ -201,7 +201,7 @@ The orchestration parent highlights review-ready plan cards and opens the review
 
 You can also shoot off a review for any branch against another branch (pull-request style), without an implementation child:
 
-1. Desktop: **Git → Review branch…** (or finder command **Review branch**)
+1. Desktop: **Review branch** in the chat header (also **⋯ → Review branch…**, Git overflow **Review branch…**, or Finder **Review branch**)
 2. API: `POST /projects/{projectId}/reviews/from-branches` with `{ headBranch, baseBranch?, fetch? }`
 3. Orchi optionally runs `git fetch --prune --all`, lists branches via `GET /projects/{id}/branches?fetch=true`, creates a worktree on the head branch, writes `.orchi/review-branch-*.md`, opens a `review` chat, and the desktop auto-sends `Begin review.`
 

@@ -150,8 +150,8 @@ export function BranchReviewDialog({
         <DialogHeader>
           <DialogTitle>Review branch</DialogTitle>
           <DialogDescription>
-            Fetch branches, pick a head branch to review against a base, and Orchi opens a review
-            chat with the branch diff.
+            Pick a head branch and base branch. Orchi opens a review chat with the branch-to-branch
+            git diff (PR-style).
           </DialogDescription>
         </DialogHeader>
 

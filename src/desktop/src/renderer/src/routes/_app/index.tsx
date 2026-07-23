@@ -1,10 +1,11 @@
 import { createFileRoute, Navigate } from '@tanstack/react-router'
-import { FolderPlus, MessageSquare, Plus } from 'lucide-react'
+import { FolderPlus, GitBranch, MessageSquare, Plus } from 'lucide-react'
 
 import { ShortcutHint } from '@/components/app-header/shortcut-hint'
 import { ChatStatusDot } from '@/components/chat/chat-status-dot'
 import { EmptyState } from '@/components/empty-state'
 import { Button } from '@/components/ui/button'
+import { requestOpenBranchReview } from '@/lib/branch-review/events'
 import type { ChatStatusVariant } from '@/lib/chat/chat-status-variant'
 import type { ChatThread } from '@/lib/chat/types'
 import { getRecentChats } from '@/lib/chat-finder/build-chat-finder-groups'
@@ -71,11 +72,22 @@ function AppIndexPage(): React.JSX.Element {
         <Plus className="size-4" />
         New chat
       </Button>
+      {projects.length === 1 ? (
+        <Button
+          type="button"
+          variant="outline"
+          className="gap-1.5"
+          onClick={() => requestOpenBranchReview({ projectId: projects[0]?.id })}
+        >
+          <GitBranch className="size-4" />
+          Review branch
+        </Button>
+      ) : null}
       <div className="flex w-full max-w-xs flex-col gap-1.5 text-left text-sm">
         <ShortcutRow label="New chat tab" shortcut="Ctrl+N" />
         <ShortcutRow label="Agents board" shortcut="Ctrl+B" />
         <ShortcutRow label="Open chat beside" shortcut="Ctrl+ArrowRight" />
-        <ShortcutRow label="Find chat" shortcut="Ctrl+P" />
+        <ShortcutRow label="Find chat / Review branch" shortcut="Ctrl+P" />
       </div>
       {recentChats.length > 0 ? (
         <div className="mt-1 flex w-full max-w-sm flex-col gap-1 text-left">

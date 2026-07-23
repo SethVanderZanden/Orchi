@@ -14,7 +14,7 @@ export function useFinderCommands(onComplete: () => void): AppFinderCommand[] {
   const navigate = useNavigate()
   const { getChat } = useChat()
   const { preferredEditor } = usePreferredEditor()
-  const { addProject, pickDirectory, isPendingProjects } = useProjects()
+  const { addProject, pickDirectory, isPendingProjects, projects } = useProjects()
   const {
     activeTabId,
     pinnedTabIds,
@@ -97,9 +97,25 @@ export function useFinderCommands(onComplete: () => void): AppFinderCommand[] {
       {
         id: 'review-branch',
         label: 'Review branch',
-        keywords: ['review', 'branch', 'pr', 'pull', 'request', 'git', 'diff'],
-        disabled: !activeChat?.projectId,
-        onSelect: () => complete(() => requestOpenBranchReview())
+        keywords: [
+          'review',
+          'branch',
+          'compare',
+          'diff',
+          'pr',
+          'pull',
+          'request',
+          'git',
+          'base',
+          'head'
+        ],
+        disabled: !activeChat?.projectId && projects.length !== 1,
+        onSelect: () =>
+          complete(() =>
+            requestOpenBranchReview(
+              activeChat?.projectId ? { projectId: activeChat.projectId } : undefined
+            )
+          )
       },
       {
         id: 'close-tab',
@@ -215,6 +231,7 @@ export function useFinderCommands(onComplete: () => void): AppFinderCommand[] {
     parentChatId,
     pickDirectory,
     preferredEditor,
+    projects.length,
     splitTabId,
     togglePin,
     unpinnedOpenTabCount

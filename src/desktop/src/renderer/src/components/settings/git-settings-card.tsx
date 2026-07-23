@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
+import { requestOpenBranchReview } from '@/lib/branch-review/events'
 import { getDefaultWorkspace } from '@/lib/projects/group-chats'
 import { listProjectBranches } from '@/lib/projects/api'
 import type { GitHostProvider } from '@/lib/projects/types'
@@ -153,9 +154,21 @@ function ProjectGitSettings({
     <div className="space-y-3 rounded-lg border p-3">
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm font-medium">{name}</p>
-        {readiness ? (
-          <Badge variant={readinessVariant(readiness.status)}>{readiness.status}</Badge>
-        ) : null}
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 gap-1.5 px-2 text-xs font-normal"
+            onClick={() => requestOpenBranchReview({ projectId })}
+          >
+            <GitBranch className="size-3.5" />
+            Review branch
+          </Button>
+          {readiness ? (
+            <Badge variant={readinessVariant(readiness.status)}>{readiness.status}</Badge>
+          ) : null}
+        </div>
       </div>
       {readiness ? <p className="text-xs text-muted-foreground">{readiness.message}</p> : null}
 
