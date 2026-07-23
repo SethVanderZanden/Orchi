@@ -1,17 +1,20 @@
-import { app, shell, BrowserWindow, dialog, ipcMain, nativeTheme } from 'electron'
+import { app, shell, BrowserWindow, dialog, ipcMain, nativeTheme, screen } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { getApiBaseUrl, startApiHost, stopApiHost } from './api-host'
 import { openInEditor, type EditorId } from './open-in-editor'
 import { BeforeQuitState, createDefaultShutdownDeps, handleBeforeQuit } from './shutdown'
+import { getDefaultWindowSize } from './window-size'
 
 const shutdownState = { current: BeforeQuitState.NotStarted }
 
 function createWindow(): void {
+  const { width, height } = getDefaultWindowSize(screen.getPrimaryDisplay().workAreaSize)
+
   const mainWindow = new BrowserWindow({
-    width: 900,
-    height: 670,
+    width,
+    height,
     show: false,
     autoHideMenuBar: true,
     title: 'Orchi',
