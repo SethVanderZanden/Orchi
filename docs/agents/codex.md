@@ -35,7 +35,7 @@ Everything below is the same idea with adapters, catalogs, and JSONL.
 
 ### API process PATH (Windows)
 
-Your terminal may find `codex` while the Orchi API cannot — or the API may find a file that **cannot be started**. This is common on Windows after `npm install -g @openai/codex`.
+Your terminal may find `codex` while the Orchi API cannot — or the API may find a file that **cannot be started**. This is common on Windows after installing Codex via npm **and/or** the PowerShell installer.
 
 npm global installs place several launchers in the same directory (for example `C:\Program Files\nodejs\` or `%APPDATA%\npm\`):
 
@@ -44,15 +44,22 @@ npm global installs place several launchers in the same directory (for example `
 | `codex` | Bash shim (no extension) | Often yes (Git Bash / shell PATH) | **No** — not a Windows executable |
 | `codex.cmd` | Windows batch shim | Yes | Yes (via `cmd.exe /c`) |
 | `codex.ps1` | PowerShell shim | Yes (PowerShell) | No (unless invoked through PowerShell) |
+| `codex.exe` | Native CLI (PowerShell installer or npm platform package) | Yes | Yes |
 
 Codex’s official docs cover [installation](https://developers.openai.com/codex/cli) but do **not** document this shim layout. The behavior is discussed in upstream issues such as [openai/codex#16337](https://github.com/openai/codex/issues/16337) (Windows `spawn` / `.cmd` shim resolution).
 
 Orchi resolves the executable before spawning:
 
 1. Absolute path from `Agents:Codex:Executable` (if set and file exists)
-2. **`node.exe` + `@openai/codex/bin/codex.js`** in the npm prefix directory (preferred on Windows — bypasses `.cmd` shims)
+2. **Native `codex.exe`** in known Windows install dirs:
+   - `%LOCALAPPDATA%\Programs\OpenAI\Codex\bin` (PowerShell / standalone installer)
+   - `%LOCALAPPDATA%\OpenAI\Codex\bin` (Codex app CLI)
+   - npm platform package binaries under `node_modules/@openai/codex-win32-*`
 3. Search merged user + machine PATH with `PATHEXT` (`.exe`, `.cmd`, …), **skipping extensionless shims on Windows**
-4. Windows fallback: `%APPDATA%\npm\codex.cmd`
+4. Windows fallback: `%LOCALAPPDATA%\…\codex.exe`, then `%APPDATA%\npm\codex.cmd`
+5. **Last resort:** `node.exe` + `@openai/codex/bin/codex.js` (npm layout only when no `.exe`/`.cmd` was found)
+
+Orchi prefers **`codex.exe`** and **`codex.cmd`** over launching `node.exe` directly. Preferring the npm node-bundle first could pick a stale `C:\Program Files\nodejs\node.exe` layout even when a working native `codex` (the one your terminal runs) is already installed.
 
 When only a `.cmd` shim is found, Orchi launches it via `cmd.exe /c` so stdout/stderr redirection still works.
 
@@ -60,7 +67,18 @@ When only a `.cmd` shim is found, Orchi launches it via `cmd.exe /c` so stdout/s
 
 - Restart the Orchi API after installing Codex
 - Confirm `codex --version` works in a **new** terminal, then restart the API host (Visual Studio, `dotnet run`, etc.) so it picks up PATH changes
+- Confirm the chat workspace folder exists on disk (invalid `WorkingDirectory` makes `Process.Start` fail)
 - Set a full path in `appsettings.json`:
+
+```json
+"Agents": {
+  "Codex": {
+    "Executable": "C:\\Users\\<you>\\AppData\\Local\\Programs\\OpenAI\\Codex\\bin\\codex.exe"
+  }
+}
+```
+
+npm alternative:
 
 ```json
 "Agents": {

@@ -6,6 +6,16 @@ internal static class CodexAgentExecutableResolver
 {
     private static readonly string[] PreferredExtensions = [".exe", ".com", ".cmd", ".bat"];
 
+    /// <summary>
+    /// npm optional platform packages and the vendor triples they historically used.
+    /// Newer package layouts also ship <c>bin/codex.exe</c> at the package root.
+    /// </summary>
+    private static readonly (string Package, string VendorTriple)[] WindowsPlatformPackages =
+    [
+        ("@openai/codex-win32-x64", "x86_64-pc-windows-msvc"),
+        ("@openai/codex-win32-arm64", "aarch64-pc-windows-msvc")
+    ];
+
     internal sealed record ResolveResult(bool Success, CodexAgentLaunchSpec? Launch, string? ErrorMessage);
 
     public static ResolveResult Resolve(CodexAgentOptions options) =>
@@ -26,12 +36,15 @@ internal static class CodexAgentExecutableResolver
             }
         }
 
+        // Prefer real Windows installers / native binaries before npm node-bundle.
+        // Node-bundle was a workaround for .cmd shims; we now launch .cmd via cmd.exe /c,
+        // and the PowerShell installer ships codex.exe outside Program Files\nodejs.
         foreach (string installDirectory in GetInstallDirectories(options, environment))
         {
-            CodexAgentLaunchSpec? nodeBundle = TryResolveNpmNodeBundle(installDirectory, environment, searchedPaths);
-            if (nodeBundle is not null)
+            CodexAgentLaunchSpec? native = TryResolveNativeCodex(installDirectory, environment, searchedPaths);
+            if (native is not null)
             {
-                return Success(nodeBundle);
+                return Success(native);
             }
         }
 
@@ -41,13 +54,6 @@ internal static class CodexAgentExecutableResolver
         string? resolved = FindInDirectories(searchDirectories, candidateNames, environment, searchedPaths);
         if (resolved is not null)
         {
-            string installDirectory = Path.GetDirectoryName(resolved) ?? resolved;
-            CodexAgentLaunchSpec? nodeBundle = TryResolveNpmNodeBundle(installDirectory, environment, searchedPaths);
-            if (nodeBundle is not null)
-            {
-                return Success(nodeBundle);
-            }
-
             return Success(ResolveLaunchSpec(resolved, environment, searchedPaths));
         }
 
@@ -60,23 +66,51 @@ internal static class CodexAgentExecutableResolver
                 continue;
             }
 
-            string installDirectory = Path.GetDirectoryName(fallbackPath) ?? fallbackPath;
+            return Success(ResolveLaunchSpec(fallbackPath, environment, searchedPaths));
+        }
+
+        // Last resort: npm node.exe + codex.js (only when no .exe/.cmd was found).
+        foreach (string installDirectory in GetInstallDirectories(options, environment))
+        {
             CodexAgentLaunchSpec? nodeBundle = TryResolveNpmNodeBundle(installDirectory, environment, searchedPaths);
             if (nodeBundle is not null)
             {
                 return Success(nodeBundle);
             }
-
-            return Success(ResolveLaunchSpec(fallbackPath, environment, searchedPaths));
         }
 
         string message =
             $"Unable to locate Codex CLI executable '{options.Executable}'. " +
             "Ensure Codex is installed and on PATH, restart the Orchi API after installing, " +
-            "or set Agents:Codex:Executable to the full path (e.g. %APPDATA%\\npm\\codex.cmd). " +
+            "or set Agents:Codex:Executable to the full path " +
+            "(e.g. %LOCALAPPDATA%\\Programs\\OpenAI\\Codex\\bin\\codex.exe or %APPDATA%\\npm\\codex.cmd). " +
             $"Searched: {string.Join("; ", searchedPaths.Distinct(StringComparer.OrdinalIgnoreCase))}";
 
         return new ResolveResult(false, null, message);
+    }
+
+    /// <summary>
+    /// Resolves a direct <c>codex.exe</c> from a directory: co-located binary, or npm
+    /// platform-package native binary under <c>node_modules</c>.
+    /// </summary>
+    internal static CodexAgentLaunchSpec? TryResolveNativeCodex(
+        string installDirectory,
+        IExecutableEnvironment environment,
+        ICollection<string>? searchedPaths = null)
+    {
+        if (!environment.DirectoryExists(installDirectory))
+        {
+            return null;
+        }
+
+        string coLocatedExe = Path.Combine(installDirectory, "codex.exe");
+        searchedPaths?.Add(coLocatedExe);
+        if (environment.FileExists(coLocatedExe))
+        {
+            return new CodexAgentLaunchSpec(coLocatedExe, null);
+        }
+
+        return TryResolveNpmNativeBinary(installDirectory, environment, searchedPaths);
     }
 
     internal static CodexAgentLaunchSpec? TryResolveNpmNodeBundle(
@@ -105,6 +139,87 @@ internal static class CodexAgentExecutableResolver
             return new CodexAgentLaunchSpec(nodePath, codexJsPath);
         }
 
+        // Common Windows layout: node.exe in Program Files\nodejs, global packages in %APPDATA%\npm.
+        return TryResolveSplitNpmNodeBundle(installDirectory, environment, searchedPaths);
+    }
+
+    private static CodexAgentLaunchSpec? TryResolveNpmNativeBinary(
+        string installDirectory,
+        IExecutableEnvironment environment,
+        ICollection<string>? searchedPaths)
+    {
+        if (!environment.IsWindows)
+        {
+            return null;
+        }
+
+        string codexPackageRoot = Path.Combine(installDirectory, "node_modules", "@openai", "codex");
+        searchedPaths?.Add(codexPackageRoot);
+
+        foreach ((string package, string vendorTriple) in WindowsPlatformPackages)
+        {
+            string[] candidatePaths =
+            [
+                // Current package layout (bin/ next to codex-resources/)
+                Path.Combine(codexPackageRoot, "node_modules", package, "bin", "codex.exe"),
+                Path.Combine(installDirectory, "node_modules", package, "bin", "codex.exe"),
+                // Legacy vendor layouts
+                Path.Combine(codexPackageRoot, "node_modules", package, "vendor", vendorTriple, "bin", "codex.exe"),
+                Path.Combine(codexPackageRoot, "node_modules", package, "vendor", vendorTriple, "codex", "codex.exe"),
+                Path.Combine(installDirectory, "node_modules", package, "vendor", vendorTriple, "bin", "codex.exe"),
+                Path.Combine(installDirectory, "node_modules", package, "vendor", vendorTriple, "codex", "codex.exe")
+            ];
+
+            foreach (string candidatePath in candidatePaths)
+            {
+                searchedPaths?.Add(candidatePath);
+
+                if (environment.FileExists(candidatePath))
+                {
+                    return new CodexAgentLaunchSpec(candidatePath, null);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static CodexAgentLaunchSpec? TryResolveSplitNpmNodeBundle(
+        string installDirectory,
+        IExecutableEnvironment environment,
+        ICollection<string>? searchedPaths)
+    {
+        if (!environment.IsWindows)
+        {
+            return null;
+        }
+
+        // installDirectory is often %APPDATA%\npm (has package, no node.exe).
+        string codexJsPath = Path.Combine(
+            installDirectory,
+            "node_modules",
+            "@openai",
+            "codex",
+            "bin",
+            "codex.js");
+        searchedPaths?.Add(codexJsPath);
+
+        if (!environment.FileExists(codexJsPath))
+        {
+            return null;
+        }
+
+        foreach (string nodeDirectory in GetNodeInstallDirectories(environment))
+        {
+            string nodePath = Path.Combine(nodeDirectory, "node.exe");
+            searchedPaths?.Add(nodePath);
+
+            if (environment.FileExists(nodePath))
+            {
+                return new CodexAgentLaunchSpec(nodePath, codexJsPath);
+            }
+        }
+
         return null;
     }
 
@@ -117,55 +232,95 @@ internal static class CodexAgentExecutableResolver
         ICollection<string> searchedPaths)
     {
         string installDirectory = Path.GetDirectoryName(executablePath) ?? executablePath;
-        CodexAgentLaunchSpec? nodeBundle = TryResolveNpmNodeBundle(installDirectory, environment, searchedPaths);
-        return nodeBundle ?? new CodexAgentLaunchSpec(executablePath, null);
+
+        // Prefer native codex.exe inside the same install/npm prefix over a .cmd shim.
+        // Do not upgrade .cmd → node-bundle: cmd.exe /c handles shims, and preferring
+        // node.exe previously broke machines where a stale npm layout coexisted with a
+        // working `codex` on PATH (PowerShell installer / native binary).
+        CodexAgentLaunchSpec? native = TryResolveNativeCodex(installDirectory, environment, searchedPaths);
+        if (native is not null)
+        {
+            return native;
+        }
+
+        return new CodexAgentLaunchSpec(executablePath, null);
     }
 
     private static IEnumerable<string> GetInstallDirectories(
         CodexAgentOptions options,
         IExecutableEnvironment environment)
     {
-        var directories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var directories = new List<string>();
+
+        void Add(string? directory)
+        {
+            if (string.IsNullOrWhiteSpace(directory))
+            {
+                return;
+            }
+
+            string expanded = environment.ExpandEnvironmentVariables(directory.Trim());
+            if (directories.Exists(existing =>
+                    string.Equals(existing, expanded, StringComparison.OrdinalIgnoreCase)))
+            {
+                return;
+            }
+
+            directories.Add(expanded);
+        }
 
         if (options.AdditionalSearchPaths is { Length: > 0 })
         {
             foreach (string searchPath in options.AdditionalSearchPaths)
             {
-                if (string.IsNullOrWhiteSpace(searchPath))
-                {
-                    continue;
-                }
-
-                directories.Add(environment.ExpandEnvironmentVariables(searchPath.Trim()));
+                Add(searchPath);
             }
         }
 
         if (environment.IsWindows)
         {
+            string? localAppData = environment.GetEnvironmentVariable("LOCALAPPDATA");
+            if (!string.IsNullOrWhiteSpace(localAppData))
+            {
+                // PowerShell / standalone installer (https://developers.openai.com/codex/cli)
+                Add(Path.Combine(localAppData, "Programs", "OpenAI", "Codex", "bin"));
+                // Codex desktop app CLI
+                Add(Path.Combine(localAppData, "OpenAI", "Codex", "bin"));
+            }
+
             string? appData = environment.GetEnvironmentVariable("APPDATA");
             if (!string.IsNullOrWhiteSpace(appData))
             {
-                directories.Add(Path.Combine(appData, "npm"));
+                Add(Path.Combine(appData, "npm"));
             }
 
-            string? programFiles = environment.GetEnvironmentVariable("ProgramFiles");
-            if (!string.IsNullOrWhiteSpace(programFiles))
+            foreach (string nodeDirectory in GetNodeInstallDirectories(environment))
             {
-                directories.Add(Path.Combine(programFiles, "nodejs"));
+                Add(nodeDirectory);
             }
         }
 
         foreach (string pathDirectory in environment.GetPathDirectories())
         {
-            if (string.IsNullOrWhiteSpace(pathDirectory))
-            {
-                continue;
-            }
-
-            directories.Add(environment.ExpandEnvironmentVariables(pathDirectory.Trim()));
+            Add(pathDirectory);
         }
 
         return directories;
+    }
+
+    private static IEnumerable<string> GetNodeInstallDirectories(IExecutableEnvironment environment)
+    {
+        string? programFiles = environment.GetEnvironmentVariable("ProgramFiles");
+        if (!string.IsNullOrWhiteSpace(programFiles))
+        {
+            yield return Path.Combine(programFiles, "nodejs");
+        }
+
+        string? programFilesX86 = environment.GetEnvironmentVariable("ProgramFiles(x86)");
+        if (!string.IsNullOrWhiteSpace(programFilesX86))
+        {
+            yield return Path.Combine(programFilesX86, "nodejs");
+        }
     }
 
     private static string[] GetCandidateNames(string executable)
@@ -255,6 +410,13 @@ internal static class CodexAgentExecutableResolver
         if (!environment.IsWindows)
         {
             yield break;
+        }
+
+        string? localAppData = environment.GetEnvironmentVariable("LOCALAPPDATA");
+        if (!string.IsNullOrWhiteSpace(localAppData))
+        {
+            yield return Path.Combine(localAppData, "Programs", "OpenAI", "Codex", "bin", "codex.exe");
+            yield return Path.Combine(localAppData, "OpenAI", "Codex", "bin", "codex.exe");
         }
 
         string? appData = environment.GetEnvironmentVariable("APPDATA");
