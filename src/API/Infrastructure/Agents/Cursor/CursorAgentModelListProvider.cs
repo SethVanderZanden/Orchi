@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text;
 using Microsoft.Extensions.Options;
+using Orchi.Api.Infrastructure.Agents.Cli;
 using Orchi.Api.Infrastructure.Agents.Models;
 using Orchi.Api.Infrastructure.Caching;
 
@@ -25,7 +26,7 @@ internal sealed class CursorAgentModelListProvider(
             throw new InvalidOperationException(resolveResult.ErrorMessage ?? "Unable to resolve Cursor agent executable.");
         }
 
-        CursorAgentLaunchSpec launch = resolveResult.Launch;
+        AgentLaunchSpec launch = resolveResult.Launch;
         ProcessStartInfo startInfo = BuildStartInfo(launch, config);
 
         using Process process = Process.Start(startInfo)
@@ -90,7 +91,7 @@ internal sealed class CursorAgentModelListProvider(
         return string.Join('\u001f', parts);
     }
 
-    private static ProcessStartInfo BuildStartInfo(CursorAgentLaunchSpec launch, CursorAgentOptions config)
+    private static ProcessStartInfo BuildStartInfo(AgentLaunchSpec launch, CursorAgentOptions config)
     {
         var startInfo = new ProcessStartInfo
         {

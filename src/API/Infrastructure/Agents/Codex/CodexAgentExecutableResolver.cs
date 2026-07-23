@@ -1,18 +1,14 @@
-using Orchi.Api.Infrastructure.Agents.Cursor;
+using Orchi.Api.Infrastructure.Agents.Cli;
 
 namespace Orchi.Api.Infrastructure.Agents.Codex;
 
 /// <summary>
-/// Resolves the Codex CLI the same way a terminal does: prefer the <c>codex</c>
-/// shortcut on PATH (<c>codex.exe</c> / <c>codex.cmd</c>), then known installer
-/// locations. Does not dig into nested npm platform-package vendor paths —
-/// those are long, fragile, and break Windows MAX_PATH when the workspace is deep.
+/// Resolves Codex the standard way: PATH shortcut first (<c>codex.exe</c> / <c>codex.cmd</c>),
+/// then known installer locations. Does not dig into nested npm vendor binaries.
 /// </summary>
 internal static class CodexAgentExecutableResolver
 {
-    private static readonly string[] PreferredExtensions = [".exe", ".com", ".cmd", ".bat"];
-
-    internal sealed record ResolveResult(bool Success, CodexAgentLaunchSpec? Launch, string? ErrorMessage);
+    internal sealed record ResolveResult(bool Success, AgentLaunchSpec? Launch, string? ErrorMessage);
 
     public static ResolveResult Resolve(CodexAgentOptions options) =>
         Resolve(options, ExecutableEnvironment.Current);
@@ -21,31 +17,28 @@ internal static class CodexAgentExecutableResolver
     {
         var searchedPaths = new List<string>();
 
-        if (Path.IsPathRooted(options.Executable))
+        if (AgentCliPathLocator.TryResolveAbsolute(
+                options.Executable,
+                environment,
+                searchedPaths,
+                out string? absolutePath) &&
+            absolutePath is not null)
         {
-            string absolutePath = Path.GetFullPath(options.Executable);
-            searchedPaths.Add(absolutePath);
-
-            if (environment.FileExists(absolutePath))
-            {
-                return Success(new CodexAgentLaunchSpec(absolutePath, null));
-            }
+            return Success(new AgentLaunchSpec(absolutePath, null));
         }
 
-        string[] candidateNames = GetCandidateNames(options.Executable);
+        string[] candidateNames = AgentCliPathLocator.CandidateNamesFromExecutable(options.Executable, "codex");
 
-        // Same as typing `codex` in a shell: search PATH (+ optional extra dirs).
-        string? resolved = FindInDirectories(
-            GetSearchDirectories(options, environment),
+        string? resolved = AgentCliPathLocator.FindCommand(
+            AgentCliPathLocator.GetSearchDirectories(options.AdditionalSearchPaths, environment),
             candidateNames,
             environment,
             searchedPaths);
         if (resolved is not null)
         {
-            return Success(new CodexAgentLaunchSpec(resolved, null));
+            return Success(new AgentLaunchSpec(resolved, null));
         }
 
-        // Known Windows installers that may not yet be on the API process PATH.
         foreach (string installDirectory in GetKnownInstallDirectories(environment))
         {
             string coLocatedExe = Path.Combine(installDirectory, "codex.exe");
@@ -53,7 +46,7 @@ internal static class CodexAgentExecutableResolver
 
             if (environment.FileExists(coLocatedExe))
             {
-                return Success(new CodexAgentLaunchSpec(coLocatedExe, null));
+                return Success(new AgentLaunchSpec(coLocatedExe, null));
             }
         }
 
@@ -63,14 +56,13 @@ internal static class CodexAgentExecutableResolver
 
             if (environment.FileExists(fallbackPath))
             {
-                return Success(new CodexAgentLaunchSpec(fallbackPath, null));
+                return Success(new AgentLaunchSpec(fallbackPath, null));
             }
         }
 
-        // Last resort: npm node.exe + codex.js (only when no .exe/.cmd was found).
         foreach (string installDirectory in GetNpmCandidateDirectories(options, environment))
         {
-            CodexAgentLaunchSpec? nodeBundle = TryResolveNpmNodeBundle(installDirectory, environment, searchedPaths);
+            AgentLaunchSpec? nodeBundle = TryResolveNpmNodeBundle(installDirectory, environment, searchedPaths);
             if (nodeBundle is not null)
             {
                 return Success(nodeBundle);
@@ -87,7 +79,7 @@ internal static class CodexAgentExecutableResolver
         return new ResolveResult(false, null, message);
     }
 
-    internal static CodexAgentLaunchSpec? TryResolveNpmNodeBundle(
+    internal static AgentLaunchSpec? TryResolveNpmNodeBundle(
         string installDirectory,
         IExecutableEnvironment environment,
         ICollection<string>? searchedPaths = null)
@@ -110,14 +102,13 @@ internal static class CodexAgentExecutableResolver
 
         if (environment.FileExists(nodePath) && environment.FileExists(codexJsPath))
         {
-            return new CodexAgentLaunchSpec(nodePath, codexJsPath);
+            return new AgentLaunchSpec(nodePath, codexJsPath);
         }
 
-        // Common Windows layout: node.exe in Program Files\nodejs, global packages in %APPDATA%\npm.
         return TryResolveSplitNpmNodeBundle(installDirectory, environment, searchedPaths);
     }
 
-    private static CodexAgentLaunchSpec? TryResolveSplitNpmNodeBundle(
+    private static AgentLaunchSpec? TryResolveSplitNpmNodeBundle(
         string installDirectory,
         IExecutableEnvironment environment,
         ICollection<string>? searchedPaths)
@@ -127,7 +118,6 @@ internal static class CodexAgentExecutableResolver
             return null;
         }
 
-        // installDirectory is often %APPDATA%\npm (has package, no node.exe).
         string codexJsPath = Path.Combine(
             installDirectory,
             "node_modules",
@@ -149,48 +139,15 @@ internal static class CodexAgentExecutableResolver
 
             if (environment.FileExists(nodePath))
             {
-                return new CodexAgentLaunchSpec(nodePath, codexJsPath);
+                return new AgentLaunchSpec(nodePath, codexJsPath);
             }
         }
 
         return null;
     }
 
-    private static ResolveResult Success(CodexAgentLaunchSpec launch) =>
+    private static ResolveResult Success(AgentLaunchSpec launch) =>
         new(true, launch, null);
-
-    private static string[] GetCandidateNames(string executable)
-    {
-        string trimmed = executable.Trim();
-        if (string.IsNullOrEmpty(trimmed))
-        {
-            trimmed = "codex";
-        }
-
-        string fileName = Path.GetFileName(trimmed);
-        return Path.HasExtension(fileName)
-            ? [fileName, Path.GetFileNameWithoutExtension(fileName)]
-            : [fileName];
-    }
-
-    private static IEnumerable<string> GetSearchDirectories(
-        CodexAgentOptions options,
-        IExecutableEnvironment environment)
-    {
-        var directories = new List<string>();
-
-        if (options.AdditionalSearchPaths is { Length: > 0 })
-        {
-            directories.AddRange(options.AdditionalSearchPaths);
-        }
-
-        directories.AddRange(environment.GetPathDirectories());
-
-        return directories
-            .Where(directory => !string.IsNullOrWhiteSpace(directory))
-            .Select(directory => environment.ExpandEnvironmentVariables(directory.Trim()))
-            .Distinct(StringComparer.OrdinalIgnoreCase);
-    }
 
     private static IEnumerable<string> GetKnownInstallDirectories(IExecutableEnvironment environment)
     {
@@ -205,9 +162,7 @@ internal static class CodexAgentExecutableResolver
             yield break;
         }
 
-        // PowerShell / standalone installer (https://developers.openai.com/codex/cli)
         yield return Path.Combine(localAppData, "Programs", "OpenAI", "Codex", "bin");
-        // Codex desktop app CLI
         yield return Path.Combine(localAppData, "OpenAI", "Codex", "bin");
     }
 
@@ -279,53 +234,6 @@ internal static class CodexAgentExecutableResolver
         }
     }
 
-    private static string? FindInDirectories(
-        IEnumerable<string> directories,
-        IReadOnlyList<string> candidateNames,
-        IExecutableEnvironment environment,
-        ICollection<string> searchedPaths)
-    {
-        IReadOnlyList<string> pathExtensions = environment.GetPathExtensions();
-        var candidates = new List<string>();
-
-        foreach (string directory in directories)
-        {
-            if (!environment.DirectoryExists(directory))
-            {
-                continue;
-            }
-
-            foreach (string candidateName in candidateNames)
-            {
-                if (Path.HasExtension(candidateName))
-                {
-                    string fullPath = Path.Combine(directory, candidateName);
-                    searchedPaths.Add(fullPath);
-
-                    if (environment.FileExists(fullPath))
-                    {
-                        candidates.Add(fullPath);
-                    }
-
-                    continue;
-                }
-
-                foreach (string extension in PreferredExtensions.Concat(pathExtensions).Distinct(StringComparer.OrdinalIgnoreCase))
-                {
-                    string fullPath = Path.Combine(directory, candidateName + extension);
-                    searchedPaths.Add(fullPath);
-
-                    if (environment.FileExists(fullPath))
-                    {
-                        candidates.Add(fullPath);
-                    }
-                }
-            }
-        }
-
-        return SelectPreferredCandidate(candidates, environment);
-    }
-
     private static IEnumerable<string> GetWindowsFallbackPaths(
         IExecutableEnvironment environment,
         IReadOnlyList<string> candidateNames)
@@ -358,48 +266,4 @@ internal static class CodexAgentExecutableResolver
             }
         }
     }
-
-    private static string? SelectPreferredCandidate(
-        IReadOnlyList<string> candidates,
-        IExecutableEnvironment environment)
-    {
-        if (candidates.Count == 0)
-        {
-            return null;
-        }
-
-        return candidates
-            .Where(path => IsLaunchableCandidate(path, environment))
-            .OrderBy(path => GetExtensionPriority(Path.GetExtension(path)))
-            .ThenBy(path => path, StringComparer.OrdinalIgnoreCase)
-            .FirstOrDefault();
-    }
-
-    private static bool IsLaunchableCandidate(string path, IExecutableEnvironment environment)
-    {
-        if (!environment.FileExists(path))
-        {
-            return false;
-        }
-
-        string extension = Path.GetExtension(path);
-
-        if (!string.IsNullOrEmpty(extension))
-        {
-            return true;
-        }
-
-        // Extensionless bash shims are not Process.Start-able on Windows.
-        return !environment.IsWindows;
-    }
-
-    private static int GetExtensionPriority(string extension) =>
-        extension.ToLowerInvariant() switch
-        {
-            ".exe" => 0,
-            ".com" => 1,
-            ".cmd" => 2,
-            ".bat" => 3,
-            _ => 4
-        };
 }

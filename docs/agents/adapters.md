@@ -41,6 +41,23 @@ CLI adapters delegate to **`AgentCliTurnProcessor`** (template method) with a pe
 | executable resolve | `IAgentLaunchResolver` | `CodexAgentLaunchResolverService` |
 | profile factory | `IAgentCliProcessorFactory` | `AgentCliProcessorFactory` |
 
+### CLI executable discovery (keep this boring)
+
+Shared helpers live under `Infrastructure/Agents/Cli/`:
+
+- **`AgentCliPathLocator`** — PATH + `PATHEXT` command lookup (`.exe` / `.cmd`), skip extensionless bash shims on Windows
+- **`IExecutableEnvironment`** — testable filesystem/PATH seam
+- **`AgentLaunchSpec`** + **`AgentProcessStartInfoBuilder`** — spawn (optional `cmd.exe /c` for `.cmd`)
+
+Per-agent resolvers (`*AgentExecutableResolver`) only add product-specific bits:
+
+| Agent | Order |
+|-------|--------|
+| **Codex (default for new CLIs)** | absolute path → **PATH shortcut** → known installer dirs → npm `node`+`codex.js` last resort. Never dig into nested `vendor/` binaries. |
+| **Cursor** | absolute path → local `cursor-agent` **node bundle** (avoids bad `.cmd` shims) → PATH → fallbacks |
+
+When adding a new CLI harness, copy the **Codex** PATH-first pattern and call `AgentCliPathLocator` — do not invent a new PATH walker.
+
 Register one `IAgentCliProcessorProfile` per agent in `AgentsExtensions.AddOrchiAgents()`. The adapter itself stays a thin `IAgentAdapter` facade.
 
 Implementations:
@@ -81,7 +98,7 @@ services.AddSingleton<IAgentAdapterFactory, AgentAdapterFactory>();
 
 1. Implement `IAgentStreamLineParser` for the agent's NDJSON stdout
 2. Implement `IAgentCliArgumentBuilder` for argv (model, resume, config overrides)
-3. Implement `IAgentLaunchResolver` (or wrap a static resolver)
+3. Implement `IAgentLaunchResolver` wrapping a thin `*ExecutableResolver` that uses **`AgentCliPathLocator`** (PATH-first like Codex)
 4. Register `{Name}AgentCliProcessorProfile` as `IAgentCliProcessorProfile`
 5. Implement `IAgentAdapter` as a thin wrapper over `AgentCliTurnProcessor`
 6. Add config section (`Agents:Claude`, etc.)

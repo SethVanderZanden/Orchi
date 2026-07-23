@@ -1,3 +1,5 @@
+using Orchi.Api.Infrastructure.Agents.Cli;
+
 namespace Orchi.Api.Infrastructure.Agents.Cursor;
 
 internal sealed record CachedCursorExecutableResolution(
@@ -19,7 +21,7 @@ internal sealed record CachedCursorExecutableResolution(
         {
             return new CursorAgentExecutableResolver.ResolveResult(
                 true,
-                new CursorAgentLaunchSpec(ExecutablePath, EntryScript),
+                new AgentLaunchSpec(ExecutablePath, EntryScript),
                 null);
         }
 
