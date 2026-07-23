@@ -3,10 +3,15 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { getApiBaseUrl, startApiHost, stopApiHost } from './api-host'
+import { configureChromiumProfile, createDefaultChromiumProfileDeps } from './chromium-profile'
 import { openInEditor, type EditorId } from './open-in-editor'
 import { BeforeQuitState, createDefaultShutdownDeps, handleBeforeQuit } from './shutdown'
 
 const shutdownState = { current: BeforeQuitState.NotStarted }
+
+// Before ready: dedicated Orchi profile + no HTTP disk cache in Vite dev
+// (avoids Windows net\disk_cache "Critical error found -8" spam).
+configureChromiumProfile(createDefaultChromiumProfileDeps({ app, isDev: is.dev }))
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({

@@ -26,6 +26,7 @@ Historical note worth remembering: the root `.gitignore` once used `artifacts/`,
 
 - The root `npm run dev` / `setup:runtime` / `start:runtime` scripts are **PowerShell + Windows-only** and do not run on Linux. Run the pieces directly instead: `dotnet run --project src/API` (API, port `5265`) and `npm run dev --prefix src/desktop` (Electron). Start the API first so the desktop doesn't show `API error: 500` on load.
 - Launch Electron with a display and the sandbox disabled: `DISPLAY=:1 ELECTRON_DISABLE_SANDBOX=1 npm run dev --prefix src/desktop`. The `dbus`/GPU/`viz` errors it prints are benign in this container.
+- Windows Chromium lines like `net\disk_cache\blockfile\... Critical error found -8` / `No file for …` are HTTP disk-cache corruption noise. Dev disables that cache; the main process also pins `userData` to an `Orchi` profile (not the electron-vite `desktop` name). If a packaged build still logs them, quit the app and delete the `Cache` / `Code Cache` / `GPUCache` folders under the Orchi userData directory.
 - The desktop renders even with the API down, but shows `API error: 500` / proxy `ECONNREFUSED` for `/chats` and `/projects` until the API is up. A new chat is a **draft** in the UI and is not persisted to the DB (`GET /chats` stays empty) until the first message is sent — and sending a message requires an installed, authenticated Cursor CLI (`agent`) on the same machine.
 
 ### Test caveats
