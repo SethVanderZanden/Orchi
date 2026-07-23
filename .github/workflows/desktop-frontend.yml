@@ -4,10 +4,14 @@ on:
   push:
     paths:
       - 'src/desktop/**'
+      - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/desktop-frontend.yml'
   pull_request:
     paths:
       - 'src/desktop/**'
+      - 'package.json'
+      - 'package-lock.json'
 
 defaults:
   run:
@@ -22,7 +26,12 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-          cache-dependency-path: src/desktop/package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            src/desktop/package-lock.json
+      - name: Audit root npm dependencies
+        working-directory: .
+        run: npm ci && npm audit --audit-level=high
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint

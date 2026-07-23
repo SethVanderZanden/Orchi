@@ -52,7 +52,7 @@ All React Query keys live in `lib/query-keys.ts` — never inline arrays in comp
 cd src/desktop
 npm run dev          # electron-vite dev
 npm run typecheck    # TypeScript
-npm run lint         # ESLint
+npm run lint         # ESLint + npm audit (fails on high/critical)
 npm run test         # Vitest
 npm run format       # Prettier
 ```
