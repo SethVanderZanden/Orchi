@@ -79,7 +79,7 @@ When a `.cmd` shim is found, Orchi launches it via `cmd.exe /c` so stdout/stderr
 
 - Optional: add custom search directories via `AdditionalSearchPaths`
 
-Implementation: `src/API/Infrastructure/Agents/Codex/CodexAgentExecutableResolver.cs`
+Implementation: `AgentCliPathLocator` (shared PATH lookup) + `src/API/Infrastructure/Agents/Codex/CodexAgentExecutableResolver.cs`
 
 Config (`appsettings.json`):
 
