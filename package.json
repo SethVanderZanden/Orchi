@@ -9,6 +9,8 @@
     "setup:runtime": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-runtime.ps1",
     "start:runtime": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-runtime.ps1",
     "test:api": "dotnet test tests/Orchi.Api.Tests",
+    "audit": "npm audit --audit-level=high && npm audit --prefix src/desktop --audit-level=high",
+    "lint": "npm run audit && npm run lint --prefix src/desktop",
     "prepare": "husky"
   },
   "devDependencies": {
