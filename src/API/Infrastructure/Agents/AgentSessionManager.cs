@@ -7,6 +7,7 @@ using Orchi.Api.Infrastructure.Agents.Persistence;
 using Orchi.Api.Infrastructure.Agents.Modes;
 using Orchi.Api.Infrastructure.Agents.Models;
 using Orchi.Api.Infrastructure.Agents.Orchestration;
+using Orchi.Api.Infrastructure.Agents.Workspace;
 using Orchi.Api.Infrastructure.Projects;
 using Orchi.Api.Infrastructure.Scripts;
 using Orchi.Api.Infrastructure.Scripts.Actions;
@@ -28,6 +29,7 @@ public sealed class AgentSessionManager
     private readonly IAgentTurnCompletionNotifier _turnCompletionNotifier;
     private readonly IChatStatusService _chatStatusService;
     private readonly IScriptEventDispatcher _scriptEventDispatcher;
+    private readonly IWorkspaceDiffProvider _workspaceDiffProvider;
     private readonly ILogger<AgentSessionManager> _logger;
 
     public AgentSessionManager(
@@ -43,6 +45,7 @@ public sealed class AgentSessionManager
         IAgentTurnCompletionNotifier turnCompletionNotifier,
         IChatStatusService chatStatusService,
         IScriptEventDispatcher scriptEventDispatcher,
+        IWorkspaceDiffProvider workspaceDiffProvider,
         ILogger<AgentSessionManager> logger)
     {
         _chatStore = chatStore;
@@ -57,6 +60,7 @@ public sealed class AgentSessionManager
         _turnCompletionNotifier = turnCompletionNotifier;
         _chatStatusService = chatStatusService;
         _scriptEventDispatcher = scriptEventDispatcher;
+        _workspaceDiffProvider = workspaceDiffProvider;
         _logger = logger;
     }
 
@@ -897,6 +901,12 @@ public sealed class AgentSessionManager
                         yield return finishEvent;
                     }
 
+                    await AppendDiffStatsMessageIfApplicableAsync(
+                        chatId,
+                        session,
+                        succeeded: true,
+                        runCts.Token);
+
                     _turnCompletionNotifier.NotifyTurnCompleted(chatId, succeeded: true);
                     yield return completed;
                     break;
@@ -1364,4 +1374,59 @@ public sealed class AgentSessionManager
             }
         }
     }
+
+    private async Task AppendDiffStatsMessageIfApplicableAsync(
+        Guid chatId,
+        ChatSession session,
+        bool succeeded,
+        CancellationToken cancellationToken)
+    {
+        if (!succeeded || !ShouldAppendDiffStatsMessage(session.Mode))
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(session.WorkspacePath))
+        {
+            return;
+        }
+
+        WorkspaceDiffStats? stats;
+        try
+        {
+            stats = _workspaceDiffProvider.TryGetDiffStats(session.WorkspacePath);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Failed to collect workspace diff stats for chat {ChatId}",
+                chatId);
+            return;
+        }
+
+        if (stats is null || stats.FileCount == 0)
+        {
+            return;
+        }
+
+        string content = WorkspaceDiffStatsMarkdownFormatter.Format(stats);
+        var message = new ChatMessage(
+            Guid.NewGuid(),
+            "assistant",
+            content,
+            DateTimeOffset.UtcNow,
+            Status: "complete");
+
+        lock (session.Sync)
+        {
+            session.Messages.Add(message);
+        }
+
+        await SaveAssistantStatusMessageAsync(chatId, message, cancellationToken);
+    }
+
+    private static bool ShouldAppendDiffStatsMessage(string mode) =>
+        string.Equals(mode, DefaultAgentModeStrategy.Mode, StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(mode, ImplementationAgentModeStrategy.Mode, StringComparison.OrdinalIgnoreCase);
 }

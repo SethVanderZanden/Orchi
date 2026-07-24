@@ -90,6 +90,51 @@ public class GitWorkspaceDiffProviderTests : IDisposable
         Assert.True(truncated.Length <= large.Length + 128);
     }
 
+    [Fact]
+    public void ParseNumStat_ParsesAddedRemovedAndPath()
+    {
+        IReadOnlyList<WorkspaceDiffStatsEntry> entries = GitWorkspaceDiffProvider.ParseNumStat(
+            """
+            5	3	src/foo.ts
+            10	0	src/bar.ts
+            """);
+
+        Assert.Equal(2, entries.Count);
+        Assert.Equal("src/foo.ts", entries[0].Path);
+        Assert.Equal(5, entries[0].Added);
+        Assert.Equal(3, entries[0].Removed);
+        Assert.Equal("src/bar.ts", entries[1].Path);
+        Assert.Equal(10, entries[1].Added);
+        Assert.Equal(0, entries[1].Removed);
+    }
+
+    [Fact]
+    public void TryGetDiffStats_WhenUncommittedChanges_ReturnsNumStat()
+    {
+        if (!IsGitAvailable())
+        {
+            return;
+        }
+
+        InitializeRepoWithCommit();
+        File.AppendAllText(Path.Combine(_workspacePath, "tracked.txt"), "change\n");
+
+        WorkspaceDiffStats? stats = _provider.TryGetDiffStats(_workspacePath);
+
+        Assert.NotNull(stats);
+        Assert.Contains(stats.Files, file => file.Path == "tracked.txt");
+        Assert.True(stats.TotalAdded > 0);
+        Assert.Equal("git diff --numstat HEAD", stats.Source);
+    }
+
+    [Fact]
+    public void TryGetDiffStats_WhenNotGitRepository_ReturnsNull()
+    {
+        WorkspaceDiffStats? stats = _provider.TryGetDiffStats(_workspacePath);
+
+        Assert.Null(stats);
+    }
+
     private void InitializeRepoWithCommit()
     {
         RunGit("init");

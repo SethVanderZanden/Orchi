@@ -51,6 +51,35 @@ public sealed class GitWorkspaceDiffProvider : IWorkspaceDiffProvider
         return "No changes detected (git diff HEAD and git show HEAD are empty).";
     }
 
+    public WorkspaceDiffStats? TryGetDiffStats(string workspacePath)
+    {
+        if (string.IsNullOrWhiteSpace(workspacePath) || !Directory.Exists(workspacePath))
+        {
+            return null;
+        }
+
+        if (!IsGitRepository(workspacePath))
+        {
+            return null;
+        }
+
+        IReadOnlyList<WorkspaceDiffStatsEntry> uncommitted = ParseNumStat(
+            RunGit(workspacePath, "diff", "--numstat", "HEAD"));
+        if (uncommitted.Count > 0)
+        {
+            return BuildStats(uncommitted, "git diff --numstat HEAD");
+        }
+
+        IReadOnlyList<WorkspaceDiffStatsEntry> lastCommit = ParseNumStat(
+            RunGit(workspacePath, "show", "HEAD", "--numstat", "--format="));
+        if (lastCommit.Count > 0)
+        {
+            return BuildStats(lastCommit, "git show HEAD --numstat");
+        }
+
+        return null;
+    }
+
     public string GetBranchDiff(string workspacePath, string baseBranch, string headBranch)
     {
         if (string.IsNullOrWhiteSpace(workspacePath) || !Directory.Exists(workspacePath))
@@ -167,4 +196,61 @@ public sealed class GitWorkspaceDiffProvider : IWorkspaceDiffProvider
         {diff}
         ```
         """;
+
+    internal static IReadOnlyList<WorkspaceDiffStatsEntry> ParseNumStat(string output)
+    {
+        if (string.IsNullOrWhiteSpace(output))
+        {
+            return [];
+        }
+
+        var entries = new List<WorkspaceDiffStatsEntry>();
+        foreach (string rawLine in output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (LooksLikeGitError(rawLine))
+            {
+                continue;
+            }
+
+            int firstTab = rawLine.IndexOf('\t');
+            if (firstTab < 0)
+            {
+                continue;
+            }
+
+            int secondTab = rawLine.IndexOf('\t', firstTab + 1);
+            if (secondTab < 0)
+            {
+                continue;
+            }
+
+            string addedToken = rawLine[..firstTab];
+            string removedToken = rawLine[(firstTab + 1)..secondTab];
+            string path = rawLine[(secondTab + 1)..];
+
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                continue;
+            }
+
+            entries.Add(new WorkspaceDiffStatsEntry(
+                path,
+                ParseNumStatCount(addedToken),
+                ParseNumStatCount(removedToken)));
+        }
+
+        return entries;
+    }
+
+    private static int ParseNumStatCount(string token) =>
+        int.TryParse(token, out int count) ? count : 0;
+
+    private static WorkspaceDiffStats BuildStats(
+        IReadOnlyList<WorkspaceDiffStatsEntry> files,
+        string source)
+    {
+        int totalAdded = files.Sum(file => file.Added);
+        int totalRemoved = files.Sum(file => file.Removed);
+        return new WorkspaceDiffStats(files, totalAdded, totalRemoved, source);
+    }
 }

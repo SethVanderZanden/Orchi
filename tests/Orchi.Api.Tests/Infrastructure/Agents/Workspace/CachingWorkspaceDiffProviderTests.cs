@@ -61,6 +61,8 @@ public class CachingWorkspaceDiffProviderTests
             return $"{diff}\n# {baseBranch}...{headBranch}";
         }
 
+        public WorkspaceDiffStats? TryGetDiffStats(string workspacePath) => null;
+
         private static string InitializeGitWorkspace()
         {
             if (!IsGitAvailable())

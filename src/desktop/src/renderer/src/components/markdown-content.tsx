@@ -4,6 +4,11 @@ import ReactMarkdown from 'react-markdown'
 import remarkBreaks from 'remark-breaks'
 import remarkGfm from 'remark-gfm'
 
+import {
+  formatDiffStatsCell,
+  isWorkspaceDiffStatsMessage,
+  stripWorkspaceDiffStatsMarker
+} from '@/lib/chat/workspace-diff-stats'
 import { cn } from '@/lib/utils'
 
 type MarkdownContentProps = {
@@ -19,50 +24,62 @@ function isInlineCode(className: string | undefined, children: ReactNode): boole
   return !String(children).includes('\n')
 }
 
-const markdownComponents: Components = {
-  table({ children, ...props }) {
-    return (
-      <div className="my-3 max-w-full overflow-x-auto rounded-md border border-border/60">
-        <table className="m-0 w-full border-collapse text-left text-[0.925em]" {...props}>
-          {children}
-        </table>
-      </div>
-    )
-  },
-  th({ children, ...props }) {
-    return (
-      <th className="border-b border-border/70 bg-muted/40 px-2.5 py-1.5 font-semibold" {...props}>
-        {children}
-      </th>
-    )
-  },
-  td({ children, ...props }) {
-    return (
-      <td className="border-b border-border/40 px-2.5 py-1.5 align-top" {...props}>
-        {children}
-      </td>
-    )
-  },
-  code({ className, children, ...props }) {
-    if (!isInlineCode(className, children)) {
+function createMarkdownComponents(enableDiffStatsColors: boolean): Components {
+  return {
+    table({ children, ...props }) {
       return (
-        <code className={className} {...props}>
+        <div className="my-3 max-w-full overflow-x-auto rounded-md border border-border/60">
+          <table className="m-0 w-full border-collapse text-left text-[0.925em]" {...props}>
+            {children}
+          </table>
+        </div>
+      )
+    },
+    th({ children, ...props }) {
+      return (
+        <th className="border-b border-border/70 bg-muted/40 px-2.5 py-1.5 font-semibold" {...props}>
+          {children}
+        </th>
+      )
+    },
+    td({ children, ...props }) {
+      const text = String(children).trim()
+      const formatted = enableDiffStatsColors ? formatDiffStatsCell(text) : { text, tone: null }
+
+      return (
+        <td
+          className={cn(
+            'border-b border-border/40 px-2.5 py-1.5 align-top',
+            formatted.tone === 'added' && 'font-medium text-emerald-600 dark:text-emerald-400',
+            formatted.tone === 'removed' && 'font-medium text-red-600 dark:text-red-400'
+          )}
+          {...props}
+        >
+          {formatted.tone ? formatted.text : children}
+        </td>
+      )
+    },
+    code({ className, children, ...props }) {
+      if (!isInlineCode(className, children)) {
+        return (
+          <code className={className} {...props}>
+            {children}
+          </code>
+        )
+      }
+
+      return (
+        <code
+          className={cn(
+            'mx-0.5 inline max-w-full break-words rounded-md border border-border/70 bg-secondary px-1.5 py-0.5 align-middle font-mono text-[0.8125em] font-medium text-secondary-foreground whitespace-normal',
+            className
+          )}
+          {...props}
+        >
           {children}
         </code>
       )
     }
-
-    return (
-      <code
-        className={cn(
-          'mx-0.5 inline max-w-full break-words rounded-md border border-border/70 bg-secondary px-1.5 py-0.5 align-middle font-mono text-[0.8125em] font-medium text-secondary-foreground whitespace-normal',
-          className
-        )}
-        {...props}
-      >
-        {children}
-      </code>
-    )
   }
 }
 
@@ -70,6 +87,9 @@ export const MarkdownContent = memo(function MarkdownContent({
   children,
   className
 }: MarkdownContentProps): React.JSX.Element {
+  const enableDiffStatsColors = isWorkspaceDiffStatsMessage(children)
+  const markdown = enableDiffStatsColors ? stripWorkspaceDiffStatsMarker(children) : children
+
   return (
     <div
       className={cn(
@@ -86,8 +106,11 @@ export const MarkdownContent = memo(function MarkdownContent({
         className
       )}
     >
-      <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={markdownComponents}>
-        {children}
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkBreaks]}
+        components={createMarkdownComponents(enableDiffStatsColors)}
+      >
+        {markdown}
       </ReactMarkdown>
     </div>
   )

@@ -17,6 +17,8 @@ internal sealed class FakeWorkspaceDiffProvider : IWorkspaceDiffProvider
 
     public string GetBranchDiff(string workspacePath, string baseBranch, string headBranch) =>
         $"{BranchDiff}\n# {baseBranch}...{headBranch}";
+
+    public WorkspaceDiffStats? TryGetDiffStats(string workspacePath) => null;
 }
 
 internal static class PromptTestHelpers
