@@ -1,9 +1,5 @@
 import type { ParsedPlan } from './parse-plans'
-
-const PLAN_SEQUENCE_PATTERN =
-  /<!--\s*orchi-plan-sequence\s*-->\s*([\s\S]*?)<!--\s*\/orchi-plan-sequence\s*-->/gi
-
-const PLAN_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+import { getSequenceBlockParsePattern, PLAN_ID_PATTERN } from './orchi-markers'
 
 function parseSequenceBody(body: string): string[] {
   const ids: string[] = []
@@ -32,10 +28,11 @@ function parseSequenceBody(body: string): string[] {
 }
 
 export function parsePlanSequence(content: string): string[] | null {
+  const pattern = getSequenceBlockParsePattern()
   let latest: string[] | null = null
   let found = false
 
-  for (const match of content.matchAll(PLAN_SEQUENCE_PATTERN)) {
+  for (const match of content.matchAll(pattern)) {
     found = true
     latest = parseSequenceBody(match[1])
   }
