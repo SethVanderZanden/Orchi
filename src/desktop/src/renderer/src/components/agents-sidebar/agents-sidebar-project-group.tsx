@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
 type AgentsSidebarProjectGroupProps = {
   group: BoardProjectGroup
   isExpanded: boolean
-  onToggle: () => void
+  onExpandedChange: (expanded: boolean) => void
   getStatusVariant: (chat: ChatThread) => ChatStatusVariant
   getParentTitle: (chat: ChatThread) => string | null
   isChatActive: (chatId: string) => boolean
@@ -21,7 +21,7 @@ type AgentsSidebarProjectGroupProps = {
 export function AgentsSidebarProjectGroup({
   group,
   isExpanded,
-  onToggle,
+  onExpandedChange,
   getStatusVariant,
   getParentTitle,
   isChatActive,
@@ -29,7 +29,7 @@ export function AgentsSidebarProjectGroup({
   onOpenChatBeside
 }: AgentsSidebarProjectGroupProps): React.JSX.Element {
   return (
-    <Collapsible open={isExpanded} onOpenChange={onToggle}>
+    <Collapsible open={isExpanded} onOpenChange={onExpandedChange}>
       <CollapsibleTrigger asChild>
         <button
           type="button"

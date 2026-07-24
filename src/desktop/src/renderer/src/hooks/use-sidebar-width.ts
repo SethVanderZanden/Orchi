@@ -9,12 +9,17 @@ import {
 type UseSidebarWidthResult = {
   sidebarWidth: number
   setSidebarWidth: (width: number) => void
+  commitSidebarWidth: (width: number) => void
 }
 
 export function useSidebarWidth(): UseSidebarWidthResult {
   const [sidebarWidth, setSidebarWidthState] = useState(() => getSidebarWidth())
 
   const setSidebarWidth = useCallback((width: number) => {
+    setSidebarWidthState(clampSidebarWidth(width))
+  }, [])
+
+  const commitSidebarWidth = useCallback((width: number) => {
     const next = clampSidebarWidth(width)
     persistSidebarWidth(next)
     setSidebarWidthState(next)
@@ -22,6 +27,7 @@ export function useSidebarWidth(): UseSidebarWidthResult {
 
   return {
     sidebarWidth,
-    setSidebarWidth
+    setSidebarWidth,
+    commitSidebarWidth
   }
 }

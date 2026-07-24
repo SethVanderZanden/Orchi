@@ -3,10 +3,8 @@ import { useCallback, useMemo, useState } from 'react'
 import { AgentsSidebarProjectGroup } from '@/components/agents-sidebar/agents-sidebar-project-group'
 import { AgentsSidebarSection } from '@/components/agents-sidebar/agents-sidebar-section'
 import { BoardFiltersBar } from '@/components/kanban/board-filters-bar'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { useBoardFilters } from '@/hooks/use-board-filters'
 import { useBoardGrouping } from '@/hooks/use-board-grouping'
-import { useKanbanBoardSync } from '@/hooks/use-kanban-board-sync'
 import { groupBoardChats } from '@/lib/agents-sidebar/group-board-chats'
 import { mapChatStatusToVariant } from '@/lib/chat/chat-status-variant'
 import type { ChatStatus, ChatThread } from '@/lib/chat/types'
@@ -23,8 +21,6 @@ export function AgentsSidebarContent(): React.JSX.Element {
   const { grouping } = useBoardGrouping()
   // Track collapses so new projects default to expanded without an effect.
   const [collapsedProjectIds, setCollapsedProjectIds] = useState<Set<string>>(() => new Set())
-
-  useKanbanBoardSync()
 
   const filteredChats = useMemo(() => filterBoardChats(chats, filters), [chats, filters])
 
@@ -49,13 +45,29 @@ export function AgentsSidebarContent(): React.JSX.Element {
     [filteredChats, grouping, projects, resolveBoardStatus]
   )
 
+  const titleByChatId = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const chat of chats) {
+      map.set(chat.id, chat.title)
+    }
+    return map
+  }, [chats])
+
+  const projectNameById = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const project of projects) {
+      map.set(project.id, project.name)
+    }
+    return map
+  }, [projects])
+
   const hasFilteredOutChats = !isLoadingChats && chats.length > 0 && filteredChats.length === 0
 
   function getProjectName(projectId: string | null): string | null {
     if (!projectId) {
       return null
     }
-    return projects.find((project) => project.id === projectId)?.name ?? null
+    return projectNameById.get(projectId) ?? null
   }
 
   function getParentTitle(chat: ChatThread): string | null {
@@ -63,7 +75,7 @@ export function AgentsSidebarContent(): React.JSX.Element {
       return null
     }
 
-    return chats.find((candidate) => candidate.id === chat.parentChatId)?.title ?? 'Parent chat'
+    return titleByChatId.get(chat.parentChatId) ?? 'Parent chat'
   }
 
   function isChatActive(chatId: string): boolean {
@@ -74,10 +86,18 @@ export function AgentsSidebarContent(): React.JSX.Element {
     return !collapsedProjectIds.has(projectId)
   }
 
-  function toggleProjectExpanded(projectId: string): void {
+  function setProjectExpanded(projectId: string, expanded: boolean): void {
     setCollapsedProjectIds((current) => {
+      const isCollapsed = current.has(projectId)
+      if (expanded && !isCollapsed) {
+        return current
+      }
+      if (!expanded && isCollapsed) {
+        return current
+      }
+
       const next = new Set(current)
-      if (next.has(projectId)) {
+      if (expanded) {
         next.delete(projectId)
       } else {
         next.add(projectId)
@@ -116,7 +136,7 @@ export function AgentsSidebarContent(): React.JSX.Element {
           No chats to show. Open a chat or widen the filters.
         </p>
       ) : (
-        <ScrollArea className="min-h-0 flex-1">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="min-w-0 space-y-1 px-1.5 pb-3">
             {grouped.mode === 'state'
               ? grouped.sections.map((section) => (
@@ -138,7 +158,7 @@ export function AgentsSidebarContent(): React.JSX.Element {
                     key={project.id}
                     group={project}
                     isExpanded={isProjectExpanded(project.id)}
-                    onToggle={() => toggleProjectExpanded(project.id)}
+                    onExpandedChange={(expanded) => setProjectExpanded(project.id, expanded)}
                     getStatusVariant={(chat) => mapChatStatusToVariant(resolveBoardStatus(chat))}
                     getParentTitle={getParentTitle}
                     isChatActive={isChatActive}
@@ -147,7 +167,7 @@ export function AgentsSidebarContent(): React.JSX.Element {
                   />
                 ))}
           </div>
-        </ScrollArea>
+        </div>
       )}
     </div>
   )

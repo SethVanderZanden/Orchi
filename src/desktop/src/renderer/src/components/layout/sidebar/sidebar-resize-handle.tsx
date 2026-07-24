@@ -5,15 +5,23 @@ import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH } from '@/lib/preferences/sidebar-
 type SidebarResizeHandleProps = {
   width: number
   onWidthChange: (width: number) => void
+  onWidthCommit: (width: number) => void
 }
 
 export function SidebarResizeHandle({
   width,
-  onWidthChange
+  onWidthChange,
+  onWidthCommit
 }: SidebarResizeHandleProps): React.JSX.Element {
   const isDragging = useRef(false)
   const dragStartX = useRef(0)
   const dragStartWidth = useRef(width)
+  const latestWidth = useRef(width)
+  const rafId = useRef<number | undefined>(undefined)
+
+  useEffect(() => {
+    latestWidth.current = width
+  }, [width])
 
   const handleMouseMove = useCallback(
     (event: MouseEvent) => {
@@ -22,14 +30,33 @@ export function SidebarResizeHandle({
       }
 
       const delta = event.clientX - dragStartX.current
-      onWidthChange(dragStartWidth.current + delta)
+      const nextWidth = dragStartWidth.current + delta
+      latestWidth.current = nextWidth
+
+      if (rafId.current !== undefined) {
+        return
+      }
+
+      rafId.current = window.requestAnimationFrame(() => {
+        rafId.current = undefined
+        onWidthChange(latestWidth.current)
+      })
     },
     [onWidthChange]
   )
 
   const handleMouseUp = useCallback(() => {
+    if (!isDragging.current) {
+      return
+    }
+
     isDragging.current = false
-  }, [])
+    if (rafId.current !== undefined) {
+      window.cancelAnimationFrame(rafId.current)
+      rafId.current = undefined
+    }
+    onWidthCommit(latestWidth.current)
+  }, [onWidthCommit])
 
   useEffect(() => {
     window.addEventListener('mousemove', handleMouseMove)
@@ -37,6 +64,9 @@ export function SidebarResizeHandle({
     return () => {
       window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('mouseup', handleMouseUp)
+      if (rafId.current !== undefined) {
+        window.cancelAnimationFrame(rafId.current)
+      }
     }
   }, [handleMouseMove, handleMouseUp])
 
@@ -53,6 +83,7 @@ export function SidebarResizeHandle({
         isDragging.current = true
         dragStartX.current = event.clientX
         dragStartWidth.current = width
+        latestWidth.current = width
       }}
     >
       <div className="mx-auto w-px bg-border group-hover:bg-muted-foreground/40" />

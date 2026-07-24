@@ -3,7 +3,7 @@ import { SidebarResizeHandle } from '@/components/layout/sidebar/sidebar-resize-
 import { useSidebarWidth } from '@/hooks/use-sidebar-width'
 
 export function AgentsSidebar(): React.JSX.Element {
-  const { sidebarWidth, setSidebarWidth } = useSidebarWidth()
+  const { sidebarWidth, setSidebarWidth, commitSidebarWidth } = useSidebarWidth()
 
   return (
     <div className="flex h-full shrink-0" style={{ width: sidebarWidth }}>
@@ -13,7 +13,11 @@ export function AgentsSidebar(): React.JSX.Element {
       >
         <AgentsSidebarContent />
       </aside>
-      <SidebarResizeHandle width={sidebarWidth} onWidthChange={setSidebarWidth} />
+      <SidebarResizeHandle
+        width={sidebarWidth}
+        onWidthChange={setSidebarWidth}
+        onWidthCommit={commitSidebarWidth}
+      />
     </div>
   )
 }
