@@ -10,8 +10,7 @@ export const FALLBACK_MODE_OPTIONS: AgentModeOption[] = [
   {
     id: 'review',
     label: 'Review',
-    description:
-      'Reviews git diffs with per-change judgment and cross-cutting findings.'
+    description: 'Reviews git diffs with per-change judgment and cross-cutting findings.'
   }
 ]
 

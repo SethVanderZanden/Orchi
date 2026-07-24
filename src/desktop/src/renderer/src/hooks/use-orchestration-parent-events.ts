@@ -49,9 +49,14 @@ export function useOrchestrationParentEvents({
 
     void subscribeOrchestrationEvents(
       parentChatId,
-      createOrchestrationEventHandlers(parent, queryClient, (chatId) => getChatRef.current(chatId), {
-        loadChat: (chatId) => loadChatRef.current?.(chatId) ?? Promise.resolve(undefined)
-      }),
+      createOrchestrationEventHandlers(
+        parent,
+        queryClient,
+        (chatId) => getChatRef.current(chatId),
+        {
+          loadChat: (chatId) => loadChatRef.current?.(chatId) ?? Promise.resolve(undefined)
+        }
+      ),
       controller.signal
     ).catch(() => {
       // Stream closed on unmount or network error.

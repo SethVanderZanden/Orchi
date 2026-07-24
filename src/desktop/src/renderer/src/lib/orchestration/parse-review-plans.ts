@@ -39,10 +39,7 @@ export function parseReviewPlansFromMessages(
   return [...plans.values()]
 }
 
-function isCompleteAssistantMessage(message: {
-  role: string
-  status?: string
-}): boolean {
+function isCompleteAssistantMessage(message: { role: string; status?: string }): boolean {
   return (
     message.role === 'assistant' &&
     message.status !== 'processing' &&
