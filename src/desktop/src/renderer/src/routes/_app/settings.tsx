@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { AgentSettingsSection } from '@/components/settings/agent-settings-section'
 import { AutoKickOffReviewCard } from '@/components/settings/auto-kick-off-review-card'
+import { DiagnosticsCard } from '@/components/settings/diagnostics-card'
 import { EnabledAgentsCard } from '@/components/settings/enabled-agents-card'
 import { ModeRuntimeDefaultsCard } from '@/components/settings/mode-runtime-defaults-card'
 import { DefaultChatModeCard } from '@/components/settings/default-chat-mode-card'
@@ -61,6 +62,7 @@ function SettingsPage(): React.JSX.Element {
               <DefaultChatModeCard />
               <PostMessageBehaviorCard />
               <AutoKickOffReviewCard />
+              <DiagnosticsCard />
               <Card>
                 <CardContent className="space-y-3">
                   <p className="text-sm leading-relaxed text-muted-foreground">

@@ -7,7 +7,10 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { RouterProvider, createHashHistory, createRouter } from '@tanstack/react-router'
 
+import { setupRendererLogging } from '@/lib/logger'
 import { routeTree } from './routeTree.gen'
+
+setupRendererLogging()
 
 const isFileProtocol = typeof window !== 'undefined' && window.location.protocol === 'file:'
 

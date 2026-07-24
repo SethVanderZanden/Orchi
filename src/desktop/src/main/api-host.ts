@@ -2,6 +2,7 @@ import { app } from 'electron'
 import { execSync, spawn, type ChildProcess } from 'child_process'
 import { existsSync } from 'fs'
 import { join } from 'path'
+import { log } from './logging'
 
 const DEFAULT_PORT = '5265'
 const STOP_SIGKILL_ESCALATION_MS = 3_000
@@ -105,7 +106,7 @@ export async function startApiHost(): Promise<void> {
   apiProcessPid = apiProcess.pid ?? null
 
   apiProcess.on('error', (error) => {
-    console.error('API process error:', error)
+    log.error('API process error:', error)
   })
 
   apiProcess.on('exit', () => {

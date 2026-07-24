@@ -61,5 +61,6 @@ npm run format       # Prettier
 
 - `docs/frontend/README.md`
 - `docs/frontend/coding-standards.md` — includes Styling / theme rules
+- `docs/frontend/logging.md` — electron-log + white-screen recovery
 - `docs/frontend/plans/README.md` — improvement plans
 - `../../.cursor/skills/orchi-ui-theme/SKILL.md` — visual consistency for agents
