@@ -10,8 +10,8 @@ import { Bubble, BubbleContent } from '@/components/ui/bubble'
 import { Marker, MarkerContent } from '@/components/ui/marker'
 import { Message, MessageAvatar, MessageContent } from '@/components/ui/message'
 import { MessageScrollerItem } from '@/components/ui/message-scroller'
+import { getChatMessageDisplayState } from '@/lib/chat/message-display'
 import type { AgentMode, ChatMarker, ChatMessage as OrchiChatMessage } from '@/lib/chat/types'
-import { stripPlanBlocksForChatDisplay } from '@/lib/orchestration/strip-plan-blocks'
 
 const EMPTY_MARKERS: ChatMarker[] = []
 
@@ -51,26 +51,10 @@ export function OrchiChatMessageList({
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-7 px-6 py-8">
       {messages.map((message, index) => {
-        const isUser = message.role === 'user'
-        const displayContent =
-          !isUser && mode === 'orchestration'
-            ? stripPlanBlocksForChatDisplay(message.content)
-            : message.content
         const rowMarkers = index === lastAssistantIndex ? activeMarkers : EMPTY_MARKERS
-        const isActive =
-          message.status === 'processing' || message.status === 'streaming'
-        const showActivity = !isUser && rowMarkers.length > 0
-        const showPlaceholder = !isUser && isActive && displayContent.length === 0 && !showActivity
+        const display = getChatMessageDisplayState({ message, mode, rowMarkers })
 
-        // Plan-only orchestration turns render via PlanCards / Plan review — skip empty bubbles.
-        if (
-          !isUser &&
-          message.status !== 'error' &&
-          displayContent.length === 0 &&
-          !showActivity &&
-          !showPlaceholder &&
-          !isActive
-        ) {
+        if (!display.shouldRender) {
           return null
         }
 
@@ -78,8 +62,9 @@ export function OrchiChatMessageList({
           <MessageScrollerItem key={message.id} scrollAnchor={message.role === 'user'}>
             <ChatMessageRow
               message={message}
-              displayContent={displayContent}
-              showPlaceholder={showPlaceholder}
+              displayContent={display.displayContent}
+              showPlaceholder={display.showPlaceholder}
+              showActivity={display.showActivity}
               markers={rowMarkers}
               mode={mode}
             />
@@ -94,6 +79,7 @@ type ChatMessageRowProps = {
   message: OrchiChatMessage
   displayContent: string
   showPlaceholder: boolean
+  showActivity: boolean
   markers: ChatMarker[]
   mode: AgentMode
 }
@@ -102,13 +88,11 @@ const ChatMessageRow = memo(function ChatMessageRow({
   message,
   displayContent,
   showPlaceholder,
+  showActivity,
   markers,
   mode
 }: ChatMessageRowProps): React.JSX.Element {
-  const isUser = message.role === 'user'
-  const showActivity = !isUser && markers.length > 0
-
-  if (isUser) {
+  if (message.role === 'user') {
     return (
       <Message align="end">
         <MessageContent>
