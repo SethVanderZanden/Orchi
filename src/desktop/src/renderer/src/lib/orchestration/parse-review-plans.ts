@@ -1,3 +1,8 @@
+import {
+  ORCHI_MARKERS,
+  extractMarkdownTitle,
+  getIdBlockParseConfig
+} from '@/lib/orchestration/orchi-markers'
 import { parseMarkedBlocks } from '@/lib/orchestration/parse-marked-blocks'
 
 export type ParsedReviewPlan = {
@@ -6,23 +11,14 @@ export type ParsedReviewPlan = {
   contentMarkdown: string
 }
 
-const REVIEW_PLAN_PARSE_CONFIG = {
-  completeBlockPattern:
-    /<!--\s*orchi-review-plan:([a-z0-9]+(?:-[a-z0-9]+)*)\s*-->\s*([\s\S]*?)<!--\s*\/orchi-review-plan\s*-->/gi,
-  openMarkerPattern: /<!--\s*orchi-review-plan:([a-z0-9]+(?:-[a-z0-9]+)*)\s*-->/gi
-} as const
-
-function extractTitle(content: string): string {
-  const headingMatch = content.match(/^#\s+(.+)$/m)
-  return headingMatch?.[1]?.trim() ?? 'Untitled review plan'
-}
-
 export function parseReviewPlans(content: string): ParsedReviewPlan[] {
-  return parseMarkedBlocks(content, REVIEW_PLAN_PARSE_CONFIG).map(({ id, body }) => ({
-    planId: id,
-    title: extractTitle(body),
-    contentMarkdown: body
-  }))
+  return parseMarkedBlocks(content, getIdBlockParseConfig(ORCHI_MARKERS.reviewPlan)).map(
+    ({ id, body }) => ({
+      planId: id,
+      title: extractMarkdownTitle(body, ORCHI_MARKERS.reviewPlan.defaultTitle),
+      contentMarkdown: body
+    })
+  )
 }
 
 export function parseReviewPlansFromMessages(

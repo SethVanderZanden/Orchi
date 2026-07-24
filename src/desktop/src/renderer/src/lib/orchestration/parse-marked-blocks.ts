@@ -8,6 +8,11 @@ export type MarkedBlockParseConfig = {
   openMarkerPattern: RegExp
 }
 
+export type MarkedBlockStripConfig = {
+  completePatterns: RegExp[]
+  openMarkerPatterns: RegExp[]
+}
+
 /**
  * Extracts marked blocks (plan / review-plan) from assistant output.
  * Supports complete blocks (open + close markers) and incomplete blocks
@@ -56,4 +61,29 @@ export function parseMarkedBlocks(
   }
 
   return [...blocks.entries()].map(([id, body]) => ({ id, body }))
+}
+
+/**
+ * Removes marked blocks from assistant message text for chat display.
+ * Incomplete open markers (mid-stream) are truncated so block markdown never flashes in chat.
+ */
+export function stripMarkedBlocksForChatDisplay(
+  content: string,
+  { completePatterns, openMarkerPatterns }: MarkedBlockStripConfig
+): string {
+  let stripped = content
+  for (const pattern of completePatterns) {
+    stripped = stripped.replace(pattern, '')
+  }
+
+  const truncateAt = openMarkerPatterns
+    .map((pattern) => stripped.search(pattern))
+    .filter((index) => index >= 0)
+    .reduce((min, index) => Math.min(min, index), Number.POSITIVE_INFINITY)
+
+  if (Number.isFinite(truncateAt)) {
+    stripped = stripped.slice(0, truncateAt)
+  }
+
+  return stripped.replace(/\n{3,}/g, '\n\n').trim()
 }

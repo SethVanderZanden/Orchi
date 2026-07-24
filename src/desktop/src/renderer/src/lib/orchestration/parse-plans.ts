@@ -1,5 +1,10 @@
+import {
+  ORCHI_MARKERS,
+  extractMarkdownTitle,
+  getIdBlockParseConfig
+} from '@/lib/orchestration/orchi-markers'
+import { parseMarkedBlocks } from '@/lib/orchestration/parse-marked-blocks'
 import { parsePlanSequenceFromMessages } from './plan-sequence'
-import { parseMarkedBlocks } from './parse-marked-blocks'
 
 export type ParsedPlan = {
   planId: string
@@ -7,23 +12,14 @@ export type ParsedPlan = {
   contentMarkdown: string
 }
 
-const PLAN_PARSE_CONFIG = {
-  completeBlockPattern:
-    /<!--\s*orchi-plan:([a-z0-9]+(?:-[a-z0-9]+)*)\s*-->\s*([\s\S]*?)<!--\s*\/orchi-plan\s*-->/gi,
-  openMarkerPattern: /<!--\s*orchi-plan:([a-z0-9]+(?:-[a-z0-9]+)*)\s*-->/gi
-} as const
-
-function extractTitle(content: string): string {
-  const headingMatch = content.match(/^#\s+(.+)$/m)
-  return headingMatch?.[1]?.trim() ?? 'Untitled plan'
-}
-
 export function parsePlans(content: string): ParsedPlan[] {
-  return parseMarkedBlocks(content, PLAN_PARSE_CONFIG).map(({ id, body }) => ({
-    planId: id,
-    title: extractTitle(body),
-    contentMarkdown: body
-  }))
+  return parseMarkedBlocks(content, getIdBlockParseConfig(ORCHI_MARKERS.plan)).map(
+    ({ id, body }) => ({
+      planId: id,
+      title: extractMarkdownTitle(body, ORCHI_MARKERS.plan.defaultTitle),
+      contentMarkdown: body
+    })
+  )
 }
 
 export function parsePlansFromMessages(

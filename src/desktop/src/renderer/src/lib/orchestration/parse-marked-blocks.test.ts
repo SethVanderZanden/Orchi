@@ -1,20 +1,17 @@
 import { describe, expect, it } from 'vitest'
 
+import { ORCHI_MARKERS, getIdBlockParseConfig } from './orchi-markers'
 import { parseMarkedBlocks } from './parse-marked-blocks'
 
-const REVIEW_CONFIG = {
-  completeBlockPattern:
-    /<!--\s*orchi-review-plan:([a-z0-9]+(?:-[a-z0-9]+)*)\s*-->\s*([\s\S]*?)<!--\s*\/orchi-review-plan\s*-->/gi,
-  openMarkerPattern: /<!--\s*orchi-review-plan:([a-z0-9]+(?:-[a-z0-9]+)*)\s*-->/gi
-} as const
-
 describe('parseMarkedBlocks', () => {
+  const reviewPlanConfig = getIdBlockParseConfig(ORCHI_MARKERS.reviewPlan)
+
   it('extracts complete review blocks', () => {
     const content = `<!-- orchi-review-plan:auth-refactor -->
 # Auth Refactor Review
 <!-- /orchi-review-plan -->`
 
-    expect(parseMarkedBlocks(content, REVIEW_CONFIG)).toEqual([
+    expect(parseMarkedBlocks(content, reviewPlanConfig)).toEqual([
       {
         id: 'auth-refactor',
         body: '# Auth Refactor Review'
@@ -29,7 +26,7 @@ describe('parseMarkedBlocks', () => {
 ## Review TLDR
 - Verdict: ship with fixes`
 
-    expect(parseMarkedBlocks(content, REVIEW_CONFIG)).toEqual([
+    expect(parseMarkedBlocks(content, reviewPlanConfig)).toEqual([
       {
         id: 'crew-sheet-run-sheet-order',
         body: `# Crew sheet order
@@ -48,7 +45,7 @@ describe('parseMarkedBlocks', () => {
 <!-- orchi-review-plan:auth-refactor -->
 # Incomplete title`
 
-    expect(parseMarkedBlocks(content, REVIEW_CONFIG)).toEqual([
+    expect(parseMarkedBlocks(content, reviewPlanConfig)).toEqual([
       {
         id: 'auth-refactor',
         body: '# Complete title'
@@ -63,7 +60,7 @@ describe('parseMarkedBlocks', () => {
 <!-- orchi-review-plan:beta -->
 # Beta`
 
-    expect(parseMarkedBlocks(content, REVIEW_CONFIG)).toEqual([
+    expect(parseMarkedBlocks(content, reviewPlanConfig)).toEqual([
       { id: 'alpha', body: '# Alpha' },
       { id: 'beta', body: '# Beta' }
     ])
@@ -76,7 +73,7 @@ describe('parseMarkedBlocks', () => {
 # Auth Refactor Review
 <!-- /orchi-review-plan -->`
 
-    expect(parseMarkedBlocks(content, REVIEW_CONFIG)[0]?.body).toContain('# Auth Refactor Review')
-    expect(parseMarkedBlocks(content, REVIEW_CONFIG)[0]?.body).not.toContain('Some intro text')
+    expect(parseMarkedBlocks(content, reviewPlanConfig)[0]?.body).toContain('# Auth Refactor Review')
+    expect(parseMarkedBlocks(content, reviewPlanConfig)[0]?.body).not.toContain('Some intro text')
   })
 })
