@@ -4,13 +4,23 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   main: {
-    build: {
-      // Bundle electron-log so packaged apps resolve it without node_modules.
-      externalizeDeps: {
-        exclude: ['electron-log']
+    resolve: {
+      alias: {
+        // Rollup cannot always resolve package.json export subpaths when bundling.
+        'electron-log/main': resolve('node_modules/electron-log/main.js')
       }
+    },
+    build: {
+      // Dev keeps deps external (fast rebuilds, uses node_modules). Production bundles
+      // electron-log so packaged apps do not depend on node_modules layout.
+      externalizeDeps:
+        command === 'build'
+          ? {
+              exclude: ['electron-log']
+            }
+          : true
     }
   },
   preload: {},
@@ -62,4 +72,4 @@ export default defineConfig({
       tailwindcss()
     ]
   }
-})
+}))
