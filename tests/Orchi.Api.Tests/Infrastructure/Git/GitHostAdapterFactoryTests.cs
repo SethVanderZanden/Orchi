@@ -28,24 +28,37 @@ public class GitHostAdapterFactoryTests
     [Fact]
     public async Task Facade_CreatePullRequest_FailsWhenNotReady()
     {
-        var facade = new GitHostingFacade(
-            new GitHostAdapterFactory(
-            [
-                new GitHubHostAdapter(new ProcessRunner()),
-                new AzureDevOpsHostAdapter(new ProcessRunner())
-            ]));
+        string nonRepoWorkspace = Path.Combine(Path.GetTempPath(), $"orchi-gh-facade-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(nonRepoWorkspace);
 
-        InvalidOperationException ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            facade.CreatePullRequestAsync(
-                GitHostProvider.GitHub,
-                new CreatePullRequestRequest(
-                    Directory.GetCurrentDirectory(),
-                    "title",
-                    "body",
-                    "feature",
-                    "main"),
-                CancellationToken.None));
+        try
+        {
+            var facade = new GitHostingFacade(
+                new GitHostAdapterFactory(
+                [
+                    new GitHubHostAdapter(new ProcessRunner()),
+                    new AzureDevOpsHostAdapter(new ProcessRunner())
+                ]));
 
-        Assert.Contains("not ready", ex.Message, StringComparison.OrdinalIgnoreCase);
+            InvalidOperationException ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                facade.CreatePullRequestAsync(
+                    GitHostProvider.GitHub,
+                    new CreatePullRequestRequest(
+                        nonRepoWorkspace,
+                        "title",
+                        "body",
+                        "feature",
+                        "main"),
+                    CancellationToken.None));
+
+            Assert.Contains("not ready", ex.Message, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            if (Directory.Exists(nonRepoWorkspace))
+            {
+                Directory.Delete(nonRepoWorkspace, recursive: true);
+            }
+        }
     }
 }
