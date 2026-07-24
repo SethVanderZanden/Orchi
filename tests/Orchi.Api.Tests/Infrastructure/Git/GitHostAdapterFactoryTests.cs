@@ -35,17 +35,27 @@ public class GitHostAdapterFactoryTests
                 new AzureDevOpsHostAdapter(new ProcessRunner())
             ]));
 
-        InvalidOperationException ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            facade.CreatePullRequestAsync(
-                GitHostProvider.GitHub,
-                new CreatePullRequestRequest(
-                    Directory.GetCurrentDirectory(),
-                    "title",
-                    "body",
-                    "feature",
-                    "main"),
-                CancellationToken.None));
+        string workspacePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(workspacePath);
 
-        Assert.Contains("not ready", ex.Message, StringComparison.OrdinalIgnoreCase);
+        try
+        {
+            InvalidOperationException ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                facade.CreatePullRequestAsync(
+                    GitHostProvider.GitHub,
+                    new CreatePullRequestRequest(
+                        workspacePath,
+                        "title",
+                        "body",
+                        "feature",
+                        "main"),
+                    CancellationToken.None));
+
+            Assert.Contains("not ready", ex.Message, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            Directory.Delete(workspacePath, recursive: true);
+        }
     }
 }
