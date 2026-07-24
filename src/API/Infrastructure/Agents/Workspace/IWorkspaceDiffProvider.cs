@@ -5,4 +5,6 @@ public interface IWorkspaceDiffProvider
     string GetDiff(string workspacePath);
 
     string GetBranchDiff(string workspacePath, string baseBranch, string headBranch);
+
+    WorkspaceDiffStats? TryGetDiffStats(string workspacePath);
 }

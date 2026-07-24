@@ -46,4 +46,7 @@ public sealed class CachingWorkspaceDiffProvider(
             .GetAwaiter()
             .GetResult();
     }
+
+    public WorkspaceDiffStats? TryGetDiffStats(string workspacePath) =>
+        inner.TryGetDiffStats(workspacePath);
 }
