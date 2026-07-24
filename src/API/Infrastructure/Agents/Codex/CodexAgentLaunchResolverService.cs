@@ -19,12 +19,9 @@ internal sealed class CodexAgentLaunchResolverService : IAgentLaunchResolver
             CodexAgentExecutableResolver.Resolve(_options);
 
         AgentLaunchResolveResult mapped = result.Success && result.Launch is not null
-            ? new AgentLaunchResolveResult(true, ToSharedLaunchSpec(result.Launch), null)
+            ? new AgentLaunchResolveResult(true, result.Launch, null)
             : new AgentLaunchResolveResult(false, null, result.ErrorMessage);
 
         return ValueTask.FromResult(mapped);
     }
-
-    private static AgentLaunchSpec ToSharedLaunchSpec(CodexAgentLaunchSpec launch) =>
-        new(launch.ExecutablePath, launch.EntryScript);
 }

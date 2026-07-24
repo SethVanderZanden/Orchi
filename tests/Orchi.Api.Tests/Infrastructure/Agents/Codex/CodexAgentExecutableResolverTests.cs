@@ -3,7 +3,7 @@ using Microsoft.Extensions.Options;
 using Orchi.Api.Infrastructure.Agents;
 using Orchi.Api.Infrastructure.Agents.Cli;
 using Orchi.Api.Infrastructure.Agents.Codex;
-using Orchi.Api.Infrastructure.Agents.Cursor;
+using Orchi.Api.Tests.Infrastructure.Agents.Cli;
 
 namespace Orchi.Api.Tests.Infrastructure.Agents.Codex;
 
@@ -194,11 +194,13 @@ public class CodexAgentExecutableResolverTests
     }
 
     [Fact]
-    public void Resolve_PrefersNpmPlatformNativeBinaryOverNodeBundle()
+    public void Resolve_IgnoresNestedNpmVendorBinaryWhenPathShortcutExists()
     {
+        // Regression: digging into @openai/codex-win32-*/vendor/.../codex.exe produced
+        // MAX_PATH failures ("The filename or extension is too long") with deep worktrees.
         string tempDirectory = CreateTempDirectory();
-        string nodePath = Path.Combine(tempDirectory, "node.exe");
-        string nativeExePath = Path.Combine(
+        string cmdPath = Path.Combine(tempDirectory, "codex.cmd");
+        string nestedVendorExe = Path.Combine(
             tempDirectory,
             "node_modules",
             "@openai",
@@ -206,26 +208,19 @@ public class CodexAgentExecutableResolverTests
             "node_modules",
             "@openai",
             "codex-win32-x64",
+            "vendor",
+            "x86_64-pc-windows-msvc",
             "bin",
             "codex.exe");
-        string codexJsPath = Path.Combine(
-            tempDirectory,
-            "node_modules",
-            "@openai",
-            "codex",
-            "bin",
-            "codex.js");
-        Directory.CreateDirectory(Path.GetDirectoryName(nativeExePath)!);
-        Directory.CreateDirectory(Path.GetDirectoryName(codexJsPath)!);
-        File.WriteAllText(nodePath, string.Empty);
-        File.WriteAllText(nativeExePath, string.Empty);
-        File.WriteAllText(codexJsPath, string.Empty);
+        Directory.CreateDirectory(Path.GetDirectoryName(nestedVendorExe)!);
+        File.WriteAllText(cmdPath, "@echo off");
+        File.WriteAllText(nestedVendorExe, string.Empty);
 
         var environment = new FakeExecutableEnvironment
         {
             IsWindows = true,
             PathDirectories = { tempDirectory },
-            ExistingFiles = { nodePath, nativeExePath, codexJsPath }
+            ExistingFiles = { cmdPath, nestedVendorExe }
         };
 
         var options = new CodexAgentOptions { Executable = "codex" };
@@ -235,8 +230,10 @@ public class CodexAgentExecutableResolverTests
 
         Assert.True(result.Success);
         Assert.NotNull(result.Launch);
-        Assert.Equal(nativeExePath, result.Launch.ExecutablePath);
-        Assert.Null(result.Launch.EntryScript);
+        Assert.Equal(cmdPath, result.Launch.ExecutablePath);
+        Assert.True(result.Launch.UsesCmdShim);
+        Assert.DoesNotContain("vendor", result.Launch.ExecutablePath, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("codex-win32", result.Launch.ExecutablePath, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -418,52 +415,5 @@ public class CodexAgentExecutableResolverTests
         string tempDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempDirectory);
         return tempDirectory;
-    }
-
-    private sealed class FakeExecutableEnvironment : IExecutableEnvironment
-    {
-        public bool IsWindows { get; init; }
-
-        public HashSet<string> ExistingFiles { get; } = new(StringComparer.OrdinalIgnoreCase);
-
-        public HashSet<string> ExistingDirectories { get; } = new(StringComparer.OrdinalIgnoreCase);
-
-        public List<string> PathDirectories { get; } = [];
-
-        public Dictionary<string, string> EnvironmentVariables { get; } = new(StringComparer.OrdinalIgnoreCase);
-
-        public string? GetEnvironmentVariable(string name) =>
-            EnvironmentVariables.TryGetValue(name, out string? value) ? value : null;
-
-        public string ExpandEnvironmentVariables(string value)
-        {
-            string expanded = value;
-
-            foreach ((string key, string envValue) in EnvironmentVariables)
-            {
-                expanded = expanded.Replace($"%{key}%", envValue, StringComparison.OrdinalIgnoreCase);
-            }
-
-            return expanded;
-        }
-
-        public bool FileExists(string path) => ExistingFiles.Contains(path);
-
-        public bool DirectoryExists(string path) =>
-            ExistingDirectories.Contains(path) || Directory.Exists(path);
-
-        public IReadOnlyList<string> GetDirectories(string path)
-        {
-            if (Directory.Exists(path))
-            {
-                return Directory.GetDirectories(path);
-            }
-
-            return [];
-        }
-
-        public IReadOnlyList<string> GetPathDirectories() => PathDirectories;
-
-        public IReadOnlyList<string> GetPathExtensions() => [".COM", ".EXE", ".BAT", ".CMD"];
     }
 }
