@@ -103,6 +103,8 @@ When viewing an orchestration chat, the desktop subscribes to `GET /chats/{paren
 
 Client: `lib/orchestration/orchestration-events.ts` + `hooks/use-orchestration.ts`.
 
+Orchestration plan markdown still streams into the stored assistant message (for parsing / kickoff), but the chat bubble strips `orchi-plan` / `orchi-plan-sequence` blocks via `stripPlanBlocksForChatDisplay` and opens **Plan review** instead.
+
 ## Desktop client
 
 Shared SSE parsing: `lib/http/sse.ts` — `parseSseBlock()` and `readSseStream()` for any streaming `fetch` response.
