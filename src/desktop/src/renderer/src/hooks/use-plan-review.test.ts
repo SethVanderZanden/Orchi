@@ -44,4 +44,17 @@ describe('reviewReducer', () => {
       activeTabId: 'plan-2'
     })
   })
+
+  it('open-panel opens with the given plan when no tabs are open', () => {
+    const result = reviewReducer(initialReviewState, {
+      type: 'open-panel',
+      planId: 'plan-1'
+    })
+
+    expect(result).toEqual({
+      panelOpen: true,
+      openTabIds: ['plan-1'],
+      activeTabId: 'plan-1'
+    })
+  })
 })

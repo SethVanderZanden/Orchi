@@ -175,10 +175,27 @@ export function usePlanReview({
 } {
   const [reviewState, dispatchReview] = useReducer(reviewReducer, initialReviewState)
   const highlightedReviewPlanIdsRef = useRef<Set<string>>(new Set())
+  const autoOpenedPlanIdsRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     dispatchReview({ type: 'sync-plans', planIds: plans.map((plan) => plan.planId) })
   }, [plans])
+
+  useEffect(() => {
+    if (!showPlanReview) {
+      return
+    }
+
+    for (const plan of plans) {
+      if (autoOpenedPlanIdsRef.current.has(plan.planId)) {
+        continue
+      }
+
+      autoOpenedPlanIdsRef.current.add(plan.planId)
+      dispatchReview({ type: 'open-panel', planId: plan.planId })
+      break
+    }
+  }, [plans, showPlanReview])
 
   useEffect(() => {
     for (const plan of plans) {

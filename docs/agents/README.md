@@ -119,7 +119,7 @@ A global meta-rule tells the agent not to respond to instruction sections — on
 
 ### Orchestration mode
 
-`orchestration` is an enhanced plan mode. The orchestrator decomposes work into several small plans wrapped in `<!-- orchi-plan:id -->` markers. Each plan can be **kicked off** via `POST /chats/{parentChatId}/plans/kickoff`, which:
+`orchestration` is an enhanced plan mode. The orchestrator decomposes work into several small plans wrapped in `<!-- orchi-plan:id -->` markers. Those markers still live in the stored assistant message (for parsing and kickoff), but the desktop **does not render plan/sequence blocks in the chat bubble** — it opens **Plan review** instead. Each plan can be **kicked off** via `POST /chats/{parentChatId}/plans/kickoff`, which:
 
 1. Writes `.orchi/plan-{id}.md` in the workspace
 2. Creates a child chat in `implementation` mode (kickoff-only; not listed in `GET /agents/modes`)
@@ -127,7 +127,7 @@ A global meta-rule tells the agent not to respond to instruction sections — on
 4. The child agent deletes the plan file after successful implementation and validation (if blocked, the plan file is kept)
 
 ```
-Orchestration chat  →  plans in assistant output  →  kick off  →  .orchi/plan-*.md + child chat
+Orchestration chat  →  plans in stored assistant output  →  Plan review panel (not chat bubble)  →  kick off  →  .orchi/plan-*.md + child chat
 ```
 
 #### Sequential plan kickoff

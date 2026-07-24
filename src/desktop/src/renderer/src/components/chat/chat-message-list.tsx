@@ -10,6 +10,7 @@ import { Bubble, BubbleContent } from '@/components/ui/bubble'
 import { Marker, MarkerContent } from '@/components/ui/marker'
 import { Message, MessageAvatar, MessageContent } from '@/components/ui/message'
 import { MessageScrollerItem } from '@/components/ui/message-scroller'
+import { getChatMessageDisplayState } from '@/lib/chat/message-display'
 import type { AgentMode, ChatMarker, ChatMessage as OrchiChatMessage } from '@/lib/chat/types'
 
 const EMPTY_MARKERS: ChatMarker[] = []
@@ -49,36 +50,49 @@ export function OrchiChatMessageList({
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-7 px-6 py-8">
-      {messages.map((message, index) => (
-        <MessageScrollerItem key={message.id} scrollAnchor={message.role === 'user'}>
-          <ChatMessageRow
-            message={message}
-            markers={index === lastAssistantIndex ? activeMarkers : EMPTY_MARKERS}
-            mode={mode}
-          />
-        </MessageScrollerItem>
-      ))}
+      {messages.map((message, index) => {
+        const rowMarkers = index === lastAssistantIndex ? activeMarkers : EMPTY_MARKERS
+        const display = getChatMessageDisplayState({ message, mode, rowMarkers })
+
+        if (!display.shouldRender) {
+          return null
+        }
+
+        return (
+          <MessageScrollerItem key={message.id} scrollAnchor={message.role === 'user'}>
+            <ChatMessageRow
+              message={message}
+              displayContent={display.displayContent}
+              showPlaceholder={display.showPlaceholder}
+              showActivity={display.showActivity}
+              markers={rowMarkers}
+              mode={mode}
+            />
+          </MessageScrollerItem>
+        )
+      })}
     </div>
   )
 }
 
 type ChatMessageRowProps = {
   message: OrchiChatMessage
+  displayContent: string
+  showPlaceholder: boolean
+  showActivity: boolean
   markers: ChatMarker[]
   mode: AgentMode
 }
 
 const ChatMessageRow = memo(function ChatMessageRow({
   message,
+  displayContent,
+  showPlaceholder,
+  showActivity,
   markers,
   mode
 }: ChatMessageRowProps): React.JSX.Element {
-  const isUser = message.role === 'user'
-  const showActivity = !isUser && markers.length > 0
-  const showPlaceholder =
-    !isUser && message.status === 'processing' && message.content.length === 0 && !showActivity
-
-  if (isUser) {
+  if (message.role === 'user') {
     return (
       <Message align="end">
         <MessageContent>
@@ -112,13 +126,13 @@ const ChatMessageRow = memo(function ChatMessageRow({
         <MessageSelectionMenu>
           {showPlaceholder ? (
             <span className="text-muted-foreground">…</span>
-          ) : (
+          ) : displayContent.length > 0 ? (
             <MarkdownContent
               className={message.status === 'error' ? 'prose-base text-destructive' : 'prose-base'}
             >
-              {message.content}
+              {displayContent}
             </MarkdownContent>
-          )}
+          ) : null}
         </MessageSelectionMenu>
         {showActivity ? (
           toolCalls.length > 0 ? (
