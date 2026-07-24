@@ -1,0 +1,6 @@
+<Project>
+  <PropertyGroup>
+    <!-- Fail restore/build on high/critical vulnerable packages (same threshold as npm audit level=high). -->
+    <WarningsAsErrors>$(WarningsAsErrors);NU1903;NU1904</WarningsAsErrors>
+  </PropertyGroup>
+</Project>
