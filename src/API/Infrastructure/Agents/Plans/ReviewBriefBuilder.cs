@@ -8,11 +8,24 @@ public static partial class ReviewBriefBuilder
         string planId,
         string originalPlanMarkdown,
         Guid implementationChildChatId,
-        Guid parentChatId)
+        Guid parentChatId,
+        string? headBranch = null,
+        string? baseBranch = null)
     {
+        bool hasBranchPair = !string.IsNullOrWhiteSpace(headBranch) && !string.IsNullOrWhiteSpace(baseBranch);
+        string trimmedHead = headBranch?.Trim() ?? string.Empty;
+        string trimmedBase = baseBranch?.Trim() ?? string.Empty;
+        string branchMarker = hasBranchPair
+            ? $"\n\n<!-- orchi-branch-review head: {trimmedHead} base: {trimmedBase} -->\n"
+            : string.Empty;
+
+        string diffInstructions = hasBranchPair
+            ? $"Review the three-dot git diff (`{trimmedBase}...{trimmedHead}`) against the original plan above."
+            : "Review the git diff against the original plan above.";
+
         return $"""
             # Review brief for plan {planId}
-
+            {branchMarker}
             ## Original implementation plan
 
             {originalPlanMarkdown.Trim()}
@@ -27,7 +40,7 @@ public static partial class ReviewBriefBuilder
 
             ## Instructions
 
-            Review the git diff against the original plan above.
+            {diffInstructions}
             Focus on oversights, over-engineering, and missed patterns — not a restatement of the changes.
             Lead with a Review TLDR. Keep the review short and scannable.
             Produce one or more review plans using the exact format in your context section.

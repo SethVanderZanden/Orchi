@@ -27,6 +27,25 @@ public class BranchReviewBriefParserTests
         Assert.Equal("branch-feature-auth-flow", id);
     }
 
+    [Fact]
+    public void Build_WithBranchPair_IncludesBranchReviewMarker()
+    {
+        string brief = ReviewBriefBuilder.Build(
+            "auth-refactor",
+            "# Plan",
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "orchi/20260724-abc123",
+            "main");
+
+        BranchReviewBriefParser.BranchReviewRefs? parsed = BranchReviewBriefParser.TryParse(brief);
+
+        Assert.NotNull(parsed);
+        Assert.Equal("orchi/20260724-abc123", parsed.HeadBranch);
+        Assert.Equal("main", parsed.BaseBranch);
+        Assert.Contains("main...orchi/20260724-abc123", brief);
+    }
+
     [Theory]
     [InlineData("staging")]
     [InlineData("dev")]

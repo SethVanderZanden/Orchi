@@ -2,6 +2,7 @@ using FluentValidation;
 using Orchi.Api.Common.Abstractions;
 using Orchi.Api.Common.Http;
 using Orchi.Api.Common.Results;
+using Orchi.Api.Entities;
 using Orchi.Api.Features.Chats.Shared;
 using Orchi.Api.Infrastructure.Agents;
 using Orchi.Api.Infrastructure.Agents.Modes;
@@ -9,6 +10,7 @@ using Orchi.Api.Infrastructure.Agents.Plans;
 using Orchi.Api.Infrastructure.Agents.Plans.Artifacts;
 using Orchi.Api.Infrastructure.Agents.Plans.Persistence;
 using Orchi.Api.Infrastructure.Agents.Persistence;
+using Orchi.Api.Infrastructure.Projects;
 
 namespace Orchi.Api.Features.Chats.KickOffReview;
 
@@ -20,6 +22,7 @@ public static class KickOffReview
         AgentSessionManager sessionManager,
         IChatStore chatStore,
         IPlanStore planStore,
+        IProjectStore projectStore,
         IOrchiArtifactWriterFactory artifactWriterFactory)
         : ICommandHandler<Command, KickOffReviewResponse>
     {
@@ -91,13 +94,21 @@ public static class KickOffReview
                 planId,
                 plan.ContentMarkdown,
                 implementationChild.Id,
-                parent.Id);
+                parent.Id,
+                await ResolveImplementationHeadBranchAsync(implementationChild, cancellationToken),
+                await ResolveImplementationBaseBranchAsync(implementationChild, cancellationToken));
+
+            if (implementationChild.WorkspaceId is null)
+            {
+                return Result.Failure<KickOffReviewResponse>(
+                    Error.Validation("Workspace.Missing", "Implementation child chat has no workspace."));
+            }
 
             string reviewFilePath;
             try
             {
                 reviewFilePath = await reviewWriter.WriteAsync(
-                    parent.WorkspacePath,
+                    implementationChild.WorkspacePath,
                     planId,
                     reviewBrief,
                     cancellationToken);
@@ -107,14 +118,8 @@ public static class KickOffReview
                 return Result.Failure<KickOffReviewResponse>(Error.Validation("PlanId.Invalid", ex.Message));
             }
 
-            if (parent.WorkspaceId is null)
-            {
-                return Result.Failure<KickOffReviewResponse>(
-                    Error.Validation("Workspace.Missing", "Parent chat has no workspace."));
-            }
-
             Result<ChatSession> reviewChildResult = await sessionManager.CreateSessionAsync(
-                parent.WorkspaceId.Value,
+                implementationChild.WorkspaceId.Value,
                 mode: ReviewAgentModeStrategy.Mode,
                 parentChatId: parent.Id,
                 planFilePath: reviewFilePath,
@@ -138,6 +143,43 @@ public static class KickOffReview
                 reviewFilePath,
                 initialPrompt,
                 kickoffMessage));
+        }
+
+        private async Task<string?> ResolveImplementationHeadBranchAsync(
+            ChatSession implementationChild,
+            CancellationToken cancellationToken)
+        {
+            if (implementationChild.WorkspaceId is not Guid workspaceId)
+            {
+                return null;
+            }
+
+            Workspace? workspace = await projectStore.GetWorkspaceAsync(workspaceId, cancellationToken);
+            return workspace?.Branch;
+        }
+
+        private async Task<string?> ResolveImplementationBaseBranchAsync(
+            ChatSession implementationChild,
+            CancellationToken cancellationToken)
+        {
+            if (implementationChild.WorkspaceId is not Guid workspaceId)
+            {
+                return null;
+            }
+
+            Workspace? workspace = await projectStore.GetWorkspaceAsync(workspaceId, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(workspace?.BaseBranch))
+            {
+                return workspace.BaseBranch;
+            }
+
+            if (implementationChild.ProjectId is not Guid projectId)
+            {
+                return null;
+            }
+
+            Project? project = await projectStore.GetProjectAsync(projectId, cancellationToken);
+            return project?.DefaultBaseBranch;
         }
     }
 
