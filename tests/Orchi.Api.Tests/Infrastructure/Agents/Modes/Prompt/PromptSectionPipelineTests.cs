@@ -89,7 +89,8 @@ public class PromptSectionPipelineTests
         OrchiPromptDocument document = _pipeline.Build(context);
 
         Assert.Contains("review brief and git diff in your context", document.Task);
-        Assert.Contains("produce the review now", document.Task);
+        Assert.Contains("produce the structured review now", document.Task);
+        Assert.DoesNotContain("review plans", document.Task, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("delete `.orchi/review-auth.md`", document.Task);
     }
 
