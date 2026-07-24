@@ -28,23 +28,23 @@ public class GitHostAdapterFactoryTests
     [Fact]
     public async Task Facade_CreatePullRequest_FailsWhenNotReady()
     {
-        var facade = new GitHostingFacade(
-            new GitHostAdapterFactory(
-            [
-                new GitHubHostAdapter(new ProcessRunner()),
-                new AzureDevOpsHostAdapter(new ProcessRunner())
-            ]));
-
-        string workspacePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(workspacePath);
+        string nonRepoWorkspace = Path.Combine(Path.GetTempPath(), $"orchi-gh-facade-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(nonRepoWorkspace);
 
         try
         {
+            var facade = new GitHostingFacade(
+                new GitHostAdapterFactory(
+                [
+                    new GitHubHostAdapter(new ProcessRunner()),
+                    new AzureDevOpsHostAdapter(new ProcessRunner())
+                ]));
+
             InvalidOperationException ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
                 facade.CreatePullRequestAsync(
                     GitHostProvider.GitHub,
                     new CreatePullRequestRequest(
-                        workspacePath,
+                        nonRepoWorkspace,
                         "title",
                         "body",
                         "feature",
@@ -55,7 +55,10 @@ public class GitHostAdapterFactoryTests
         }
         finally
         {
-            Directory.Delete(workspacePath, recursive: true);
+            if (Directory.Exists(nonRepoWorkspace))
+            {
+                Directory.Delete(nonRepoWorkspace, recursive: true);
+            }
         }
     }
 }

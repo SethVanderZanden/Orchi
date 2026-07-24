@@ -21,6 +21,12 @@ public interface IGitWorkspaceService
     Task<string?> GetCurrentBranchAsync(string workspacePath, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Returns the main repository root for a workspace path (primary checkout), even when
+    /// <paramref name="workspacePath"/> is a linked worktree.
+    /// </summary>
+    Task<string> ResolveRepositoryRootAsync(string workspacePath, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Resolves a user-facing branch name to a local ref usable by git (local branch or remote-tracking).
     /// </summary>
     Task<string?> ResolveBranchRefAsync(
