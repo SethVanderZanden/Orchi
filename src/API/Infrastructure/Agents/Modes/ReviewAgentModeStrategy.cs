@@ -15,7 +15,10 @@ public sealed class ReviewAgentModeStrategy : IAgentModeStrategy
     internal const string Rules = """
         Do not modify code unless the user explicitly asks.
 
-        Review from the git diff in your context and the original plan in the review brief. Do not re-highlight or narrate the changelog — the diff already shows what changed.
+        Review from the git diff and review brief in your context. Do not re-highlight or narrate the changelog — the diff already shows what changed.
+
+        Complete the entire review in your first response. Output one or more `<!-- orchi-review-plan:id -->` blocks now.
+        Do not stop after acknowledging, planning, or stating intent — produce the review.
 
         Focus on judgment calls:
         - Oversights (missed requirements, edge cases, error paths, tests).

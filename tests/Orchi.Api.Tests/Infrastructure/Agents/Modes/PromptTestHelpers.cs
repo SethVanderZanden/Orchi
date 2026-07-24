@@ -48,6 +48,7 @@ internal static class PromptTestHelpers
         return new PromptSectionPipeline([
             new ModeSectionContributor(factory),
             new SessionContextContributor(),
+            new ReviewBriefContributor(),
             new ReviewDiffContributor(CreateReviewDiffAdapterResolver()),
             new SessionTaskContributor(CreateArtifactTaskFactory()),
             new ParentChatContributor(),

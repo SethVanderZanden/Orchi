@@ -6,8 +6,7 @@ public static class ReviewPlanTask
     {
         string path = reviewFilePath.Trim();
         return
-            $"Review `{path}` using the git diff in your context. " +
-            "Use the review brief for intent (original plan when present; otherwise the branch pair). " +
+            "Using the review brief and git diff in your context, produce the review now. " +
             "Focus on oversights, over-engineering, and missed patterns — do not restate the changelog. " +
             "Lead with a Review TLDR. Output one or more review plans using the exact format in your context section. " +
             "Do not modify code unless explicitly asked. " +
