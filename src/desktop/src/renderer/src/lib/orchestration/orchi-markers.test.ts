@@ -22,7 +22,10 @@ describe('orchi-markers', () => {
 Done.`
 
     const parsed = parseMarkedBlocks(content, getIdBlockParseConfig(ORCHI_MARKERS.plan))
-    const stripped = stripMarkedBlocksForChatDisplay(content, getIdBlockStripConfig(ORCHI_MARKERS.plan))
+    const stripped = stripMarkedBlocksForChatDisplay(
+      content,
+      getIdBlockStripConfig(ORCHI_MARKERS.plan)
+    )
 
     expect(parsed).toHaveLength(1)
     expect(parsed[0]?.id).toBe('auth-refactor')

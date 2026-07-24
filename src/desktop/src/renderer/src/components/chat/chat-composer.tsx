@@ -82,12 +82,6 @@ export function OrchiChatComposer({
   const [draft, setDraft] = useState(() => initialDraft ?? getComposerDraft(chatId) ?? '')
 
   useEffect(() => {
-    if (initialDraft === undefined) {
-      setDraft(getComposerDraft(chatId) ?? '')
-    }
-  }, [chatId, initialDraft])
-
-  useEffect(() => {
     if (!autoFocus || disabled) {
       return
     }

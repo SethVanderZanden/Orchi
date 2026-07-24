@@ -87,8 +87,15 @@ export function ChatTabsProvider({ children }: { children: ReactNode }): React.J
   })
   const routeChatId = chatMatch?.params?.chatId ?? null
 
-  const { getChat, createChat, markChatRead, sendMessage, deleteChat, evictChatDetail, getChildChats } =
-    useChat()
+  const {
+    getChat,
+    createChat,
+    markChatRead,
+    sendMessage,
+    deleteChat,
+    evictChatDetail,
+    getChildChats
+  } = useChat()
   const { projects, addProject, pickDirectory } = useProjects()
 
   const [state, setState] = useState<ChatTabsState>(createEmptyChatTabsState)
