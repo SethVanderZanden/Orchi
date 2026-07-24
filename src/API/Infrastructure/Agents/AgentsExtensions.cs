@@ -99,6 +99,7 @@ public static class AgentsExtensions
         services.AddSingleton<OrchiPromptRenderer>();
         services.AddSingleton<IPromptSectionContributor, ModeSectionContributor>();
         services.AddSingleton<IPromptSectionContributor, SessionContextContributor>();
+        services.AddSingleton<IPromptSectionContributor, ReviewBriefContributor>();
         services.AddSingleton<IPromptSectionContributor, ReviewDiffContributor>();
         services.AddSingleton<IPromptSectionContributor, SessionTaskContributor>();
         services.AddSingleton<IPromptSectionContributor, ParentChatContributor>();

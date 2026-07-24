@@ -88,7 +88,8 @@ public class PromptSectionPipelineTests
 
         OrchiPromptDocument document = _pipeline.Build(context);
 
-        Assert.Contains("Review `.orchi/review-auth.md`", document.Task);
+        Assert.Contains("review brief and git diff in your context", document.Task);
+        Assert.Contains("produce the review now", document.Task);
         Assert.Contains("delete `.orchi/review-auth.md`", document.Task);
     }
 
@@ -107,6 +108,55 @@ public class PromptSectionPipelineTests
 
         Assert.Contains("Implementation changes (captured from workspace", document.Context);
         Assert.Contains("diff --git", document.Context);
+    }
+
+    [Fact]
+    public void Build_AddsReviewBriefToContextWhenFileExists()
+    {
+        string workspacePath = Path.Combine(Path.GetTempPath(), $"orchi-review-brief-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(Path.Combine(workspacePath, ".orchi"));
+        const string reviewPath = ".orchi/review-auth.md";
+        string fullPath = Path.Combine(workspacePath, ".orchi", "review-auth.md");
+        File.WriteAllText(fullPath, "# Review brief\n\nOriginal plan content.");
+
+        try
+        {
+            var context = new PromptBuildContext
+            {
+                ModeId = ReviewAgentModeStrategy.Mode,
+                UserContent = "Begin review.",
+                WorkspacePath = workspacePath,
+                PlanFilePath = reviewPath,
+            };
+
+            OrchiPromptDocument document = _pipeline.Build(context);
+
+            Assert.Contains("Review brief:", document.Context);
+            Assert.Contains("Original plan content.", document.Context);
+        }
+        finally
+        {
+            if (Directory.Exists(workspacePath))
+            {
+                Directory.Delete(workspacePath, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public void Build_AddsMissingBriefNoticeWhenFileAbsent()
+    {
+        var context = new PromptBuildContext
+        {
+            ModeId = ReviewAgentModeStrategy.Mode,
+            UserContent = "Begin review.",
+            WorkspacePath = "/missing/workspace",
+            PlanFilePath = ".orchi/review-auth.md",
+        };
+
+        OrchiPromptDocument document = _pipeline.Build(context);
+
+        Assert.Contains("Review brief file is missing", document.Context);
     }
 
     [Fact]

@@ -23,6 +23,8 @@ public class ReviewAgentModeStrategyTests
         Assert.Contains("You are in Review Mode.", document.Identity);
         Assert.Contains("concise git-diff review", document.Identity);
         Assert.Contains("Do not modify code unless the user explicitly asks", document.Rules);
+        Assert.Contains("Complete the entire review in your first response", document.Rules);
+        Assert.Contains("Do not stop after acknowledging", document.Rules);
         Assert.Contains("Review TLDR", document.Rules);
         Assert.Contains("exactly what is missing", document.Rules);
         Assert.Contains("<!-- orchi-review-plan:kebab-case-id -->", document.Context);
