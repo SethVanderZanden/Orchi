@@ -5,6 +5,7 @@ import { AgentModeAvatar } from '@/components/chat/agent-mode-avatar'
 import { MessageSelectionMenu } from '@/components/chat/message-selection-menu'
 import { ChatToolCalls } from '@/components/chat/chat-tool-calls'
 import { EmptyState } from '@/components/empty-state'
+import { AssistantMessageContent } from '@/components/chat/assistant-message-content'
 import { MarkdownContent } from '@/components/markdown-content'
 import { Bubble, BubbleContent } from '@/components/ui/bubble'
 import { Marker, MarkerContent } from '@/components/ui/marker'
@@ -132,11 +133,11 @@ const ChatMessageRow = memo(function ChatMessageRow({
           ) : showEmptyResponse ? (
             <span className="text-muted-foreground">No response from agent.</span>
           ) : displayContent.length > 0 ? (
-            <MarkdownContent
+            <AssistantMessageContent
+              content={displayContent}
+              status={message.status}
               className={message.status === 'error' ? 'prose-base text-destructive' : 'prose-base'}
-            >
-              {displayContent}
-            </MarkdownContent>
+            />
           ) : null}
         </MessageSelectionMenu>
         {showActivity ? (

@@ -5,6 +5,7 @@ import {
   hasComposerDraft,
   migrateComposerDraft,
   setComposerDraft,
+  subscribeComposerDrafts,
   takeComposerDraft
 } from './composer-drafts'
 
@@ -47,5 +48,23 @@ describe('composer-drafts', () => {
     migrateComposerDraft('from', 'to')
     expect(takeComposerDraft('from')).toBeUndefined()
     expect(takeComposerDraft('to')).toBe('selected text')
+  })
+
+  it('notifies draft listeners only when draft presence changes', () => {
+    let revision = 0
+    const unsubscribe = subscribeComposerDrafts(() => {
+      revision += 1
+    })
+
+    setComposerDraft('a', 'h')
+    expect(revision).toBe(1)
+
+    setComposerDraft('a', 'hello')
+    expect(revision).toBe(1)
+
+    setComposerDraft('a', '   ')
+    expect(revision).toBe(2)
+
+    unsubscribe()
   })
 })

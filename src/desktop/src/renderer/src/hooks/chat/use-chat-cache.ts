@@ -16,6 +16,7 @@ type UseChatCacheResult = {
   getChat: (chatId: string) => ChatThread | undefined
   getChildChats: (parentChatId: string) => ChatThread[]
   loadChat: (chatId: string) => Promise<ChatThread | undefined>
+  evictChatDetail: (chatId: string) => void
   purgeFromQueryClient: (chatId: string) => void
 }
 
@@ -70,6 +71,13 @@ export function useChatCache({ chats }: UseChatCacheOptions): UseChatCacheResult
     [getChatLocal, queryClient]
   )
 
+  const evictChatDetail = useCallback(
+    (chatId: string) => {
+      queryClient.removeQueries({ queryKey: chatKeys.detail(chatId) })
+    },
+    [queryClient]
+  )
+
   const purgeFromQueryClient = useCallback(
     (chatId: string) => {
       queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) =>
@@ -84,6 +92,7 @@ export function useChatCache({ chats }: UseChatCacheOptions): UseChatCacheResult
     getChat: getChatLocal,
     getChildChats,
     loadChat,
+    evictChatDetail,
     purgeFromQueryClient
   }
 }
