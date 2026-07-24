@@ -53,10 +53,6 @@ export function useAppShortcuts(): void {
     void navigate({ to: '/settings' })
   }, [navigate])
 
-  const openBoard = useCallback(() => {
-    void navigate({ to: '/board' })
-  }, [navigate])
-
   const openInEditor = useCallback(() => {
     if (!activeTabId) {
       return
@@ -148,10 +144,6 @@ export function useAppShortcuts(): void {
   )
 
   useKeyboardShortcutCombo({ key: ',', ctrl: true }, openSettings, {
-    allowInTextarea: true
-  })
-
-  useKeyboardShortcutCombo({ key: 'b', ctrl: true }, openBoard, {
     allowInTextarea: true
   })
 

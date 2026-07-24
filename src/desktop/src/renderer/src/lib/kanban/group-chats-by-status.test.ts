@@ -31,7 +31,7 @@ describe('groupChatsByStatus', () => {
   it('returns three columns in board order', () => {
     const columns = groupChatsByStatus([])
     expect(columns.map((c) => c.id)).toEqual(['processing', 'readyToRead', 'done'])
-    expect(columns.map((c) => c.title)).toEqual(['Processing', 'Ready to Read', 'Done'])
+    expect(columns.map((c) => c.title)).toEqual(['Processing', 'Ready to Review', 'Done'])
   })
 
   it('buckets chats by status and sorts newest first', () => {
