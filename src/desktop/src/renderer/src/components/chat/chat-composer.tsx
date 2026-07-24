@@ -1,11 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowUp } from 'lucide-react'
 
-import { ChatModeDropdown } from '@/components/chat/chat-mode-dropdown'
-import { ChatModelSelector } from '@/components/chat/chat-model-selector'
-import { ChatContextSizeSelector } from '@/components/chat/chat-context-size-selector'
-import { ChatCliOptionSelector } from '@/components/chat/chat-cli-option-selector'
-import { ChatWorktreeToggle } from '@/components/chat/chat-worktree-toggle'
+import { ChatComposerToolbar } from '@/components/chat/chat-composer-toolbar'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { getComposerDraft, setComposerDraft } from '@/lib/chat/composer-drafts'
@@ -86,8 +82,10 @@ export function OrchiChatComposer({
   const [draft, setDraft] = useState(() => initialDraft ?? getComposerDraft(chatId) ?? '')
 
   useEffect(() => {
-    setComposerDraft(chatId, draft)
-  }, [chatId, draft])
+    if (initialDraft === undefined) {
+      setDraft(getComposerDraft(chatId) ?? '')
+    }
+  }, [chatId, initialDraft])
 
   useEffect(() => {
     if (!autoFocus || disabled) {
@@ -100,6 +98,11 @@ export function OrchiChatComposer({
 
     return () => cancelAnimationFrame(frameId)
   }, [autoFocus, chatId, disabled])
+
+  function handleDraftChange(next: string): void {
+    setDraft(next)
+    setComposerDraft(chatId, next)
+  }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>): void {
     event.preventDefault()
@@ -126,7 +129,7 @@ export function OrchiChatComposer({
         <Textarea
           ref={textareaRef}
           value={draft}
-          onChange={(event) => setDraft(event.target.value)}
+          onChange={(event) => handleDraftChange(event.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Message Orchi…"
           disabled={disabled}
@@ -138,61 +141,35 @@ export function OrchiChatComposer({
           )}
         />
         <div className="flex items-center justify-between gap-2 px-3.5 pb-3.5 pt-1">
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            {showModeControls ? (
-              <ChatModeDropdown
-                mode={mode}
-                disabled={!canChangeMode}
-                onModeChange={onModeChange}
-                onClear={() => onModeChange('default')}
-              />
-            ) : null}
-            <ChatModelSelector
-              agentId={agentId}
-              modelId={modelId}
-              mode={mode}
-              disabled={!canChangeModel}
-              error={modelUpdateError}
-              onModelChange={onModelChange}
-              compact
-            />
-            <ChatContextSizeSelector
-              agentId={agentId}
-              contextSizeId={contextSizeId}
-              mode={mode}
-              disabled={!canChangeContextSize}
-              error={contextSizeUpdateError}
-              onContextSizeChange={onContextSizeChange}
-              compact
-            />
-            <ChatCliOptionSelector
-              agentId={agentId}
-              kind="model_reasoning_effort"
-              optionId={reasoningEffortId}
-              mode={mode}
-              disabled={!canChangeReasoningEffort}
-              error={reasoningEffortUpdateError}
-              onOptionChange={onReasoningEffortChange}
-              compact
-            />
-            <ChatCliOptionSelector
-              agentId={agentId}
-              kind="approval_policy"
-              optionId={approvalPolicyId}
-              mode={mode}
-              disabled={!canChangeApprovalPolicy}
-              error={approvalPolicyUpdateError}
-              onOptionChange={onApprovalPolicyChange}
-              compact
-            />
-            <ChatWorktreeToggle
-              chatId={chatId}
-              projectId={projectId}
-              projects={projects}
-              messageCount={messageCount}
-              disabled={disabled}
-            />
-          </div>
+          <ChatComposerToolbar
+            chatId={chatId}
+            disabled={disabled}
+            mode={mode}
+            showModeControls={showModeControls}
+            canChangeMode={canChangeMode}
+            modeUpdateError={modeUpdateError}
+            onModeChange={onModeChange}
+            agentId={agentId}
+            modelId={modelId}
+            canChangeModel={canChangeModel}
+            modelUpdateError={modelUpdateError}
+            onModelChange={onModelChange}
+            contextSizeId={contextSizeId}
+            canChangeContextSize={canChangeContextSize}
+            contextSizeUpdateError={contextSizeUpdateError}
+            onContextSizeChange={onContextSizeChange}
+            reasoningEffortId={reasoningEffortId}
+            canChangeReasoningEffort={canChangeReasoningEffort}
+            reasoningEffortUpdateError={reasoningEffortUpdateError}
+            onReasoningEffortChange={onReasoningEffortChange}
+            approvalPolicyId={approvalPolicyId}
+            canChangeApprovalPolicy={canChangeApprovalPolicy}
+            approvalPolicyUpdateError={approvalPolicyUpdateError}
+            onApprovalPolicyChange={onApprovalPolicyChange}
+            projectId={projectId}
+            projects={projects}
+            messageCount={messageCount}
+          />
           <Button
             type="submit"
             size="icon"
@@ -203,7 +180,6 @@ export function OrchiChatComposer({
             <ArrowUp className="size-4" />
           </Button>
         </div>
-        {modeUpdateError ? <p className="sr-only">{modeUpdateError}</p> : null}
       </div>
     </form>
   )
