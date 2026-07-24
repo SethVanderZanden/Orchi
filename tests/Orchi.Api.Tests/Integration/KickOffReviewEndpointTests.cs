@@ -1,7 +1,9 @@
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Orchi.Api.Features.Chats.Shared;
+using Orchi.Api.Features.Projects.Shared;
 using Orchi.Api.Infrastructure.Agents;
 using Orchi.Api.Infrastructure.Agents.Modes;
 using Orchi.Api.Infrastructure.Agents.Persistence;
@@ -115,6 +117,106 @@ public class KickOffReviewEndpointTests : IClassFixture<TestWebApplicationFactor
     }
 
     [Fact]
+    public async Task KickOffReview_AfterWorktreeImplementation_UsesImplementationWorkspace()
+    {
+        if (!IsGitAvailable())
+        {
+            return;
+        }
+
+        string worktreeWorkspacePath = Path.Combine(
+            Path.GetTempPath(),
+            $"orchi-review-worktree-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(worktreeWorkspacePath);
+
+        try
+        {
+            InitializeGitRepo(worktreeWorkspacePath);
+
+            HttpResponseMessage projectResponse = await _client.PostAsJsonAsync(
+                "/projects",
+                new CreateProjectRequest("Worktree Review Project", worktreeWorkspacePath));
+
+            CreateProjectResponse? project = await projectResponse.Content.ReadFromJsonAsync<CreateProjectResponse>();
+            Assert.NotNull(project);
+
+            HttpResponseMessage patchResponse = await _client.PatchAsJsonAsync(
+                $"/projects/{project.Id}",
+                new UpdateProjectRequest(UseWorktreeOnKickoff: true, DefaultBaseBranch: "main"));
+            Assert.Equal(HttpStatusCode.OK, patchResponse.StatusCode);
+
+            Guid workspaceId = project.DefaultWorkspace.Id;
+
+            HttpResponseMessage createResponse = await _client.PostAsJsonAsync(
+                "/chats",
+                new CreateChatRequest(workspaceId, "cursor", OrchestrationAgentModeStrategy.Mode));
+
+            CreateChatResponse? parent = await createResponse.Content.ReadFromJsonAsync<CreateChatResponse>();
+            Assert.NotNull(parent);
+
+            HttpResponseMessage kickoffResponse = await _client.PostAsJsonAsync(
+                $"/chats/{parent.Id}/plans/kickoff",
+                new KickOffPlanRequest(
+                    "auth-refactor",
+                    "Auth refactor",
+                    "# Auth refactor\n\nImplement JWT auth."));
+
+            Assert.Equal(HttpStatusCode.Created, kickoffResponse.StatusCode);
+
+            KickOffPlanResponse? implementationKickedOff =
+                await kickoffResponse.Content.ReadFromJsonAsync<KickOffPlanResponse>();
+            Assert.NotNull(implementationKickedOff);
+
+            HttpResponseMessage implementationResponse = await _client.GetAsync(
+                $"/chats/{implementationKickedOff.ChildChatId}");
+            ChatDetailResponse? implementationChild = await implementationResponse.Content.ReadFromJsonAsync<ChatDetailResponse>(
+                HttpResponseExtensions.JsonOptions);
+            Assert.NotNull(implementationChild);
+            Assert.NotEqual(parent.WorkspaceId, implementationChild.WorkspaceId);
+            Assert.NotEqual(parent.WorkspacePath, implementationChild.WorkspacePath);
+
+            HttpResponseMessage reviewResponse = await _client.PostAsync(
+                $"/chats/{implementationKickedOff.ChildChatId}/review/kickoff",
+                content: null);
+            Assert.Equal(HttpStatusCode.Created, reviewResponse.StatusCode);
+
+            KickOffReviewResponse? reviewKickedOff =
+                await reviewResponse.Content.ReadFromJsonAsync<KickOffReviewResponse>();
+            Assert.NotNull(reviewKickedOff);
+
+            HttpResponseMessage reviewChildResponse = await _client.GetAsync(
+                $"/chats/{reviewKickedOff.ReviewChildChatId}");
+            ChatDetailResponse? reviewChild = await reviewChildResponse.Content.ReadFromJsonAsync<ChatDetailResponse>(
+                HttpResponseExtensions.JsonOptions);
+            Assert.NotNull(reviewChild);
+            Assert.Equal(implementationChild.WorkspaceId, reviewChild.WorkspaceId);
+            Assert.Equal(implementationChild.WorkspacePath, reviewChild.WorkspacePath);
+            Assert.NotEqual(parent.WorkspaceId, reviewChild.WorkspaceId);
+
+            string reviewFile = Path.Combine(
+                reviewChild.WorkspacePath,
+                reviewKickedOff.ReviewFilePath.Replace('/', Path.DirectorySeparatorChar));
+            Assert.True(File.Exists(reviewFile));
+        }
+        finally
+        {
+            if (Directory.Exists(worktreeWorkspacePath))
+            {
+                try
+                {
+                    Directory.Delete(worktreeWorkspacePath, recursive: true);
+                }
+                catch (IOException)
+                {
+                }
+                catch (UnauthorizedAccessException)
+                {
+                }
+            }
+        }
+    }
+
+    [Fact]
     public async Task KickOffReview_PlanNotInDatabase_ReturnsValidationError()
     {
         Guid parentId = await CreateOrchestrationParentAsync();
@@ -177,5 +279,62 @@ public class KickOffReviewEndpointTests : IClassFixture<TestWebApplicationFactor
         Assert.NotNull(kickedOff);
 
         return kickedOff.ChildChatId;
+    }
+
+    private static void InitializeGitRepo(string workspacePath)
+    {
+        RunGit(workspacePath, "init");
+        RunGit(workspacePath, "checkout", "-b", "main");
+        File.WriteAllText(Path.Combine(workspacePath, "readme.txt"), "base\n");
+        RunGit(workspacePath, "add", "readme.txt");
+        RunGit(
+            workspacePath,
+            "-c", "user.email=test@example.com",
+            "-c", "user.name=Test",
+            "commit", "-m", "init");
+    }
+
+    private static void RunGit(string workspacePath, params string[] args)
+    {
+        using var process = new Process();
+        process.StartInfo.FileName = "git";
+        process.StartInfo.WorkingDirectory = workspacePath;
+        process.StartInfo.RedirectStandardOutput = true;
+        process.StartInfo.RedirectStandardError = true;
+        process.StartInfo.UseShellExecute = false;
+        process.StartInfo.CreateNoWindow = true;
+
+        foreach (string arg in args)
+        {
+            process.StartInfo.ArgumentList.Add(arg);
+        }
+
+        process.Start();
+        process.WaitForExit();
+        if (process.ExitCode != 0)
+        {
+            string stderr = process.StandardError.ReadToEnd();
+            throw new InvalidOperationException($"git {string.Join(' ', args)} failed: {stderr}");
+        }
+    }
+
+    private static bool IsGitAvailable()
+    {
+        try
+        {
+            using var process = new Process();
+            process.StartInfo.FileName = "git";
+            process.StartInfo.ArgumentList.Add("--version");
+            process.StartInfo.RedirectStandardOutput = true;
+            process.StartInfo.UseShellExecute = false;
+            process.StartInfo.CreateNoWindow = true;
+            process.Start();
+            process.WaitForExit();
+            return process.ExitCode == 0;
+        }
+        catch
+        {
+            return false;
+        }
     }
 }

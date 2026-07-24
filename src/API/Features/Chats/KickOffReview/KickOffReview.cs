@@ -93,11 +93,17 @@ public static class KickOffReview
                 implementationChild.Id,
                 parent.Id);
 
+            if (implementationChild.WorkspaceId is null)
+            {
+                return Result.Failure<KickOffReviewResponse>(
+                    Error.Validation("Workspace.Missing", "Implementation child chat has no workspace."));
+            }
+
             string reviewFilePath;
             try
             {
                 reviewFilePath = await reviewWriter.WriteAsync(
-                    parent.WorkspacePath,
+                    implementationChild.WorkspacePath,
                     planId,
                     reviewBrief,
                     cancellationToken);
@@ -107,14 +113,8 @@ public static class KickOffReview
                 return Result.Failure<KickOffReviewResponse>(Error.Validation("PlanId.Invalid", ex.Message));
             }
 
-            if (parent.WorkspaceId is null)
-            {
-                return Result.Failure<KickOffReviewResponse>(
-                    Error.Validation("Workspace.Missing", "Parent chat has no workspace."));
-            }
-
             Result<ChatSession> reviewChildResult = await sessionManager.CreateSessionAsync(
-                parent.WorkspaceId.Value,
+                implementationChild.WorkspaceId.Value,
                 mode: ReviewAgentModeStrategy.Mode,
                 parentChatId: parent.Id,
                 planFilePath: reviewFilePath,
