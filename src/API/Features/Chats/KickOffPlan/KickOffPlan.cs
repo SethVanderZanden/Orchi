@@ -78,9 +78,15 @@ public static class KickOffPlan
 
             if (project.UseWorktreeOnKickoff)
             {
+                Workspace? primary = project.Workspaces.FirstOrDefault(workspace => workspace.IsDefault)
+                    ?? project.Workspaces.FirstOrDefault(workspace => workspace.Kind == WorkspaceKind.Primary)
+                    ?? project.Workspaces.FirstOrDefault();
+
+                string repositoryPath = primary?.Path ?? parent.WorkspacePath;
+
                 Result<(Guid WorkspaceId, string Path)> worktreeResult = await ProvisionWorktreeAsync(
                     project,
-                    parent.WorkspacePath,
+                    repositoryPath,
                     command.PlanId,
                     command.BaseBranch,
                     cancellationToken);

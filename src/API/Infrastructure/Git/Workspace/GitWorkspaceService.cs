@@ -89,6 +89,46 @@ public sealed partial class GitWorkspaceService(IProcessRunner processRunner) : 
             .ToArray();
     }
 
+    public async Task<string> ResolveRepositoryRootAsync(string workspacePath, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(workspacePath) || !Directory.Exists(workspacePath))
+        {
+            return workspacePath;
+        }
+
+        if (!await IsGitRepositoryAsync(workspacePath, cancellationToken))
+        {
+            return workspacePath;
+        }
+
+        ProcessRunResult result = await RunGitAsync(
+            workspacePath,
+            ["rev-parse", "--git-common-dir"],
+            cancellationToken);
+
+        if (!result.Succeeded || string.IsNullOrWhiteSpace(result.StdOut))
+        {
+            return workspacePath;
+        }
+
+        string gitCommonDir = result.StdOut.Trim();
+        if (!Path.IsPathRooted(gitCommonDir))
+        {
+            gitCommonDir = Path.GetFullPath(Path.Combine(workspacePath, gitCommonDir));
+        }
+
+        string gitDirName = Path.GetFileName(
+            gitCommonDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+
+        if (!string.Equals(gitDirName, ".git", StringComparison.OrdinalIgnoreCase))
+        {
+            return workspacePath;
+        }
+
+        string? repositoryRoot = Directory.GetParent(gitCommonDir)?.FullName;
+        return string.IsNullOrWhiteSpace(repositoryRoot) ? workspacePath : repositoryRoot;
+    }
+
     public async Task<string?> GetCurrentBranchAsync(string workspacePath, CancellationToken cancellationToken)
     {
         ProcessRunResult result = await RunGitAsync(
@@ -222,12 +262,14 @@ public sealed partial class GitWorkspaceService(IProcessRunner processRunner) : 
             throw new InvalidOperationException($"Not a git repository: {repositoryPath}");
         }
 
+        string repoRoot = await ResolveRepositoryRootAsync(repositoryPath, cancellationToken);
+
         string safePlanId = SanitizeSegment(planId);
         string branch = string.IsNullOrWhiteSpace(branchName)
             ? $"orchi/{safePlanId}"
             : branchName.Trim();
 
-        string worktreesRoot = Path.Combine(repositoryPath, ".orchi", "worktrees");
+        string worktreesRoot = Path.Combine(repoRoot, ".orchi", "worktrees");
         Directory.CreateDirectory(worktreesRoot);
         string worktreePath = Path.Combine(worktreesRoot, safePlanId);
 
@@ -236,18 +278,18 @@ public sealed partial class GitWorkspaceService(IProcessRunner processRunner) : 
             throw new InvalidOperationException($"Worktree path already exists: {worktreePath}");
         }
 
-        ProcessRunResult fetch = await RunGitAsync(repositoryPath, ["fetch", "origin", baseBranch], cancellationToken);
+        ProcessRunResult fetch = await RunGitAsync(repoRoot, ["fetch", "origin", baseBranch], cancellationToken);
         _ = fetch; // Best-effort; local base branch may still exist.
 
         ProcessRunResult create = await RunGitAsync(
-            repositoryPath,
+            repoRoot,
             ["worktree", "add", "-b", branch, worktreePath, baseBranch],
             cancellationToken);
 
         if (!create.Succeeded)
         {
             ProcessRunResult retry = await RunGitAsync(
-                repositoryPath,
+                repoRoot,
                 ["worktree", "add", worktreePath, branch],
                 cancellationToken);
             EnsureSuccess(retry, "git worktree add");
@@ -268,20 +310,22 @@ public sealed partial class GitWorkspaceService(IProcessRunner processRunner) : 
             throw new InvalidOperationException($"Not a git repository: {repositoryPath}");
         }
 
-        string? headRef = await ResolveBranchRefAsync(repositoryPath, headBranch, cancellationToken);
+        string repoRoot = await ResolveRepositoryRootAsync(repositoryPath, cancellationToken);
+
+        string? headRef = await ResolveBranchRefAsync(repoRoot, headBranch, cancellationToken);
         if (headRef is null)
         {
             throw new InvalidOperationException($"Branch '{headBranch}' was not found.");
         }
 
-        string? baseRef = await ResolveBranchRefAsync(repositoryPath, baseBranch, cancellationToken);
+        string? baseRef = await ResolveBranchRefAsync(repoRoot, baseBranch, cancellationToken);
         if (baseRef is null)
         {
             throw new InvalidOperationException($"Base branch '{baseBranch}' was not found.");
         }
 
         string safeId = SanitizeSegment(worktreeId);
-        string worktreesRoot = Path.Combine(repositoryPath, ".orchi", "worktrees");
+        string worktreesRoot = Path.Combine(repoRoot, ".orchi", "worktrees");
         Directory.CreateDirectory(worktreesRoot);
         string worktreePath = Path.Combine(worktreesRoot, safeId);
 
@@ -292,7 +336,7 @@ public sealed partial class GitWorkspaceService(IProcessRunner processRunner) : 
 
         // Prefer attaching an existing local branch; otherwise create a local review branch from the ref.
         ProcessRunResult attachLocal = await RunGitAsync(
-            repositoryPath,
+            repoRoot,
             ["worktree", "add", worktreePath, headRef],
             cancellationToken);
 
@@ -300,7 +344,7 @@ public sealed partial class GitWorkspaceService(IProcessRunner processRunner) : 
         {
             string localReviewBranch = $"orchi/review-{safeId}";
             ProcessRunResult createFromRef = await RunGitAsync(
-                repositoryPath,
+                repoRoot,
                 ["worktree", "add", "-b", localReviewBranch, worktreePath, headRef],
                 cancellationToken);
             EnsureSuccess(createFromRef, "git worktree add");

@@ -197,6 +197,9 @@ public class KickOffReviewEndpointTests : IClassFixture<TestWebApplicationFactor
                 reviewChild.WorkspacePath,
                 reviewKickedOff.ReviewFilePath.Replace('/', Path.DirectorySeparatorChar));
             Assert.True(File.Exists(reviewFile));
+            string reviewContent = await File.ReadAllTextAsync(reviewFile);
+            Assert.Contains("orchi-branch-review", reviewContent);
+            Assert.Contains("main", reviewContent);
         }
         finally
         {
