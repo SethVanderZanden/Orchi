@@ -8,6 +8,7 @@ export type ChatMessageDisplayState = {
   displayContent: string
   showPlaceholder: boolean
   showActivity: boolean
+  showEmptyResponse: boolean
   shouldRender: boolean
 }
 
@@ -33,6 +34,18 @@ function resolveDisplayContent(message: ChatMessage, mode: AgentMode): string {
   return message.content
 }
 
+function isPlanOnlyAssistantMessage(content: string, mode: AgentMode): boolean {
+  if (mode === 'orchestration') {
+    return content.includes('orchi-plan:')
+  }
+
+  if (mode === 'review') {
+    return content.includes('orchi-review-plan:')
+  }
+
+  return false
+}
+
 /**
  * Derives per-row chat bubble visibility for the message list.
  * Plan-only orchestration turns are hidden from the bubble (Plan review owns that content).
@@ -47,6 +60,17 @@ export function getChatMessageDisplayState({
   const isActive = message.status === 'processing' || message.status === 'streaming'
   const showActivity = !isUser && rowMarkers.length > 0
   const showPlaceholder = !isUser && isActive && displayContent.length === 0 && !showActivity
+  const isPlanOnly =
+    !isUser &&
+    message.status === 'complete' &&
+    displayContent.trim().length === 0 &&
+    isPlanOnlyAssistantMessage(message.content, mode)
+  const showEmptyResponse =
+    !isUser &&
+    message.status === 'complete' &&
+    displayContent.trim().length === 0 &&
+    !showActivity &&
+    !isPlanOnly
 
   // Plan-only orchestration turns render via PlanCards / Plan review — skip empty bubbles.
   const shouldRender =
@@ -55,12 +79,14 @@ export function getChatMessageDisplayState({
     displayContent.length > 0 ||
     showActivity ||
     showPlaceholder ||
+    showEmptyResponse ||
     isActive
 
   return {
     displayContent,
     showPlaceholder,
     showActivity,
+    showEmptyResponse,
     shouldRender
   }
 }

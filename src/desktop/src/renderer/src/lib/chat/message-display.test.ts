@@ -32,6 +32,7 @@ describe('getChatMessageDisplayState', () => {
       displayContent: 'Normal reply',
       showPlaceholder: false,
       showActivity: false,
+      showEmptyResponse: false,
       shouldRender: true
     })
   })
@@ -74,6 +75,18 @@ Done.`
     expect(state.shouldRender).toBe(true)
   })
 
+  it('shows completed empty assistant bubbles that are not plan-only', () => {
+    const state = getChatMessageDisplayState({
+      message: createMessage({ content: '', status: 'complete' }),
+      mode: 'review',
+      rowMarkers: []
+    })
+
+    expect(state.displayContent).toBe('')
+    expect(state.showEmptyResponse).toBe(true)
+    expect(state.shouldRender).toBe(true)
+  })
+
   it('skips completed plan-only orchestration bubbles', () => {
     const content = `<!-- orchi-plan:auth-refactor -->
 # Auth Refactor
@@ -88,6 +101,7 @@ Done.`
     expect(state.displayContent).toBe('')
     expect(state.showPlaceholder).toBe(false)
     expect(state.showActivity).toBe(false)
+    expect(state.showEmptyResponse).toBe(false)
     expect(state.shouldRender).toBe(false)
   })
 
@@ -154,6 +168,7 @@ Still streaming`
       displayContent: 'Please plan the auth work',
       showPlaceholder: false,
       showActivity: false,
+      showEmptyResponse: false,
       shouldRender: true
     })
   })
