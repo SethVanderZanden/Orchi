@@ -165,9 +165,9 @@ export function PlanReviewPanel({
         {activePlan ? (
           <>
             <ScrollArea className="min-h-0 flex-1">
-              <div className="space-y-2 px-4 py-4">
+              <div className="min-w-0 max-w-full space-y-2 break-words px-4 py-4">
                 <p className="truncate text-xs text-muted-foreground">{activePlan.planId}</p>
-                <MarkdownContent>
+                <MarkdownContent className="min-w-0 w-full max-w-full">
                   {showingReview ? activeReviewPlan!.contentMarkdown : activePlan.contentMarkdown}
                 </MarkdownContent>
               </div>

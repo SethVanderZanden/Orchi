@@ -55,7 +55,7 @@ const markdownComponents: Components = {
     return (
       <code
         className={cn(
-          'mx-0.5 inline-flex items-center rounded-md border border-border/70 bg-secondary px-1.5 py-0.5 font-mono text-[0.8125em] font-medium leading-none text-secondary-foreground',
+          'mx-0.5 inline max-w-full break-words rounded-md border border-border/70 bg-secondary px-1.5 py-0.5 align-middle font-mono text-[0.8125em] font-medium text-secondary-foreground whitespace-normal',
           className
         )}
         {...props}
@@ -73,10 +73,10 @@ export const MarkdownContent = memo(function MarkdownContent({
   return (
     <div
       className={cn(
-        'prose prose-sm prose-neutral dark:prose-invert max-w-none text-inherit',
+        'prose prose-sm prose-neutral dark:prose-invert max-w-none min-w-0 w-full break-words text-inherit',
         'prose-headings:font-semibold prose-headings:text-inherit',
-        'prose-p:my-4 prose-p:leading-relaxed prose-p:text-inherit first:prose-p:mt-0 last:prose-p:mb-0',
-        'prose-li:text-inherit prose-strong:text-inherit',
+        'prose-p:my-4 prose-p:leading-relaxed prose-p:break-words prose-p:text-inherit first:prose-p:mt-0 last:prose-p:mb-0',
+        'prose-li:break-words prose-li:text-inherit prose-strong:text-inherit',
         'prose-ul:my-4 prose-ol:my-4 prose-li:my-0.5',
         'prose-pre:bg-muted/60 prose-pre:text-inherit prose-pre:code:text-inherit',
         'prose-code:before:content-none prose-code:after:content-none',
