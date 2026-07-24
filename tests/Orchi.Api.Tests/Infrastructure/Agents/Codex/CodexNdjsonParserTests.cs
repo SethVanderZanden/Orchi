@@ -147,7 +147,8 @@ public class CodexNdjsonParserTests
             session,
             "do the thing",
             [],
-            entryScript: null);
+            entryScript: null,
+            passPromptViaStdin: true);
 
         Assert.Equal(
             [
@@ -162,9 +163,29 @@ public class CodexNdjsonParserTests
                 "model_context_window=272000",
                 "resume",
                 "thread-abc",
-                "do the thing"
+                "-"
             ],
             args);
+    }
+
+    [Fact]
+    public void BuildArguments_UsesArgvPromptWhenStdinDisabled()
+    {
+        var session = new ChatSession
+        {
+            Id = Guid.NewGuid(),
+            AgentId = AgentIds.Codex,
+            WorkspacePath = @"C:\repo",
+        };
+
+        IReadOnlyList<string> args = CreateArgumentBuilder().BuildArguments(
+            session,
+            "do the thing",
+            [],
+            entryScript: null,
+            passPromptViaStdin: false);
+
+        Assert.Equal("do the thing", args[^1]);
     }
 
     [Fact]
@@ -184,7 +205,8 @@ public class CodexNdjsonParserTests
             session,
             "do the thing",
             [],
-            entryScript: null);
+            entryScript: null,
+            passPromptViaStdin: true);
 
         Assert.DoesNotContain(args, arg => arg.Contains("approval_policy", StringComparison.Ordinal));
         Assert.Contains("model_reasoning_effort=\"high\"", args);
@@ -208,7 +230,8 @@ public class CodexNdjsonParserTests
             session,
             "do the thing",
             [],
-            entryScript: null);
+            entryScript: null,
+            passPromptViaStdin: true);
 
         Assert.Equal(
             [
@@ -223,7 +246,7 @@ public class CodexNdjsonParserTests
                 "model_context_window=272000",
                 "-c",
                 "model_reasoning_effort=\"high\"",
-                "do the thing"
+                "-"
             ],
             args);
     }

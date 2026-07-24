@@ -116,12 +116,14 @@ codex exec --json [--skip-git-repo-check] \
   [-c model_context_window={tokens}] \
   [-c model_reasoning_effort={effort}] \
   [resume {threadId}] \
-  "{composedPrompt}"
+  -
 ```
+
+Orchi passes the composed prompt on **stdin** (`codex exec -`) instead of argv. Review prompts embed large git diffs that exceed Windows `CreateProcess` command-line limits (~32KB), especially when launched through `cmd.exe /c codex.cmd`.
 
 Orchi does **not** pass `-c approval_policy=…`. `codex exec` is non-interactive and defaults to `approval_policy=never`; overriding with `on-request` or `untrusted` can stall until the Orchi timeout because exec cannot surface approval prompts ([non-interactive docs](https://developers.openai.com/codex/noninteractive)).
 
-Orchi closes the child process stdin immediately after spawn. Codex treats a piped stdin as extra prompt input and blocks until EOF; API hosts often inherit an open stdin pipe, which otherwise leaves chats stuck on "…" with no JSONL events.
+Orchi closes the child process stdin after writing the composed prompt (when using `codex exec -`). Codex treats a piped stdin as prompt input and blocks until EOF; API hosts often inherit an open stdin pipe with no content, which otherwise leaves chats stuck on "…" with no JSONL events.
 
 Working directory is the chat workspace path. Model, context, reasoning effort, and approval policy come from the chat (mode defaults or composer overrides). Extra `-c` keys are assembled from `ChatSession.CliConfigOverrides` via `AgentCliConfigArgs`.
 

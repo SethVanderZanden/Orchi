@@ -9,7 +9,8 @@ internal sealed class CursorCliArgumentBuilder(IOptions<CursorAgentOptions> opti
         ChatSession session,
         string prompt,
         IReadOnlyList<string> extraCliArgs,
-        string? entryScript)
+        string? entryScript,
+        bool passPromptViaStdin)
     {
         CursorAgentOptions config = options.Value;
         var arguments = new List<string>();

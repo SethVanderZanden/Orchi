@@ -13,6 +13,7 @@ internal sealed class CursorAgentCliProcessorProfile(
     public int TimeoutSeconds => options.Value.TimeoutSeconds;
     public bool SurfaceStderrWhenNoParsedEvents => false;
     public bool UseWindowsCmdShim => false;
+    public bool PassPromptViaStdin => false;
     public IAgentLaunchResolver LaunchResolver => launchResolver;
     public IAgentCliArgumentBuilder ArgumentBuilder => argumentBuilder;
 

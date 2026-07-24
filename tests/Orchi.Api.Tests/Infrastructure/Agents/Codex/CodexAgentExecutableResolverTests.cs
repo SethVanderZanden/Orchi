@@ -371,11 +371,12 @@ public class CodexAgentExecutableResolverTests
             session,
             "hello",
             [],
-            codexJsPath);
+            codexJsPath,
+            passPromptViaStdin: true);
 
         Assert.Equal(
             [
-                codexJsPath, "exec", "--json", "--skip-git-repo-check", "hello"
+                codexJsPath, "exec", "--json", "--skip-git-repo-check", "-"
             ],
             arguments);
     }
@@ -398,7 +399,7 @@ public class CodexAgentExecutableResolverTests
         }
 
         var builder = new CodexCliArgumentBuilder(Options.Create(options));
-        IReadOnlyList<string> arguments = builder.BuildArguments(session, "hello", [], null);
+        IReadOnlyList<string> arguments = builder.BuildArguments(session, "hello", [], null, passPromptViaStdin: true);
         ProcessStartInfo startInfo = AgentProcessStartInfoBuilder.Build(
             launch,
             session.WorkspacePath,
@@ -407,7 +408,7 @@ public class CodexAgentExecutableResolverTests
 
         Assert.Equal("cmd.exe", startInfo.FileName);
         Assert.True(startInfo.RedirectStandardInput);
-        Assert.Equal(["/c", launch.ExecutablePath, "exec", "--json", "--skip-git-repo-check", "--sandbox", "workspace-write", "hello"], startInfo.ArgumentList);
+        Assert.Equal(["/c", launch.ExecutablePath, "exec", "--json", "--skip-git-repo-check", "--sandbox", "workspace-write", "-"], startInfo.ArgumentList);
     }
 
     private static string CreateTempDirectory()

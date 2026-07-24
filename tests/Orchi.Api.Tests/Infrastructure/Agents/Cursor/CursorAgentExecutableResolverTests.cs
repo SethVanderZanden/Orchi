@@ -475,7 +475,7 @@ public class CursorAgentExecutableResolverTests
 
 
 
-        IReadOnlyList<string> arguments = CreateArgumentBuilder(options).BuildArguments(session, "hello", [], null);
+        IReadOnlyList<string> arguments = CreateArgumentBuilder(options).BuildArguments(session, "hello", [], null, passPromptViaStdin: false);
 
 
 
@@ -513,7 +513,8 @@ public class CursorAgentExecutableResolverTests
             session,
             "hello",
             [],
-            indexPath);
+            indexPath,
+            passPromptViaStdin: false);
 
 
 
@@ -561,7 +562,8 @@ public class CursorAgentExecutableResolverTests
             session,
             "hello",
             ["--mode=plan"],
-            null);
+            null,
+            passPromptViaStdin: false);
 
 
 

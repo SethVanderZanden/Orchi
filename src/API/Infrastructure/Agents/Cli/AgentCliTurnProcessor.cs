@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Text;
 
 namespace Orchi.Api.Infrastructure.Agents.Cli;
 
@@ -32,17 +33,24 @@ internal sealed class AgentCliTurnProcessor(ILogger<AgentCliTurnProcessor> logge
         }
 
         AgentLaunchSpec launch = resolveResult.Launch;
+        bool passPromptViaStdin = profile.PassPromptViaStdin;
         IReadOnlyList<string> arguments = profile.ArgumentBuilder.BuildArguments(
             session,
             prompt,
             extraCliArgs,
-            launch.EntryScript);
+            launch.EntryScript,
+            passPromptViaStdin);
 
         ProcessStartInfo startInfo = AgentProcessStartInfoBuilder.Build(
             launch,
             session.WorkspacePath,
             arguments,
             profile.UseWindowsCmdShim);
+
+        if (passPromptViaStdin)
+        {
+            startInfo.StandardInputEncoding = Encoding.UTF8;
+        }
 
         bool hasResume = !string.IsNullOrWhiteSpace(session.ExternalSessionId);
         logger.LogDebug(
@@ -57,7 +65,9 @@ internal sealed class AgentCliTurnProcessor(ILogger<AgentCliTurnProcessor> logge
             startInfo,
             session.Id,
             launch.ExecutablePath,
-            profile.DisplayName);
+            profile.DisplayName,
+            prompt,
+            passPromptViaStdin);
         if (start.Error is not null)
         {
             yield return start.Error;
@@ -104,12 +114,27 @@ internal sealed class AgentCliTurnProcessor(ILogger<AgentCliTurnProcessor> logge
         ProcessStartInfo startInfo,
         Guid chatId,
         string executablePath,
-        string displayName)
+        string displayName,
+        string prompt,
+        bool passPromptViaStdin)
     {
         try
         {
             Process process = Process.Start(startInfo)
                 ?? throw new InvalidOperationException($"Failed to start {displayName} executable '{executablePath}'.");
+
+            try
+            {
+                if (passPromptViaStdin && !string.IsNullOrEmpty(prompt))
+                {
+                    process.StandardInput.Write(prompt);
+                    process.StandardInput.Flush();
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to write stdin prompt for {Agent} chat {ChatId}", displayName, chatId);
+            }
 
             // Codex (and similar CLIs) block when stdin is a pipe until EOF. Headless API hosts
             // often inherit an open stdin pipe, which leaves the agent idle with no JSON output.

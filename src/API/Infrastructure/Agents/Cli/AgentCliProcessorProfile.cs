@@ -6,6 +6,7 @@ internal sealed class AgentCliProcessorProfile(
     int timeoutSeconds,
     bool surfaceStderrWhenNoParsedEvents,
     bool useWindowsCmdShim,
+    bool passPromptViaStdin,
     IAgentLaunchResolver launchResolver,
     IAgentCliArgumentBuilder argumentBuilder,
     Func<IAgentStreamLineParser> lineParserFactory) : IAgentCliProcessorProfile
@@ -15,6 +16,7 @@ internal sealed class AgentCliProcessorProfile(
     public int TimeoutSeconds { get; } = timeoutSeconds;
     public bool SurfaceStderrWhenNoParsedEvents { get; } = surfaceStderrWhenNoParsedEvents;
     public bool UseWindowsCmdShim { get; } = useWindowsCmdShim;
+    public bool PassPromptViaStdin { get; } = passPromptViaStdin;
     public IAgentLaunchResolver LaunchResolver { get; } = launchResolver;
     public IAgentCliArgumentBuilder ArgumentBuilder { get; } = argumentBuilder;
 

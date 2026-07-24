@@ -9,5 +9,6 @@ public interface IAgentCliArgumentBuilder
         ChatSession session,
         string prompt,
         IReadOnlyList<string> extraCliArgs,
-        string? entryScript);
+        string? entryScript,
+        bool passPromptViaStdin);
 }
