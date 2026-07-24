@@ -27,7 +27,8 @@ try {
     }
 
     $apiPort = if ($usingIsolatedDev) { $config.DevPort } else { $config.RuntimePort }
-    $healthUrl = "http://localhost:$apiPort/health"
+    # wait-on uses HEAD for http:// URLs; /health only allows GET.
+    $healthUrl = "http-get://localhost:$apiPort/health"
     $desktopCmd = "npx wait-on $healthUrl -t 120000 && npm run dev --prefix src/desktop"
 
     npx concurrently -n api,desktop -c blue,green `
