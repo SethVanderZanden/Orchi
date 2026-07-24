@@ -101,7 +101,6 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
     childCount,
     isParentKickingOffAny(chat.id)
   )
-  const parentChildCount = parentChat ? getChildChats(parentChat.id).length : 0
 
   useEffect(() => {
     if (!chat.parentChatId || chat.mode === 'orchestration') {
@@ -145,7 +144,6 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
   useOrchestrationParentEvents({
     childChat: chat.parentChatId ? chat : undefined,
     parentChat: parentChat?.mode === 'orchestration' ? parentChat : undefined,
-    parentChildCount,
     isParentKickoffActive: parentChat ? isParentKickingOffAny(parentChat.id) : false,
     getChat
   })
