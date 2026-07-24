@@ -8,13 +8,15 @@ const electronViteConfigPath = resolve(desktopRoot, 'electron.vite.config.ts')
 const mainBundlePath = resolve(desktopRoot, 'out/main/index.js')
 
 describe('electron-log main-process packaging', () => {
-  it('excludes electron-log from main-process dependency externalization', () => {
+  it('bundles electron-log only for production builds', () => {
     const configSource = readFileSync(electronViteConfigPath, 'utf8')
 
-    expect(configSource).toMatch(/externalizeDeps:\s*\{[\s\S]*exclude:\s*\[[^\]]*['"]electron-log['"]/)
+    expect(configSource).toMatch(/command\s*===\s*['"]build['"]/)
+    expect(configSource).toMatch(/exclude:\s*\[[^\]]*['"]electron-log['"]/)
+    expect(configSource).toMatch(/['"]electron-log\/main['"]:\s*resolve\(/)
   })
 
-  describe('built main bundle', () => {
+  describe('production main bundle', () => {
     beforeAll(() => {
       execSync('npx electron-vite build', {
         cwd: desktopRoot,
