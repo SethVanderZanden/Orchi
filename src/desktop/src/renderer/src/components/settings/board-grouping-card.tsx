@@ -1,9 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useBoardGrouping } from '@/hooks/use-board-grouping'
-import {
-  getBoardGroupingLabel,
-  type BoardGroupingMode
-} from '@/lib/preferences/board-grouping'
+import { getBoardGroupingLabel, type BoardGroupingMode } from '@/lib/preferences/board-grouping'
 import { cn } from '@/lib/utils'
 
 const GROUPING_OPTIONS: ReadonlyArray<{
@@ -30,9 +27,7 @@ export function BoardGroupingCard(): React.JSX.Element {
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Agents sidebar grouping</CardTitle>
-        <CardDescription>
-          Choose how chats are organized in the agents sidebar.
-        </CardDescription>
+        <CardDescription>Choose how chats are organized in the agents sidebar.</CardDescription>
       </CardHeader>
       <CardContent>
         <fieldset className="space-y-3">

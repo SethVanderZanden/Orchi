@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
 import { AgentsSidebarProjectGroup } from '@/components/agents-sidebar/agents-sidebar-project-group'
 import { AgentsSidebarSection } from '@/components/agents-sidebar/agents-sidebar-section'
@@ -21,7 +21,8 @@ export function AgentsSidebarContent(): React.JSX.Element {
   const { projects } = useProjects()
   const { filters, setProjectFilter, setDateRange } = useBoardFilters()
   const { grouping } = useBoardGrouping()
-  const [expandedProjectIds, setExpandedProjectIds] = useState<Set<string>>(() => new Set())
+  // Track collapses so new projects default to expanded without an effect.
+  const [collapsedProjectIds, setCollapsedProjectIds] = useState<Set<string>>(() => new Set())
 
   useKanbanBoardSync()
 
@@ -48,26 +49,6 @@ export function AgentsSidebarContent(): React.JSX.Element {
     [filteredChats, grouping, projects, resolveBoardStatus]
   )
 
-  useEffect(() => {
-    if (grouped.mode !== 'project') {
-      return
-    }
-
-    setExpandedProjectIds((current) => {
-      const next = new Set(current)
-      let changed = false
-
-      for (const project of grouped.projects) {
-        if (!next.has(project.id)) {
-          next.add(project.id)
-          changed = true
-        }
-      }
-
-      return changed ? next : current
-    })
-  }, [grouped])
-
   const hasFilteredOutChats = !isLoadingChats && chats.length > 0 && filteredChats.length === 0
 
   function getProjectName(projectId: string | null): string | null {
@@ -89,8 +70,12 @@ export function AgentsSidebarContent(): React.JSX.Element {
     return chatId === activeTabId || chatId === splitTabId
   }
 
+  function isProjectExpanded(projectId: string): boolean {
+    return !collapsedProjectIds.has(projectId)
+  }
+
   function toggleProjectExpanded(projectId: string): void {
-    setExpandedProjectIds((current) => {
+    setCollapsedProjectIds((current) => {
       const next = new Set(current)
       if (next.has(projectId)) {
         next.delete(projectId)
@@ -152,7 +137,7 @@ export function AgentsSidebarContent(): React.JSX.Element {
                   <AgentsSidebarProjectGroup
                     key={project.id}
                     group={project}
-                    isExpanded={expandedProjectIds.has(project.id)}
+                    isExpanded={isProjectExpanded(project.id)}
                     onToggle={() => toggleProjectExpanded(project.id)}
                     getStatusVariant={(chat) => mapChatStatusToVariant(resolveBoardStatus(chat))}
                     getParentTitle={getParentTitle}

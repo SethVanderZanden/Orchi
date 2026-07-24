@@ -31,10 +31,7 @@ export function AgentsSidebarSection({
   className
 }: AgentsSidebarSectionProps): React.JSX.Element {
   return (
-    <section
-      className={cn('min-w-0', className)}
-      aria-label={`${title}, ${chats.length} chats`}
-    >
+    <section className={cn('min-w-0', className)} aria-label={`${title}, ${chats.length} chats`}>
       <header
         className={cn(
           'flex items-center justify-between gap-2',
@@ -49,7 +46,9 @@ export function AgentsSidebarSection({
         >
           {title}
         </h2>
-        <span className="font-mono text-[11px] text-sidebar-muted tabular-nums">{chats.length}</span>
+        <span className="font-mono text-[11px] text-sidebar-muted tabular-nums">
+          {chats.length}
+        </span>
       </header>
       <div className={cn('flex flex-col gap-0.5', nested ? 'px-1' : 'px-1.5')}>
         {chats.length === 0 ? (

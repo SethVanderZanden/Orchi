@@ -1,10 +1,6 @@
 import { describe, expect, it, beforeEach } from 'vitest'
 
-import {
-  getBoardGrouping,
-  isBoardGroupingMode,
-  setBoardGrouping
-} from './board-grouping'
+import { getBoardGrouping, isBoardGroupingMode, setBoardGrouping } from './board-grouping'
 
 describe('board-grouping preference', () => {
   beforeEach(() => {

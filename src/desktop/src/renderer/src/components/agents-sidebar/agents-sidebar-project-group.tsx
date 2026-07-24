@@ -1,11 +1,7 @@
 import { ChevronDown, ChevronRight } from 'lucide-react'
 
 import { AgentsSidebarSection } from '@/components/agents-sidebar/agents-sidebar-section'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger
-} from '@/components/ui/collapsible'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import type { BoardProjectGroup } from '@/lib/agents-sidebar/group-board-chats'
 import type { ChatStatusVariant } from '@/lib/chat/chat-status-variant'
 import type { ChatThread } from '@/lib/chat/types'
