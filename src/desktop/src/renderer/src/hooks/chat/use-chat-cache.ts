@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueryClient, type QueryClient } from '@tanstack/react-query'
 
 import { getChat } from '@/lib/chat/api'
 import { isLocalChat } from '@/lib/chat/chat-persistence'
@@ -7,6 +7,10 @@ import type { ChatThread } from '@/lib/chat/types'
 import { mergeChatDetail } from '@/lib/chat/merge-chat-detail'
 import { mergeChatLists } from '@/lib/chat/merge-chat-lists'
 import { chatKeys } from '@/lib/query-keys'
+
+function readChatList(queryClient: QueryClient, fallback: ChatThread[]): ChatThread[] {
+  return queryClient.getQueryData<ChatThread[]>(chatKeys.lists()) ?? fallback
+}
 
 type UseChatCacheOptions = {
   chats: ChatThread[]
@@ -26,7 +30,7 @@ export function useChatCache({ chats }: UseChatCacheOptions): UseChatCacheResult
   const getChatLocal = useCallback(
     (chatId: string) => {
       const detail = queryClient.getQueryData<ChatThread>(chatKeys.detail(chatId))
-      const summary = chats.find((chat) => chat.id === chatId)
+      const summary = readChatList(queryClient, chats).find((chat) => chat.id === chatId)
 
       if (detail && summary) {
         // Detail owns messages; list owns status (SSE / mark-read). Message
@@ -46,8 +50,9 @@ export function useChatCache({ chats }: UseChatCacheOptions): UseChatCacheResult
   )
 
   const getChildChats = useCallback(
-    (parentChatId: string) => chats.filter((chat) => chat.parentChatId === parentChatId),
-    [chats]
+    (parentChatId: string) =>
+      readChatList(queryClient, chats).filter((chat) => chat.parentChatId === parentChatId),
+    [chats, queryClient]
   )
 
   const loadChat = useCallback(

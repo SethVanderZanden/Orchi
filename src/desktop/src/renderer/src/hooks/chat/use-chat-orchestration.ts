@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import type { NavigateOptions } from '@tanstack/react-router'
 
@@ -50,6 +50,7 @@ export function useChatOrchestration({
 }: UseChatOrchestrationOptions): UseChatOrchestrationResult {
   const queryClient = useQueryClient()
   const [kickingOffKeys, setKickingOffKeys] = useState<Set<string>>(() => new Set())
+  const kickoffInFlightRef = useRef<Set<string>>(new Set())
   const [orchestrationKickoffProgress, setOrchestrationKickoffProgressState] = useState<
     Record<string, OrchestrationWorkflowProgress | null>
   >({})
@@ -226,11 +227,19 @@ export function useChatOrchestration({
 
   const kickOffPlanAction = useCallback(
     async (chatId: string, plan: ParsedPlan) => {
+      const kickoffFlightKey = kickOffKey(chatId, plan.planId)
       const siblings = getChildChats(chatId)
-      if (findChildForPlan(plan.planId, siblings)) {
+      const existingChild = findChildForPlan(plan.planId, siblings)
+      if (existingChild) {
+        navigate({ to: '/chat/$chatId', params: { chatId: existingChild.id } })
         return
       }
 
+      if (kickoffInFlightRef.current.has(kickoffFlightKey)) {
+        return
+      }
+
+      kickoffInFlightRef.current.add(kickoffFlightKey)
       markPlanKickingOff(chatId, plan.planId, true)
       clearOrchestrationError(chatId)
 
@@ -242,14 +251,21 @@ export function useChatOrchestration({
           [chatId]: error instanceof Error ? error.message : 'Failed to kick off plan.'
         }))
       } finally {
+        kickoffInFlightRef.current.delete(kickoffFlightKey)
         markPlanKickingOff(chatId, plan.planId, false)
       }
     },
-    [clearOrchestrationError, getChildChats, markPlanKickingOff, performKickOff]
+    [clearOrchestrationError, getChildChats, markPlanKickingOff, navigate, performKickOff]
   )
 
   const kickOffAllPlansAction = useCallback(
     async (chatId: string) => {
+      const kickoffFlightKey = kickOffKey(chatId, '__all__')
+      if (kickoffInFlightRef.current.has(kickoffFlightKey)) {
+        return
+      }
+
+      kickoffInFlightRef.current.add(kickoffFlightKey)
       markPlanKickingOff(chatId, '__all__', true)
       clearOrchestrationError(chatId)
 
@@ -271,6 +287,7 @@ export function useChatOrchestration({
           [chatId]: error instanceof Error ? error.message : 'Failed to kick off plans.'
         }))
       } finally {
+        kickoffInFlightRef.current.delete(kickoffFlightKey)
         markPlanKickingOff(chatId, '__all__', false)
       }
     },

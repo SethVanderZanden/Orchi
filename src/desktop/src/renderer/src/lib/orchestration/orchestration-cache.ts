@@ -132,6 +132,7 @@ export function createOrchestrationEventHandlers(
 
         return [childChat, ...current]
       })
+      queryClient.setQueryData(chatKeys.detail(childChat.id), (current) => current ?? childChat)
       options?.onChatCreated?.(payload)
     },
     onParentMessage: (payload) => {

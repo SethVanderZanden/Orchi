@@ -6,11 +6,11 @@ import type { ChatThread } from '@/lib/chat/types'
 import { createOrchestrationEventHandlers } from '@/lib/orchestration/orchestration-cache'
 import { needsOrchestrationHydration } from '@/lib/orchestration/needs-orchestration-hydration'
 import { subscribeOrchestrationEvents } from '@/lib/orchestration/orchestration-events'
+import { chatKeys } from '@/lib/query-keys'
 
 type UseOrchestrationParentEventsOptions = {
   childChat: ChatThread | undefined
   parentChat: ChatThread | undefined
-  parentChildCount: number
   isParentKickoffActive: boolean
   getChat: (chatId: string) => ChatThread | undefined
 }
@@ -18,7 +18,6 @@ type UseOrchestrationParentEventsOptions = {
 export function useOrchestrationParentEvents({
   childChat,
   parentChat,
-  parentChildCount,
   isParentKickoffActive,
   getChat
 }: UseOrchestrationParentEventsOptions): void {
@@ -30,12 +29,16 @@ export function useOrchestrationParentEvents({
 
   useEffect(() => {
     const parent = parentChatRef.current
-    if (
-      !childChat?.parentChatId ||
-      !parentChatId ||
-      !parent ||
-      !needsOrchestrationHydration(parent, parentChildCount, isParentKickoffActive)
-    ) {
+    if (!childChat?.parentChatId || !parentChatId || !parent) {
+      return
+    }
+
+    const parentChildCount =
+      queryClient
+        .getQueryData<ChatThread[]>(chatKeys.lists())
+        ?.filter((chat) => chat.parentChatId === parentChatId).length ?? 0
+
+    if (!needsOrchestrationHydration(parent, parentChildCount, isParentKickoffActive)) {
       return
     }
 
@@ -58,7 +61,6 @@ export function useOrchestrationParentEvents({
     isParentKickoffActive,
     parentChatId,
     parentChatRef,
-    parentChildCount,
     queryClient
   ])
 }
