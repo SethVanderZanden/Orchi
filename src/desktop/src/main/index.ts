@@ -3,9 +3,13 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { getApiBaseUrl, startApiHost, stopApiHost } from './api-host'
+import { getLogDirectory, getLogFilePath, log, setupLogging } from './logging'
 import { openInEditor, type EditorId } from './open-in-editor'
 import { BeforeQuitState, createDefaultShutdownDeps, handleBeforeQuit } from './shutdown'
+import { attachWindowRecovery } from './window-recovery'
 import { getDefaultWindowSize } from './window-size'
+
+setupLogging()
 
 const shutdownState = { current: BeforeQuitState.NotStarted }
 
@@ -26,6 +30,8 @@ function createWindow(): void {
     }
   })
 
+  attachWindowRecovery(mainWindow)
+
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
   })
@@ -36,9 +42,13 @@ function createWindow(): void {
   })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+    void mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL']).catch((error) => {
+      log.error('Failed to load renderer URL', error)
+    })
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    void mainWindow.loadFile(join(__dirname, '../renderer/index.html')).catch((error) => {
+      log.error('Failed to load renderer file', error)
+    })
   }
 }
 
@@ -67,11 +77,20 @@ app.whenReady().then(async () => {
     return result.filePaths[0]
   })
 
+  ipcMain.handle('logs:getPath', () => getLogFilePath())
+
+  ipcMain.handle('logs:openFolder', async () => {
+    const logFile = getLogFilePath()
+    shell.showItemInFolder(logFile)
+    return { logFile, logDirectory: getLogDirectory() }
+  })
+
   if (!is.dev) {
     try {
       await startApiHost()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
+      log.error('API host failed to start', error)
       await dialog.showErrorBox('Orchi failed to start', message)
       app.quit()
       return
@@ -79,6 +98,7 @@ app.whenReady().then(async () => {
   }
 
   createWindow()
+  log.info('Main window created')
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) {

@@ -13,6 +13,7 @@ Guides for the Orchi Electron desktop app — React, TanStack Router, TanStack Q
 | [Chat streaming](chat-streaming.md) | SSE message flow, markers, ChatProvider — start with the [Dummy section](chat-streaming.md#dummy-section-start-here) |
 | [Coding standards](coding-standards.md) | Folder layout, naming, state ownership, **theme / styling** — start with the [Dummy section](coding-standards.md#dummy-section-start-here) |
 | [API conventions](api-conventions.md) | HTTP modules, query keys, error handling — start with the [Dummy section](api-conventions.md#dummy-section-start-here) |
+| [Desktop logging](logging.md) | electron-log, white-screen recovery, finding log files — start with the [Dummy section](logging.md#dummy-section-start-here) |
 
 Agent skill for visual consistency: [`.cursor/skills/orchi-ui-theme/SKILL.md`](../../.cursor/skills/orchi-ui-theme/SKILL.md).
 

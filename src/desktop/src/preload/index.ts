@@ -7,7 +7,10 @@ const api = {
     folderPath: string,
     editor: 'vscode' | 'cursor'
   ): Promise<{ ok: true } | { ok: false; error: string }> =>
-    ipcRenderer.invoke('shell:openInEditor', folderPath, editor)
+    ipcRenderer.invoke('shell:openInEditor', folderPath, editor),
+  getLogPath: (): Promise<string> => ipcRenderer.invoke('logs:getPath'),
+  openLogFolder: (): Promise<{ logFile: string; logDirectory: string }> =>
+    ipcRenderer.invoke('logs:openFolder')
 }
 
 if (process.contextIsolated) {
@@ -15,6 +18,7 @@ if (process.contextIsolated) {
     contextBridge.exposeInMainWorld('electron', electronAPI)
     contextBridge.exposeInMainWorld('api', api)
   } catch (error) {
+    // Preload runs before renderer logging is available.
     console.error(error)
   }
 } else {
