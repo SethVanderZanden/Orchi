@@ -1,4 +1,5 @@
 import { parsePlanSequenceFromMessages } from './plan-sequence'
+import { parseMarkedBlocks } from './parse-marked-blocks'
 
 export type ParsedPlan = {
   planId: string
@@ -6,8 +7,11 @@ export type ParsedPlan = {
   contentMarkdown: string
 }
 
-const PLAN_BLOCK_PATTERN =
-  /<!--\s*orchi-plan:([a-z0-9]+(?:-[a-z0-9]+)*)\s*-->\s*([\s\S]*?)<!--\s*\/orchi-plan\s*-->/gi
+const PLAN_PARSE_CONFIG = {
+  completeBlockPattern:
+    /<!--\s*orchi-plan:([a-z0-9]+(?:-[a-z0-9]+)*)\s*-->\s*([\s\S]*?)<!--\s*\/orchi-plan\s*-->/gi,
+  openMarkerPattern: /<!--\s*orchi-plan:([a-z0-9]+(?:-[a-z0-9]+)*)\s*-->/gi
+} as const
 
 function extractTitle(content: string): string {
   const headingMatch = content.match(/^#\s+(.+)$/m)
@@ -15,23 +19,11 @@ function extractTitle(content: string): string {
 }
 
 export function parsePlans(content: string): ParsedPlan[] {
-  const plans = new Map<string, ParsedPlan>()
-
-  for (const match of content.matchAll(PLAN_BLOCK_PATTERN)) {
-    const planId = match[1]
-    const body = match[2].trim()
-    if (!planId || !body) {
-      continue
-    }
-
-    plans.set(planId, {
-      planId,
-      title: extractTitle(body),
-      contentMarkdown: body
-    })
-  }
-
-  return [...plans.values()]
+  return parseMarkedBlocks(content, PLAN_PARSE_CONFIG).map(({ id, body }) => ({
+    planId: id,
+    title: extractTitle(body),
+    contentMarkdown: body
+  }))
 }
 
 export function parsePlansFromMessages(

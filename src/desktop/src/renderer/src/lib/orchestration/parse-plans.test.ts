@@ -39,6 +39,20 @@ Polish the UI.
     expect(plans[1]?.planId).toBe('ui-polish')
   })
 
+  it('parses incomplete plan blocks without a closing marker', () => {
+    const content = `<!-- orchi-plan:auth-refactor -->
+# Auth Refactor
+
+## Summary
+Still streaming`
+
+    const plans = parsePlans(content)
+
+    expect(plans).toHaveLength(1)
+    expect(plans[0]?.planId).toBe('auth-refactor')
+    expect(plans[0]?.contentMarkdown).toContain('Still streaming')
+  })
+
   it('dedupes plans by id keeping the latest in message order', () => {
     const messages = [
       {

@@ -36,6 +36,25 @@ describe('getChatMessageDisplayState', () => {
     })
   })
 
+  it('strips review plan blocks from display content', () => {
+    const content = `Intro.
+
+<!-- orchi-review-plan:auth-refactor -->
+# Auth Refactor Review
+<!-- /orchi-review-plan -->
+
+Done.`
+
+    const state = getChatMessageDisplayState({
+      message: createMessage({ content }),
+      mode: 'review',
+      rowMarkers: []
+    })
+
+    expect(state.displayContent).toBe('Intro.\n\nDone.')
+    expect(state.shouldRender).toBe(true)
+  })
+
   it('strips orchestration plan blocks from display content', () => {
     const content = `Intro.
 

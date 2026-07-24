@@ -1,5 +1,8 @@
 import type { AgentMode, ChatMarker, ChatMessage } from '@/lib/chat/types'
-import { stripPlanBlocksForChatDisplay } from '@/lib/orchestration/strip-plan-blocks'
+import {
+  stripPlanBlocksForChatDisplay,
+  stripReviewPlanBlocksForChatDisplay
+} from '@/lib/orchestration/strip-plan-blocks'
 
 export type ChatMessageDisplayState = {
   displayContent: string
@@ -15,11 +18,19 @@ type GetChatMessageDisplayStateOptions = {
 }
 
 function resolveDisplayContent(message: ChatMessage, mode: AgentMode): string {
-  if (message.role === 'user' || mode !== 'orchestration') {
+  if (message.role === 'user') {
     return message.content
   }
 
-  return stripPlanBlocksForChatDisplay(message.content)
+  if (mode === 'orchestration') {
+    return stripPlanBlocksForChatDisplay(message.content)
+  }
+
+  if (mode === 'review') {
+    return stripReviewPlanBlocksForChatDisplay(message.content)
+  }
+
+  return message.content
 }
 
 /**

@@ -30,6 +30,38 @@ Some intro text.
     })
   })
 
+  it('parses review plans when the opening marker is inline with preamble text', () => {
+    const content = `I'm reviewing the supplied diff against the branch intent, with emphasis on test coverage and whether the test-fixture changes preserve the production paths they are meant to exercise.<!-- orchi-review-plan:crew-sheet-run-sheet-order -->
+# Crew sheet run sheet order
+
+## Review TLDR
+- Verdict: ship with fixes
+`
+
+    const plans = parseReviewPlans(content)
+
+    expect(plans).toHaveLength(1)
+    expect(plans[0]).toEqual({
+      planId: 'crew-sheet-run-sheet-order',
+      title: 'Crew sheet run sheet order',
+      contentMarkdown: expect.stringContaining('Review TLDR')
+    })
+  })
+
+  it('parses incomplete review plans without a closing marker', () => {
+    const content = `<!-- orchi-review-plan:auth-refactor -->
+# Auth Refactor Review
+
+## Review TLDR
+- Verdict: ship with fixes`
+
+    const plans = parseReviewPlans(content)
+
+    expect(plans).toHaveLength(1)
+    expect(plans[0]?.planId).toBe('auth-refactor')
+    expect(plans[0]?.contentMarkdown).toContain('Review TLDR')
+  })
+
   it('dedupes review plans by id keeping the latest in message order', () => {
     const messages = [
       {
