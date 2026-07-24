@@ -126,6 +126,10 @@ export function AgentsSidebarContent(): React.JSX.Element {
         <p className="px-3 py-6 text-sm text-sidebar-muted">
           No chats match the current filters. Try a wider date range or another project.
         </p>
+      ) : grouped.mode === 'project' && grouped.projects.length === 0 ? (
+        <p className="px-3 py-6 text-sm text-sidebar-muted">
+          No chats to show. Open a chat or widen the filters.
+        </p>
       ) : (
         <ScrollArea className="min-h-0 flex-1">
           <div className="min-w-0 space-y-1 px-1.5 pb-3">

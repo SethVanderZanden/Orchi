@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import {
+  BOARD_GROUPING_CHANGED_EVENT,
   BOARD_GROUPING_STORAGE_KEY,
   getBoardGrouping,
   setBoardGrouping,
@@ -16,16 +17,24 @@ export function useBoardGrouping(): UseBoardGroupingResult {
   const [grouping, setGroupingState] = useState<BoardGroupingMode>(() => getBoardGrouping())
 
   useEffect(() => {
+    function syncFromStorage(): void {
+      setGroupingState(getBoardGrouping())
+    }
+
     function onStorage(event: StorageEvent): void {
       if (event.key !== BOARD_GROUPING_STORAGE_KEY) {
         return
       }
 
-      setGroupingState(getBoardGrouping())
+      syncFromStorage()
     }
 
     window.addEventListener('storage', onStorage)
-    return () => window.removeEventListener('storage', onStorage)
+    window.addEventListener(BOARD_GROUPING_CHANGED_EVENT, syncFromStorage)
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener(BOARD_GROUPING_CHANGED_EVENT, syncFromStorage)
+    }
   }, [])
 
   const setGrouping = useCallback((mode: BoardGroupingMode) => {

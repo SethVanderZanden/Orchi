@@ -3,6 +3,9 @@ export type BoardGroupingMode = 'state' | 'project'
 const STORAGE_KEY = 'orchi.boardGrouping'
 const DEFAULT_BOARD_GROUPING: BoardGroupingMode = 'state'
 
+/** Dispatched in the same window when grouping changes (storage events are cross-tab only). */
+export const BOARD_GROUPING_CHANGED_EVENT = 'orchi:board-grouping-changed'
+
 export function isBoardGroupingMode(value: unknown): value is BoardGroupingMode {
   return value === 'state' || value === 'project'
 }
@@ -26,6 +29,8 @@ export function setBoardGrouping(mode: BoardGroupingMode): void {
   } catch {
     // ignore
   }
+
+  window.dispatchEvent(new Event(BOARD_GROUPING_CHANGED_EVENT))
 }
 
 export function getBoardGroupingLabel(mode: BoardGroupingMode): string {
