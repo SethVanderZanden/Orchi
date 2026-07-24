@@ -67,6 +67,7 @@ export function createOrchestrationEventHandlers(
   options?: {
     onWorkflow?: OrchestrationEventHandlers['onWorkflow']
     onChatCreated?: OrchestrationEventHandlers['onChatCreated']
+    loadChat?: (chatId: string) => Promise<ChatThread | undefined>
   }
 ): OrchestrationEventHandlers {
   const tokenBatchers = new Map<string, TokenBatcher>()
@@ -180,6 +181,7 @@ export function createOrchestrationEventHandlers(
         return { ...base, messages }
       })
       void queryClient.invalidateQueries({ queryKey: chatKeys.lists() })
+      void options?.loadChat?.(childChatId)
     },
     onAgentError: ({ childChatId, message }) => {
       flushChildTokens(childChatId)

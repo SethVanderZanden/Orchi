@@ -25,6 +25,7 @@ type UseOrchestrationOptions = {
   parentChatId: string | undefined
   parentChat: ChatThread | undefined
   getChat: (chatId: string) => ChatThread | undefined
+  loadChat?: (chatId: string) => Promise<ChatThread | undefined>
   enabled: boolean
   onWorkflowProgress?: (progress: OrchestrationWorkflowProgress | null) => void
   onChildrenHydrated?: (childIds: string[]) => void
@@ -34,6 +35,7 @@ export function useOrchestration({
   parentChatId,
   parentChat,
   getChat,
+  loadChat,
   enabled,
   onWorkflowProgress,
   onChildrenHydrated
@@ -50,6 +52,7 @@ export function useOrchestration({
 
   const parentChatRef = useLiveRef(parentChat)
   const getChatRef = useLiveRef(getChat)
+  const loadChatRef = useLiveRef(loadChat)
   const onWorkflowProgressRef = useLiveRef(onWorkflowProgress)
   const onChildrenHydratedRef = useLiveRef(onChildrenHydrated)
 
@@ -107,7 +110,8 @@ export function useOrchestration({
               emitWorkflowProgress(workflowProgressFromWorkflowEvent(payload)),
             onChatCreated: (payload) => {
               onChildrenHydratedRef.current?.([payload.chatId])
-            }
+            },
+            loadChat: (chatId) => loadChatRef.current?.(chatId) ?? Promise.resolve(undefined)
           }
         ),
         controller.signal
@@ -124,6 +128,7 @@ export function useOrchestration({
     getChatRef,
     hasParentChat,
     isTracking,
+    loadChatRef,
     onChildrenHydratedRef,
     onWorkflowProgressRef,
     parentChatId,

@@ -13,17 +13,20 @@ type UseOrchestrationParentEventsOptions = {
   parentChat: ChatThread | undefined
   isParentKickoffActive: boolean
   getChat: (chatId: string) => ChatThread | undefined
+  loadChat?: (chatId: string) => Promise<ChatThread | undefined>
 }
 
 export function useOrchestrationParentEvents({
   childChat,
   parentChat,
   isParentKickoffActive,
-  getChat
+  getChat,
+  loadChat
 }: UseOrchestrationParentEventsOptions): void {
   const queryClient = useQueryClient()
   const parentChatRef = useLiveRef(parentChat)
   const getChatRef = useLiveRef(getChat)
+  const loadChatRef = useLiveRef(loadChat)
 
   const parentChatId = parentChat?.id
 
@@ -46,7 +49,9 @@ export function useOrchestrationParentEvents({
 
     void subscribeOrchestrationEvents(
       parentChatId,
-      createOrchestrationEventHandlers(parent, queryClient, (chatId) => getChatRef.current(chatId)),
+      createOrchestrationEventHandlers(parent, queryClient, (chatId) => getChatRef.current(chatId), {
+        loadChat: (chatId) => loadChatRef.current?.(chatId) ?? Promise.resolve(undefined)
+      }),
       controller.signal
     ).catch(() => {
       // Stream closed on unmount or network error.
@@ -59,6 +64,7 @@ export function useOrchestrationParentEvents({
     childChat?.parentChatId,
     getChatRef,
     isParentKickoffActive,
+    loadChatRef,
     parentChatId,
     parentChatRef,
     queryClient
