@@ -809,9 +809,6 @@ public sealed class AgentSessionManager
                             assistantMessage = assistantMessage with { Content = completed.FullText };
                         }
 
-                        assistantMessage = assistantMessage with { Status = "complete" };
-                        session.Messages[^1] = assistantMessage;
-
                         if (!string.IsNullOrWhiteSpace(completed.ExternalSessionId))
                         {
                             session.ExternalSessionId = completed.ExternalSessionId;
@@ -826,6 +823,57 @@ public sealed class AgentSessionManager
                             "Captured external session id from {Source} for chat {ChatId}",
                             "result",
                             chatId);
+                    }
+
+                    if (string.IsNullOrWhiteSpace(assistantMessage.Content))
+                    {
+                        const string emptyResponseMessage =
+                            "The agent finished without producing a response. Try sending the message again.";
+
+                        _logger.LogWarning(
+                            "Agent completed with empty content for chat {ChatId}",
+                            chatId);
+
+                        lock (session.Sync)
+                        {
+                            assistantMessage = assistantMessage with
+                            {
+                                Content = emptyResponseMessage,
+                                Status = "error"
+                            };
+                            session.Messages[^1] = assistantMessage;
+                        }
+
+                        await _chatStore.SaveAssistantMessageAsync(
+                            chatId,
+                            assistantMessage,
+                            externalSessionId,
+                            cancellationToken);
+
+                        await TransitionStatusAsync(
+                            chatId,
+                            session,
+                            ChatStatus.ReadyForReview,
+                            cancellationToken);
+
+                        turnCompleted = true;
+                        await foreach (AgentEvent finishEvent in DispatchFinishScriptsAsync(
+                                           session,
+                                           succeeded: false,
+                                           runCts.Token))
+                        {
+                            yield return finishEvent;
+                        }
+
+                        _turnCompletionNotifier.NotifyTurnCompleted(chatId, succeeded: false);
+                        yield return new AgentErrorEvent("Agent.EmptyResponse", emptyResponseMessage);
+                        break;
+                    }
+
+                    lock (session.Sync)
+                    {
+                        assistantMessage = assistantMessage with { Status = "complete" };
+                        session.Messages[^1] = assistantMessage;
                     }
 
                     await _chatStore.SaveAssistantMessageAsync(

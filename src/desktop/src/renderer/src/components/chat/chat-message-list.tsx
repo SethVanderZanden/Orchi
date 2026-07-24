@@ -65,6 +65,7 @@ export function OrchiChatMessageList({
               displayContent={display.displayContent}
               showPlaceholder={display.showPlaceholder}
               showActivity={display.showActivity}
+              showEmptyResponse={display.showEmptyResponse}
               markers={rowMarkers}
               mode={mode}
             />
@@ -80,6 +81,7 @@ type ChatMessageRowProps = {
   displayContent: string
   showPlaceholder: boolean
   showActivity: boolean
+  showEmptyResponse: boolean
   markers: ChatMarker[]
   mode: AgentMode
 }
@@ -89,6 +91,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
   displayContent,
   showPlaceholder,
   showActivity,
+  showEmptyResponse,
   markers,
   mode
 }: ChatMessageRowProps): React.JSX.Element {
@@ -126,6 +129,8 @@ const ChatMessageRow = memo(function ChatMessageRow({
         <MessageSelectionMenu>
           {showPlaceholder ? (
             <span className="text-muted-foreground">…</span>
+          ) : showEmptyResponse ? (
+            <span className="text-muted-foreground">No response from agent.</span>
           ) : displayContent.length > 0 ? (
             <MarkdownContent
               className={message.status === 'error' ? 'prose-base text-destructive' : 'prose-base'}
