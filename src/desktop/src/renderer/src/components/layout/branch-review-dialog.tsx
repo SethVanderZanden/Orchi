@@ -91,35 +91,18 @@ export function BranchReviewDialog({
         fetch: shouldFetch
       }),
     onSuccess: async (response) => {
-      const reviewChat: ChatThread = {
-        id: response.reviewChatId,
-        title: `${response.headBranch} review`,
-        preview: response.initialPrompt,
-        updatedAt: new Date().toISOString(),
-        agentId: 'cursor',
-        projectId,
-        workspaceId: null,
-        workspacePath: '',
-        mode: 'review',
-        modelId: null,
-        contextSizeId: null,
-        reasoningEffortId: null,
-        approvalPolicyId: null,
-        parentChatId: null,
-        planFilePath: response.reviewFilePath,
-        status: 'inProgress',
-        lastReadAt: null,
-        messages: []
+      openChat(response.reviewChatId)
+
+      const reviewChat = await loadChat(response.reviewChatId)
+      if (!reviewChat) {
+        onError('Review chat was created but could not be loaded.')
+        return
       }
 
       queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) => [
         reviewChat,
         ...current.filter((chat) => chat.id !== reviewChat.id)
       ])
-      queryClient.setQueryData(chatKeys.detail(reviewChat.id), reviewChat)
-
-      openChat(reviewChat.id)
-      void loadChat(reviewChat.id)
 
       try {
         await sendMessage(reviewChat.id, response.kickoffMessage, { skipPostMessageBehavior: true })
