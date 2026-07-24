@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { AgentSettingsSection } from '@/components/settings/agent-settings-section'
 import { AutoKickOffReviewCard } from '@/components/settings/auto-kick-off-review-card'
+import { BoardGroupingCard } from '@/components/settings/board-grouping-card'
 import { DiagnosticsCard } from '@/components/settings/diagnostics-card'
 import { EnabledAgentsCard } from '@/components/settings/enabled-agents-card'
 import { ModeRuntimeDefaultsCard } from '@/components/settings/mode-runtime-defaults-card'
@@ -60,13 +61,14 @@ function SettingsPage(): React.JSX.Element {
               <GitSettingsCard />
               <PreferredEditorCard />
               <DefaultChatModeCard />
+              <BoardGroupingCard />
               <PostMessageBehaviorCard />
               <AutoKickOffReviewCard />
               <DiagnosticsCard />
               <Card>
                 <CardContent className="space-y-3">
                   <p className="text-sm leading-relaxed text-muted-foreground">
-                    Jump back to a conversation without losing navigator state.
+                    Jump back to a conversation without losing sidebar state.
                   </p>
                   <Button variant="secondary" onClick={() => navigate({ to: '/' })}>
                     Open chats

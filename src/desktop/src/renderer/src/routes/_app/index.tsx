@@ -73,7 +73,6 @@ function AppIndexPage(): React.JSX.Element {
       </Button>
       <div className="flex w-full max-w-xs flex-col gap-1.5 text-left text-sm">
         <ShortcutRow label="New chat tab" shortcut="Ctrl+N" />
-        <ShortcutRow label="Agents board" shortcut="Ctrl+B" />
         <ShortcutRow label="Open chat beside" shortcut="Ctrl+ArrowRight" />
         <ShortcutRow label="Find chat" shortcut="Ctrl+P" />
       </div>

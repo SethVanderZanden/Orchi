@@ -61,7 +61,7 @@ export function BoardFiltersBar({
               'h-8 gap-1.5 px-2.5 text-sm font-normal',
               projectFilterActive && 'border-primary/40 bg-primary/5'
             )}
-            aria-label="Filter board by project"
+            aria-label="Filter agents by project"
           >
             <FolderKanban className="size-3.5" />
             <span className="max-w-[10rem] truncate">{projectLabel}</span>
@@ -95,7 +95,7 @@ export function BoardFiltersBar({
               'h-8 gap-1.5 px-2.5 text-sm font-normal',
               dateFilterActive && 'border-primary/40 bg-primary/5'
             )}
-            aria-label="Filter board by date"
+            aria-label="Filter agents by date"
           >
             <Calendar className="size-3.5" />
             <span>{dateLabel}</span>

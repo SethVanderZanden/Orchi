@@ -15,7 +15,7 @@ const COLUMN_DEFS: ReadonlyArray<{
   status: ChatStatus
 }> = [
   { id: 'processing', title: 'Processing', status: 'inProgress' },
-  { id: 'readyToRead', title: 'Ready to Read', status: 'readyForReview' },
+  { id: 'readyToRead', title: 'Ready to Review', status: 'readyForReview' },
   { id: 'done', title: 'Done', status: 'read' }
 ]
 

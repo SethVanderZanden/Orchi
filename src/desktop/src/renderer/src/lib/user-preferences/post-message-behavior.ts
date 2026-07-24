@@ -14,8 +14,9 @@ const OPTIONS: PostMessageBehaviorOption[] = [
   },
   {
     id: 'goToBoard',
-    label: 'Go to Board',
-    description: 'Switch to the agents board when a response completes.'
+    label: 'Leave chat',
+    description:
+      'Return to the home view when a response completes so you can pick the next agent from the sidebar.'
   },
   {
     id: 'openNewChat',
