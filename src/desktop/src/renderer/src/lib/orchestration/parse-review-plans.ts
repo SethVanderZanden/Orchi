@@ -22,7 +22,7 @@ export function parseReviewPlans(content: string): ParsedReviewPlan[] {
 }
 
 export function parseReviewPlansFromMessages(
-  messages: Array<{ role: string; content: string }>
+  messages: Array<{ role: string; content: string; status?: string }>
 ): ParsedReviewPlan[] {
   const plans = new Map<string, ParsedReviewPlan>()
 
@@ -37,4 +37,41 @@ export function parseReviewPlansFromMessages(
   }
 
   return [...plans.values()]
+}
+
+function isCompleteAssistantMessage(message: {
+  role: string
+  status?: string
+}): boolean {
+  return (
+    message.role === 'assistant' &&
+    message.status !== 'processing' &&
+    message.status !== 'streaming'
+  )
+}
+
+/**
+ * Returns review content from marked blocks when present, otherwise the latest
+ * complete assistant turn (direct review markdown).
+ */
+export function resolveReviewContentFromMessages(
+  messages: Array<{ role: string; content: string; status?: string }>,
+  fallbackPlanId = 'review'
+): ParsedReviewPlan | undefined {
+  const fromBlocks = parseReviewPlansFromMessages(messages)
+  if (fromBlocks.length > 0) {
+    return fromBlocks[fromBlocks.length - 1]
+  }
+
+  const assistant = [...messages].reverse().find(isCompleteAssistantMessage)
+  const content = assistant?.content.trim()
+  if (!content) {
+    return undefined
+  }
+
+  return {
+    planId: fallbackPlanId,
+    title: extractMarkdownTitle(content, ORCHI_MARKERS.reviewPlan.defaultTitle),
+    contentMarkdown: content
+  }
 }

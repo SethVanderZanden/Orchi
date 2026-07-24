@@ -61,7 +61,23 @@ Done.`
     expect(state.shouldRender).toBe(true)
   })
 
-  it('shows plan-only review output in review mode chat bubbles', () => {
+  it('shows direct review markdown in review mode chat bubbles', () => {
+    const content = `# Auth Refactor Review
+
+## Review TLDR
+- Verdict: ship`
+
+    const state = getChatMessageDisplayState({
+      message: createMessage({ content }),
+      mode: 'review',
+      rowMarkers: []
+    })
+
+    expect(state.displayContent).toBe(content)
+    expect(state.shouldRender).toBe(true)
+  })
+
+  it('shows legacy review-plan blocks in review mode chat bubbles', () => {
     const content = `<!-- orchi-review-plan:auth-refactor -->
 # Auth Refactor Review
 

@@ -42,7 +42,7 @@ function resolveReviewModeDisplayContent(content: string): string {
     return preamble ? `${preamble}\n\n${reviewMarkdown}` : reviewMarkdown
   }
 
-  return stripReviewPlanBlocksForChatDisplay(content)
+  return content.trim()
 }
 
 function resolveDisplayContent(message: ChatMessage, mode: AgentMode): string {
@@ -82,10 +82,6 @@ function resolveDisplayContent(message: ChatMessage, mode: AgentMode): string {
 function isPlanOnlyAssistantMessage(content: string, mode: AgentMode): boolean {
   if (mode === 'orchestration') {
     return content.includes('orchi-plan:')
-  }
-
-  if (mode === 'review') {
-    return content.includes('orchi-review-plan:')
   }
 
   return false

@@ -1,6 +1,6 @@
 import type { ChatThread } from '@/lib/chat/types'
 import { parsePlansFromMessages } from '@/lib/orchestration/parse-plans'
-import { parseReviewPlansFromMessages } from '@/lib/orchestration/parse-review-plans'
+import { resolveReviewContentFromMessages } from '@/lib/orchestration/parse-review-plans'
 import type { ParsedReviewPlan } from '@/lib/orchestration/parse-review-plans'
 import { isChildRunning } from '@/lib/orchestration/plan-review-visibility'
 import { findReviewChildForPlan } from '@/lib/projects/chat-tree'
@@ -16,8 +16,9 @@ export function buildReviewPlansByPlanId(
     plans.map((plan) => {
       const reviewChildSummary = findReviewChildForPlan(plan.planId, childChats)
       const reviewChild = reviewChildSummary ? getChat(reviewChildSummary.id) : undefined
-      const reviewPlans = reviewChild ? parseReviewPlansFromMessages(reviewChild.messages) : []
-      const reviewPlan = reviewPlans.find((item) => item.planId === plan.planId) ?? reviewPlans[0]
+      const reviewPlan = reviewChild
+        ? resolveReviewContentFromMessages(reviewChild.messages, plan.planId)
+        : undefined
 
       return [plan.planId, reviewPlan] as const
     })
@@ -60,8 +61,7 @@ export function listReviewChildIdsNeedingReload(
       continue
     }
 
-    const reviewPlans = parseReviewPlansFromMessages(reviewChild.messages)
-    const reviewPlan = reviewPlans.find((item) => item.planId === plan.planId) ?? reviewPlans[0]
+    const reviewPlan = resolveReviewContentFromMessages(reviewChild.messages, plan.planId)
     if (reviewPlan) {
       continue
     }

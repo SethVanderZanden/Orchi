@@ -6,9 +6,8 @@ public static class ReviewPlanTask
     {
         string path = reviewFilePath.Trim();
         return
-            "Using the review brief and git diff in your context, produce the review now. " +
-            "Walk through every changed file in the diff with explanation and judgment (required, clean, goal alignment, over-engineering). " +
-            "Lead with a Review TLDR. Output one or more review plans using the exact format in your context section. " +
+            "Using the review brief and git diff in your context, walk through every changed file and produce the structured review now. " +
+            "Lead with a Review TLDR. Write the full review in your response — do not draft a separate plan to review later. " +
             "Do not modify code unless explicitly asked. " +
             $"After the review is complete, delete `{path}`. If blocked, keep the review brief file.";
     }

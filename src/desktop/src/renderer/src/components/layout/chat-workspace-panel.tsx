@@ -4,7 +4,7 @@ import { ChatPanel } from '@/components/chat/chat-panel'
 import { ChatWorkspaceHeader } from '@/components/layout/chat-workspace-header'
 import { usePlanReview } from '@/hooks/use-plan-review'
 import { parseOrchestrationPlansFromMessages } from '@/lib/orchestration/parse-plans'
-import { parseReviewPlansFromMessages } from '@/lib/orchestration/parse-review-plans'
+import { resolveReviewContentFromMessages } from '@/lib/orchestration/parse-review-plans'
 import type { ParsedReviewPlan } from '@/lib/orchestration/parse-review-plans'
 import { needsOrchestrationHydration } from '@/lib/orchestration/needs-orchestration-hydration'
 import { listReviewChildIdsNeedingReload } from '@/lib/orchestration/review-ready'
@@ -161,9 +161,9 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
         plans.map((plan) => {
           const reviewChildSummary = findReviewChildForPlan(plan.planId, childChats)
           const reviewChild = reviewChildSummary ? getChat(reviewChildSummary.id) : undefined
-          const reviewPlans = reviewChild ? parseReviewPlansFromMessages(reviewChild.messages) : []
-          const reviewPlan =
-            reviewPlans.find((item) => item.planId === plan.planId) ?? reviewPlans[0]
+          const reviewPlan = reviewChild
+            ? resolveReviewContentFromMessages(reviewChild.messages, plan.planId)
+            : undefined
           return [plan.planId, reviewPlan] as const
         })
       ) as Record<string, ParsedReviewPlan | undefined>,

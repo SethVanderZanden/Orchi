@@ -44,7 +44,7 @@ public static partial class ReviewBriefBuilder
             Walk through every changed file in the diff with a short explanation and judgment (required, clean, goal alignment, over-engineering).
             Also call out cross-cutting oversights, over-engineering, and missed patterns.
             Lead with a Review TLDR. Keep each file section scannable.
-            Produce one or more review plans using the exact format in your context section.
+            Write the full structured review in your response.
             """;
     }
 
@@ -71,7 +71,7 @@ public static partial class ReviewBriefBuilder
             Walk through every changed file in the diff with a short explanation and judgment (required, clean, goal alignment, over-engineering).
             Also call out cross-cutting oversights, over-engineering, and missed patterns.
             Lead with a Review TLDR. Keep each file section scannable.
-            Produce one or more review plans using the exact format in your context section.
+            Write the full structured review in your response.
             """;
     }
 

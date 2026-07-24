@@ -57,7 +57,7 @@ export const MODE_DEFAULT_SETUP_MODES = [
   {
     mode: 'review',
     label: 'Review',
-    description: 'Verifies implementation against the original plan.',
+    description: 'Reviews git diffs against the original plan or branch intent.',
     suggestedModelId: 'gpt-5.6-terra' as CodexModelPresetId,
     suggestedReasoningEffortId: 'medium' as CodexReasoningPresetId
   }
