@@ -45,7 +45,7 @@ export function MessageSelectionMenu({ children }: MessageSelectionMenuProps): R
           }
         }}
       >
-        <div className="flex w-full min-w-0 justify-start group-data-[align=end]/message:justify-end">
+        <div className="flex w-full min-w-0 max-w-full justify-start group-data-[align=end]/message:justify-end [&>*]:min-w-0 [&>*]:max-w-full">
           {children}
         </div>
       </ContextMenuTrigger>
