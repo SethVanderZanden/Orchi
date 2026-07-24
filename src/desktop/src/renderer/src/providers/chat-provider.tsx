@@ -76,7 +76,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
       }
 
       if (postMessageBehavior === 'goToBoard') {
-        navigate({ to: '/board' })
+        navigate({ to: '/' })
         return
       }
 

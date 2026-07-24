@@ -1,11 +1,9 @@
-import { createFileRoute } from '@tanstack/react-router'
-
-import { AgentKanbanBoard } from '@/components/kanban/agent-kanban-board'
+import { createFileRoute, Navigate } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/_app/board')({
-  component: BoardPage
+  component: BoardRedirect
 })
 
-function BoardPage(): React.JSX.Element {
-  return <AgentKanbanBoard />
+function BoardRedirect(): React.JSX.Element {
+  return <Navigate to="/" replace />
 }
