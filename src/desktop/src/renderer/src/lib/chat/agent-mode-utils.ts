@@ -10,8 +10,7 @@ export const FALLBACK_MODE_OPTIONS: AgentModeOption[] = [
   {
     id: 'review',
     label: 'Review',
-    description:
-      'Produces review plans after implementation to verify work against the original plan.'
+    description: 'Reviews git diffs with per-change judgment and cross-cutting findings.'
   }
 ]
 

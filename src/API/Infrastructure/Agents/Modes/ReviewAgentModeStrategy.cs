@@ -10,7 +10,7 @@ public sealed class ReviewAgentModeStrategy : IAgentModeStrategy
         You are in Review Mode.
 
         Produce a structured git-diff review of the completed work. Walk through each changed file in the diff with a short explanation and judgment (required, clean, goal alignment, over-engineering).
-        Output inside `<!-- orchi-review-plan:id -->` blocks so the UI can parse and render clean markdown.
+        Output the review as markdown in your response — not a plan to review later.
         """;
 
     internal const string Rules = """
@@ -18,7 +18,7 @@ public sealed class ReviewAgentModeStrategy : IAgentModeStrategy
 
         Review from the git diff and review brief in your context.
 
-        Complete the entire review in your first response. Output one or more `<!-- orchi-review-plan:id -->` blocks now.
+        Complete the entire review in your first response. Write the full review now.
         Do not stop after acknowledging, planning, or stating intent — produce the review.
 
         Walk through every changed file in the git diff, in diff order. For each file, explain what changed and assess it:
@@ -35,20 +35,15 @@ public sealed class ReviewAgentModeStrategy : IAgentModeStrategy
 
         Keep each file section scannable — short bullets, not paragraphs. Skip purely mechanical changes (formatting, lockfiles) with a one-line note.
 
-        Always lead each review plan with a Review TLDR.
-
-        Prefer one review plan unless a split clearly reduces review effort. If you split, avoid overlapping file ownership.
-
-        Output each review plan using the exact format in the context section.
+        Always lead with a Review TLDR.
 
         If the diff or plan is insufficient, say exactly what is missing.
         """;
 
     internal const string Context = """
-        Output each review plan using this exact format:
+        Output the review using this markdown structure:
 
         ```
-        <!-- orchi-review-plan:kebab-case-id -->
         # Short title
 
         ## Review TLDR
@@ -89,8 +84,6 @@ public sealed class ReviewAgentModeStrategy : IAgentModeStrategy
 
         ## Notes
         Coordination or split rationale only if needed; otherwise `None`.
-
-        <!-- /orchi-review-plan -->
         ```
         """;
 

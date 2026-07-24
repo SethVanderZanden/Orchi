@@ -1,4 +1,5 @@
 import type { AgentMode, ChatMarker, ChatMessage } from '@/lib/chat/types'
+import { parseReviewPlans } from '@/lib/orchestration/parse-review-plans'
 import {
   stripPlanBlocksForChatDisplay,
   stripReviewPlanBlocksForChatDisplay
@@ -33,6 +34,17 @@ type GetChatMessageDisplayStateOptions = {
   rowMarkers: ChatMarker[]
 }
 
+function resolveReviewModeDisplayContent(content: string): string {
+  const reviewPlans = parseReviewPlans(content)
+  if (reviewPlans.length > 0) {
+    const reviewMarkdown = reviewPlans.map((plan) => plan.contentMarkdown).join('\n\n')
+    const preamble = stripReviewPlanBlocksForChatDisplay(content).trim()
+    return preamble ? `${preamble}\n\n${reviewMarkdown}` : reviewMarkdown
+  }
+
+  return content.trim()
+}
+
 function resolveDisplayContent(message: ChatMessage, mode: AgentMode): string {
   if (message.role === 'user') {
     return message.content
@@ -50,7 +62,7 @@ function resolveDisplayContent(message: ChatMessage, mode: AgentMode): string {
       mode === 'orchestration'
         ? stripPlanBlocksForChatDisplay(message.content)
         : mode === 'review'
-          ? stripReviewPlanBlocksForChatDisplay(message.content)
+          ? resolveReviewModeDisplayContent(message.content)
           : message.content
 
     return cacheDisplayContent(cacheKey, stripped)
@@ -61,7 +73,7 @@ function resolveDisplayContent(message: ChatMessage, mode: AgentMode): string {
   }
 
   if (mode === 'review') {
-    return stripReviewPlanBlocksForChatDisplay(message.content)
+    return resolveReviewModeDisplayContent(message.content)
   }
 
   return message.content
@@ -70,10 +82,6 @@ function resolveDisplayContent(message: ChatMessage, mode: AgentMode): string {
 function isPlanOnlyAssistantMessage(content: string, mode: AgentMode): boolean {
   if (mode === 'orchestration') {
     return content.includes('orchi-plan:')
-  }
-
-  if (mode === 'review') {
-    return content.includes('orchi-review-plan:')
   }
 
   return false

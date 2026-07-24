@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { parseReviewPlans, parseReviewPlansFromMessages } from './parse-review-plans'
+import {
+  parseReviewPlans,
+  parseReviewPlansFromMessages,
+  resolveReviewContentFromMessages
+} from './parse-review-plans'
 
 describe('parseReviewPlans', () => {
   it('extracts review plan blocks with ids and titles', () => {
@@ -82,5 +86,32 @@ Some intro text.
 
     expect(plans).toHaveLength(1)
     expect(plans[0]?.title).toBe('Review v2')
+  })
+
+  it('falls back to the latest complete assistant message when no review blocks exist', () => {
+    const review = resolveReviewContentFromMessages(
+      [
+        {
+          role: 'user',
+          content: 'Begin review.',
+          status: 'complete'
+        },
+        {
+          role: 'assistant',
+          content: `# Auth Refactor Review
+
+## Review TLDR
+- Verdict: ship`,
+          status: 'complete'
+        }
+      ],
+      'auth-refactor'
+    )
+
+    expect(review).toMatchObject({
+      planId: 'auth-refactor',
+      title: 'Auth Refactor Review',
+      contentMarkdown: expect.stringContaining('Review TLDR')
+    })
   })
 })

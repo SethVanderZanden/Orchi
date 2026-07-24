@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { QueryClient } from '@tanstack/react-query'
 
 import { createOrchestrationEventHandlers, mergeOrchestrationChildren } from './orchestration-cache'
@@ -155,5 +155,26 @@ describe('createOrchestrationEventHandlers', () => {
       status: 'complete',
       content: expect.stringContaining('# Review plan')
     })
+  })
+
+  it('reloads child chat from the server when agent_done fires', async () => {
+    const queryClient = new QueryClient()
+    const parentChat = createParentChat()
+    const childChat = createChildChat()
+    const loadChat = vi.fn().mockResolvedValue(childChat)
+
+    queryClient.setQueryData(chatKeys.detail(childChat.id), childChat)
+
+    const handlers = createOrchestrationEventHandlers(parentChat, queryClient, () => childChat, {
+      loadChat
+    })
+
+    handlers.onAgentDone?.({
+      childChatId: childChat.id,
+      messageId: 'server-message-id',
+      succeeded: true
+    })
+
+    expect(loadChat).toHaveBeenCalledWith(childChat.id)
   })
 })

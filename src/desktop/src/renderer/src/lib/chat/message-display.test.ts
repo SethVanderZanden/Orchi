@@ -37,11 +37,14 @@ describe('getChatMessageDisplayState', () => {
     })
   })
 
-  it('strips review plan blocks from display content', () => {
+  it('renders review plan markdown in review mode instead of hiding it', () => {
     const content = `Intro.
 
 <!-- orchi-review-plan:auth-refactor -->
 # Auth Refactor Review
+
+## Review TLDR
+- Verdict: ship
 <!-- /orchi-review-plan -->
 
 Done.`
@@ -52,7 +55,43 @@ Done.`
       rowMarkers: []
     })
 
-    expect(state.displayContent).toBe('Intro.\n\nDone.')
+    expect(state.displayContent).toContain('# Auth Refactor Review')
+    expect(state.displayContent).toContain('Intro.')
+    expect(state.displayContent).not.toContain('orchi-review-plan')
+    expect(state.shouldRender).toBe(true)
+  })
+
+  it('shows direct review markdown in review mode chat bubbles', () => {
+    const content = `# Auth Refactor Review
+
+## Review TLDR
+- Verdict: ship`
+
+    const state = getChatMessageDisplayState({
+      message: createMessage({ content }),
+      mode: 'review',
+      rowMarkers: []
+    })
+
+    expect(state.displayContent).toBe(content)
+    expect(state.shouldRender).toBe(true)
+  })
+
+  it('shows legacy review-plan blocks in review mode chat bubbles', () => {
+    const content = `<!-- orchi-review-plan:auth-refactor -->
+# Auth Refactor Review
+
+## Review TLDR
+- Verdict: ship
+<!-- /orchi-review-plan -->`
+
+    const state = getChatMessageDisplayState({
+      message: createMessage({ content, status: 'complete' }),
+      mode: 'review',
+      rowMarkers: []
+    })
+
+    expect(state.displayContent).toContain('# Auth Refactor Review')
     expect(state.shouldRender).toBe(true)
   })
 

@@ -12,10 +12,10 @@ public class ReviewPlanTaskTests
         string task = ReviewPlanTask.Build(reviewPath);
 
         Assert.Contains("review brief and git diff in your context", task);
-        Assert.Contains("produce the review now", task);
-        Assert.Contains("Output one or more review plans", task);
+        Assert.Contains("produce the structured review now", task);
+        Assert.Contains("do not draft a separate plan to review later", task, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("review plans", task, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("git diff", task, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Walk through every changed file", task);
         Assert.Contains("Review TLDR", task);
         Assert.Contains($"delete `{reviewPath}`", task);
         Assert.Contains("If blocked, keep the review brief file", task);

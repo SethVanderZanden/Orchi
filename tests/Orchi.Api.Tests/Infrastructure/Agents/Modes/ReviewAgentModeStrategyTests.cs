@@ -22,7 +22,8 @@ public class ReviewAgentModeStrategyTests
 
         Assert.Contains("You are in Review Mode.", document.Identity);
         Assert.Contains("structured git-diff review", document.Identity);
-        Assert.Contains("orchi-review-plan:id", document.Identity);
+        Assert.Contains("not a plan to review later", document.Identity);
+        Assert.DoesNotContain("orchi-review-plan:id", document.Identity);
         Assert.Contains("Do not modify code unless the user explicitly asks", document.Rules);
         Assert.Contains("Complete the entire review in your first response", document.Rules);
         Assert.Contains("Do not stop after acknowledging", document.Rules);
@@ -31,7 +32,7 @@ public class ReviewAgentModeStrategyTests
         Assert.Contains("Over-engineered?", document.Rules);
         Assert.Contains("Review TLDR", document.Rules);
         Assert.Contains("exactly what is missing", document.Rules);
-        Assert.Contains("<!-- orchi-review-plan:kebab-case-id -->", document.Context);
+        Assert.Contains("# Short title", document.Context);
         Assert.Contains("## Review TLDR", document.Context);
         Assert.Contains("## Changes", document.Context);
         Assert.Contains("**What changed:**", document.Context);

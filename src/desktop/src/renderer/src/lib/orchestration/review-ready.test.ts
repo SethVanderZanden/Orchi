@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildReviewPlansByPlanId, hasReviewReadyPlan } from './review-ready'
+import {
+  buildReviewPlansByPlanId,
+  hasReviewReadyPlan,
+  listReviewChildIdsNeedingReload
+} from './review-ready'
 import type { ChatThread } from '@/lib/chat/types'
 
 function createChat(overrides: Partial<ChatThread> = {}): ChatThread {
@@ -88,5 +92,46 @@ Review complete.
     const chat = createChat({ mode: 'default' })
 
     expect(hasReviewReadyPlan(chat, [], () => undefined)).toBe(false)
+  })
+
+  it('lists review children that finished without parseable review output', () => {
+    const parent = createChat({
+      messages: [
+        {
+          id: 'm-1',
+          role: 'assistant',
+          content: `<!-- orchi-plan:auth-refactor -->
+# Auth Refactor
+Implement auth changes.
+<!-- /orchi-plan -->`,
+          createdAt: '2026-07-04T12:00:00.000Z',
+          status: 'complete'
+        }
+      ]
+    })
+
+    const reviewChild: ChatThread = {
+      ...createChat({
+        id: 'review-child',
+        parentChatId: 'parent-chat',
+        mode: 'review',
+        planFilePath: '.orchi/review-auth-refactor.md'
+      }),
+      messages: [
+        {
+          id: 'm-user',
+          role: 'user',
+          content: 'Begin review.',
+          createdAt: '2026-07-04T12:04:00.000Z',
+          status: 'complete'
+        }
+      ]
+    }
+
+    expect(
+      listReviewChildIdsNeedingReload(parent, [reviewChild], (chatId) =>
+        chatId === reviewChild.id ? reviewChild : undefined
+      )
+    ).toEqual(['review-child'])
   })
 })
