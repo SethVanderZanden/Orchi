@@ -269,9 +269,7 @@ public sealed partial class GitWorkspaceService(IProcessRunner processRunner) : 
             ? $"orchi/{safePlanId}"
             : branchName.Trim();
 
-        string worktreesRoot = Path.Combine(repoRoot, ".orchi", "worktrees");
-        Directory.CreateDirectory(worktreesRoot);
-        string worktreePath = Path.Combine(worktreesRoot, safePlanId);
+        string worktreePath = GitWorktreePathResolver.ResolveWorktreePath(repoRoot, safePlanId);
 
         if (Directory.Exists(worktreePath))
         {
@@ -325,9 +323,7 @@ public sealed partial class GitWorkspaceService(IProcessRunner processRunner) : 
         }
 
         string safeId = SanitizeSegment(worktreeId);
-        string worktreesRoot = Path.Combine(repoRoot, ".orchi", "worktrees");
-        Directory.CreateDirectory(worktreesRoot);
-        string worktreePath = Path.Combine(worktreesRoot, safeId);
+        string worktreePath = GitWorktreePathResolver.ResolveWorktreePath(repoRoot, safeId);
 
         if (Directory.Exists(worktreePath))
         {

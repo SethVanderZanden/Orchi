@@ -69,7 +69,7 @@ public static class KickOffBranchReview
                 }
 
                 string reviewId = ReviewBriefBuilder.ToBranchReviewId(headBranch);
-                string worktreeId = ReviewBriefBuilder.ToBranchReviewWorktreeId(reviewId, Guid.NewGuid());
+                string worktreeId = GitWorktreePathResolver.NewOpaqueWorktreeSegmentId();
 
                 GitWorktreeCreateResult worktree = await gitWorkspaceService.CreateWorktreeForExistingBranchAsync(
                     primary.Path,
@@ -95,8 +95,8 @@ public static class KickOffBranchReview
 
                 string reviewBrief = ReviewBriefBuilder.BuildForBranchReview(
                     reviewId,
-                    worktree.Branch,
-                    worktree.BaseBranch);
+                    headBranch,
+                    baseBranch);
 
                 IOrchiArtifactWriterStrategy reviewWriter =
                     artifactWriterFactory.GetStrategy(OrchiArtifactKind.Review);
