@@ -4,6 +4,21 @@ import {
   stripReviewPlanBlocksForChatDisplay
 } from '@/lib/orchestration/strip-plan-blocks'
 
+const DISPLAY_CONTENT_CACHE_MAX = 512
+const displayContentCache = new Map<string, string>()
+
+function cacheDisplayContent(key: string, content: string): string {
+  if (displayContentCache.size >= DISPLAY_CONTENT_CACHE_MAX) {
+    const oldest = displayContentCache.keys().next().value
+    if (oldest) {
+      displayContentCache.delete(oldest)
+    }
+  }
+
+  displayContentCache.set(key, content)
+  return content
+}
+
 export type ChatMessageDisplayState = {
   displayContent: string
   showPlaceholder: boolean
@@ -21,6 +36,24 @@ type GetChatMessageDisplayStateOptions = {
 function resolveDisplayContent(message: ChatMessage, mode: AgentMode): string {
   if (message.role === 'user') {
     return message.content
+  }
+
+  const isActive = message.status === 'processing' || message.status === 'streaming'
+  if (!isActive) {
+    const cacheKey = `${message.id}:${message.content.length}:${mode}:${message.status}`
+    const cached = displayContentCache.get(cacheKey)
+    if (cached !== undefined) {
+      return cached
+    }
+
+    const stripped =
+      mode === 'orchestration'
+        ? stripPlanBlocksForChatDisplay(message.content)
+        : mode === 'review'
+          ? stripReviewPlanBlocksForChatDisplay(message.content)
+          : message.content
+
+    return cacheDisplayContent(cacheKey, stripped)
   }
 
   if (mode === 'orchestration') {

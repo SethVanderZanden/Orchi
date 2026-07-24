@@ -1,6 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query'
 
 import { resolveDetailCache } from '@/lib/chat/resolve-detail-cache'
+import { createTokenBatcher, type TokenBatcher } from '@/lib/chat/token-batcher'
 import type { ChatThread } from '@/lib/chat/types'
 import {
   appendParentOrchestrationMessage,
@@ -68,6 +69,58 @@ export function createOrchestrationEventHandlers(
     onChatCreated?: OrchestrationEventHandlers['onChatCreated']
   }
 ): OrchestrationEventHandlers {
+  const tokenBatchers = new Map<string, TokenBatcher>()
+
+  const appendChildToken = (childChatId: string, text: string): void => {
+    if (!text) {
+      return
+    }
+
+    queryClient.setQueryData<ChatThread>(chatKeys.detail(childChatId), (current) => {
+      const base = current ?? resolveChildDetailCache(queryClient, childChatId, getChat)
+      if (!base) {
+        return current
+      }
+
+      const messages = [...base.messages]
+      const last = messages.at(-1)
+
+      if (!last || last.role !== 'assistant') {
+        const now = new Date().toISOString()
+        messages.push({
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: text,
+          createdAt: now,
+          status: 'streaming'
+        })
+      } else {
+        messages[messages.length - 1] = {
+          ...last,
+          content: last.content + text,
+          status: 'streaming'
+        }
+      }
+
+      return { ...base, messages, updatedAt: new Date().toISOString() }
+    })
+  }
+
+  const getTokenBatcher = (childChatId: string): TokenBatcher => {
+    let batcher = tokenBatchers.get(childChatId)
+    if (!batcher) {
+      batcher = createTokenBatcher((text) => appendChildToken(childChatId, text))
+      tokenBatchers.set(childChatId, batcher)
+    }
+
+    return batcher
+  }
+
+  const flushChildTokens = (childChatId: string): void => {
+    tokenBatchers.get(childChatId)?.flush()
+    tokenBatchers.delete(childChatId)
+  }
+
   return {
     onWorkflow: options?.onWorkflow,
     onChatCreated: (payload) => {
@@ -88,39 +141,13 @@ export function createOrchestrationEventHandlers(
       })
     },
     onAgentToken: ({ childChatId, text }) => {
-      queryClient.setQueryData<ChatThread>(chatKeys.detail(childChatId), (current) => {
-        const base = current ?? resolveChildDetailCache(queryClient, childChatId, getChat)
-        if (!base) {
-          return current
-        }
-
-        const messages = [...base.messages]
-        const last = messages.at(-1)
-
-        if (!last || last.role !== 'assistant') {
-          const now = new Date().toISOString()
-          messages.push({
-            id: crypto.randomUUID(),
-            role: 'assistant',
-            content: text,
-            createdAt: now,
-            status: 'streaming'
-          })
-        } else {
-          messages[messages.length - 1] = {
-            ...last,
-            content: last.content + text,
-            status: 'streaming'
-          }
-        }
-
-        return { ...base, messages, updatedAt: new Date().toISOString() }
-      })
+      getTokenBatcher(childChatId).push(text)
     },
     onAgentTool: () => {
       // Tool rows for orchestrated child runs are shown on child chat detail cache.
     },
     onAgentDone: ({ childChatId, messageId, succeeded }) => {
+      flushChildTokens(childChatId)
       queryClient.setQueryData<ChatThread>(chatKeys.detail(childChatId), (current) => {
         const base = current ?? resolveChildDetailCache(queryClient, childChatId, getChat)
         if (!base) {
@@ -154,6 +181,7 @@ export function createOrchestrationEventHandlers(
       void queryClient.invalidateQueries({ queryKey: chatKeys.lists() })
     },
     onAgentError: ({ childChatId, message }) => {
+      flushChildTokens(childChatId)
       queryClient.setQueryData<ChatThread>(chatKeys.detail(childChatId), (current) => {
         const base = current ?? resolveChildDetailCache(queryClient, childChatId, getChat)
         if (!base) {

@@ -1,4 +1,7 @@
-import type { MarkedBlockParseConfig, MarkedBlockStripConfig } from '@/lib/orchestration/parse-marked-blocks'
+import type {
+  MarkedBlockParseConfig,
+  MarkedBlockStripConfig
+} from '@/lib/orchestration/parse-marked-blocks'
 
 const PLAN_ID = '[a-z0-9]+(?:-[a-z0-9]+)*'
 
@@ -32,20 +35,14 @@ function createIdBlockParseConfig(tag: string): MarkedBlockParseConfig {
 function createIdBlockStripPatterns(tag: string): MarkedBlockStripConfig {
   return {
     completePatterns: [
-      new RegExp(
-        `<!--\\s*${tag}:${PLAN_ID}\\s*-->\\s*[\\s\\S]*?<!--\\s*\\/${tag}\\s*-->`,
-        'gi'
-      )
+      new RegExp(`<!--\\s*${tag}:${PLAN_ID}\\s*-->\\s*[\\s\\S]*?<!--\\s*\\/${tag}\\s*-->`, 'gi')
     ],
     openMarkerPatterns: [new RegExp(`<!--\\s*${tag}:${PLAN_ID}\\s*-->`, 'i')]
   }
 }
 
 function createSequenceBlockParsePattern(tag: string): RegExp {
-  return new RegExp(
-    `<!--\\s*${tag}\\s*-->\\s*([\\s\\S]*?)<!--\\s*\\/${tag}\\s*-->`,
-    'gi'
-  )
+  return new RegExp(`<!--\\s*${tag}\\s*-->\\s*([\\s\\S]*?)<!--\\s*\\/${tag}\\s*-->`, 'gi')
 }
 
 function createSequenceBlockStripPatterns(tag: string): MarkedBlockStripConfig {

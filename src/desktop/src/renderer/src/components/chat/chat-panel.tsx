@@ -342,6 +342,7 @@ export function ChatPanel({
 
   const composer = (
     <OrchiChatComposer
+      key={chatId}
       chatId={chatId}
       autoFocus={isNewRootChat}
       disabled={isSending}

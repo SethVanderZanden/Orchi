@@ -87,7 +87,15 @@ export function ChatTabsProvider({ children }: { children: ReactNode }): React.J
   })
   const routeChatId = chatMatch?.params?.chatId ?? null
 
-  const { getChat, createChat, markChatRead, sendMessage, deleteChat } = useChat()
+  const {
+    getChat,
+    createChat,
+    markChatRead,
+    sendMessage,
+    deleteChat,
+    evictChatDetail,
+    getChildChats
+  } = useChat()
   const { projects, addProject, pickDirectory } = useProjects()
 
   const [state, setState] = useState<ChatTabsState>(createEmptyChatTabsState)
@@ -170,6 +178,16 @@ export function ChatTabsProvider({ children }: { children: ReactNode }): React.J
     [chatMatch, navigateToTab]
   )
 
+  const evictClosedChatCache = useCallback(
+    (chatId: string) => {
+      evictChatDetail(chatId)
+      for (const child of getChildChats(chatId)) {
+        evictChatDetail(child.id)
+      }
+    },
+    [evictChatDetail, getChildChats]
+  )
+
   const closeTab = useCallback(
     (chatId: string) => {
       const chat = getChat(chatId)
@@ -186,6 +204,7 @@ export function ChatTabsProvider({ children }: { children: ReactNode }): React.J
           const isSplit = current.splitTabId === chatId
 
           if (!isActive && !isSplit) {
+            evictClosedChatCache(chatId)
             return closeChatTab(current, chatId)
           }
 
@@ -205,8 +224,9 @@ export function ChatTabsProvider({ children }: { children: ReactNode }): React.J
         }
         return next
       })
+      evictClosedChatCache(chatId)
     },
-    [deleteChat, getChat, navigateToTab]
+    [deleteChat, evictClosedChatCache, getChat, navigateToTab]
   )
 
   const closeAllTabs = useCallback(

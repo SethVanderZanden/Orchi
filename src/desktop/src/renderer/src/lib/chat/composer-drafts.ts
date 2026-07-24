@@ -45,8 +45,12 @@ export function setComposerDraft(chatId: string, draft: string): void {
     return
   }
 
+  const hadDraft = draftsByChatId.has(chatId)
   draftsByChatId.set(chatId, next)
-  notifyComposerDraftChange()
+  // Tab bar only shows a draft dot (has/doesn't have) — skip notify on every keystroke.
+  if (!hadDraft) {
+    notifyComposerDraftChange()
+  }
 }
 
 /** Reads and clears a one-shot composer draft for a chat. */

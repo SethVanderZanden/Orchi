@@ -120,6 +120,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
       getChat: cache.getChat,
       getChildChats: cache.getChildChats,
       loadChat: cache.loadChat,
+      evictChatDetail: cache.evictChatDetail,
       createChat: mutations.createChat,
       updateChatMode: mutations.updateChatMode,
       getModeUpdateError: mutations.getModeUpdateError,

@@ -85,10 +85,13 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
   const projectName =
     projects.find((project) => project.id === chat.projectId)?.name ??
     (chat.projectId ? 'Unknown project' : null)
-  const orchestrationParse =
-    chat.mode === 'orchestration'
-      ? parseOrchestrationPlansFromMessages(chat.messages)
-      : { plans: [], sequencePlanIds: [] as string[] }
+  const orchestrationParse = useMemo(
+    () =>
+      chat.mode === 'orchestration'
+        ? parseOrchestrationPlansFromMessages(chat.messages)
+        : { plans: [], sequencePlanIds: [] as string[] },
+    [chat.mode, chat.messages]
+  )
   const plans = orchestrationParse.plans
   const parentChat =
     chat.parentChatId && chat.mode !== 'orchestration' ? getChat(chat.parentChatId) : undefined
@@ -151,15 +154,20 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
   const orchestrationKickoffProgress = workflowProgress ?? getOrchestrationKickoffProgress(chat.id)
   const orchestrationError = getOrchestrationError(chat.id)
   const childChats = getChildChats(chat.id).map((child) => getChat(child.id) ?? child)
-  const reviewPlansByPlanId = Object.fromEntries(
-    plans.map((plan) => {
-      const reviewChildSummary = findReviewChildForPlan(plan.planId, childChats)
-      const reviewChild = reviewChildSummary ? getChat(reviewChildSummary.id) : undefined
-      const reviewPlans = reviewChild ? parseReviewPlansFromMessages(reviewChild.messages) : []
-      const reviewPlan = reviewPlans.find((item) => item.planId === plan.planId) ?? reviewPlans[0]
-      return [plan.planId, reviewPlan] as const
-    })
-  ) as Record<string, ParsedReviewPlan | undefined>
+  const reviewPlansByPlanId = useMemo(
+    () =>
+      Object.fromEntries(
+        plans.map((plan) => {
+          const reviewChildSummary = findReviewChildForPlan(plan.planId, childChats)
+          const reviewChild = reviewChildSummary ? getChat(reviewChildSummary.id) : undefined
+          const reviewPlans = reviewChild ? parseReviewPlansFromMessages(reviewChild.messages) : []
+          const reviewPlan =
+            reviewPlans.find((item) => item.planId === plan.planId) ?? reviewPlans[0]
+          return [plan.planId, reviewPlan] as const
+        })
+      ) as Record<string, ParsedReviewPlan | undefined>,
+    [childChats, getChat, plans]
+  )
 
   const childChatIds = useMemo(
     () =>

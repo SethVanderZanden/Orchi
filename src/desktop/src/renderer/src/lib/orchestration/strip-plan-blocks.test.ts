@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { stripPlanBlocksForChatDisplay, stripReviewPlanBlocksForChatDisplay } from './strip-plan-blocks'
+import {
+  stripPlanBlocksForChatDisplay,
+  stripReviewPlanBlocksForChatDisplay
+} from './strip-plan-blocks'
 
 describe('stripPlanBlocksForChatDisplay', () => {
   it('removes complete plan and sequence blocks, keeping surrounding prose', () => {
@@ -77,8 +80,6 @@ Done.`
     const content = `I'm reviewing the supplied diff.<!-- orchi-review-plan:crew-sheet-run-sheet-order -->
 # Crew sheet run sheet order`
 
-    expect(stripReviewPlanBlocksForChatDisplay(content)).toBe(
-      "I'm reviewing the supplied diff."
-    )
+    expect(stripReviewPlanBlocksForChatDisplay(content)).toBe("I'm reviewing the supplied diff.")
   })
 })

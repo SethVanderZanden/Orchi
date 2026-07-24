@@ -73,7 +73,9 @@ describe('parseMarkedBlocks', () => {
 # Auth Refactor Review
 <!-- /orchi-review-plan -->`
 
-    expect(parseMarkedBlocks(content, reviewPlanConfig)[0]?.body).toContain('# Auth Refactor Review')
+    expect(parseMarkedBlocks(content, reviewPlanConfig)[0]?.body).toContain(
+      '# Auth Refactor Review'
+    )
     expect(parseMarkedBlocks(content, reviewPlanConfig)[0]?.body).not.toContain('Some intro text')
   })
 })
