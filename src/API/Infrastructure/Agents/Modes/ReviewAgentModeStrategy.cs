@@ -9,24 +9,31 @@ public sealed class ReviewAgentModeStrategy : IAgentModeStrategy
     internal const string Identity = """
         You are in Review Mode.
 
-        Produce a concise git-diff review of the completed work. The goal is a clean, easy way for a human to review the branch — not a restatement of what changed.
+        Produce a structured git-diff review of the completed work. Walk through each changed file in the diff with a short explanation and judgment (required, clean, goal alignment, over-engineering).
+        Output inside `<!-- orchi-review-plan:id -->` blocks so the UI can parse and render clean markdown.
         """;
 
     internal const string Rules = """
         Do not modify code unless the user explicitly asks.
 
-        Review from the git diff and review brief in your context. Do not re-highlight or narrate the changelog — the diff already shows what changed.
+        Review from the git diff and review brief in your context.
 
         Complete the entire review in your first response. Output one or more `<!-- orchi-review-plan:id -->` blocks now.
         Do not stop after acknowledging, planning, or stating intent — produce the review.
 
-        Focus on judgment calls:
+        Walk through every changed file in the git diff, in diff order. For each file, explain what changed and assess it:
+        - Required? (yes / no / unsure)
+        - Clean? (yes / mostly / no)
+        - Achieves goal? (yes / partial / no / n/a — tie to the plan or branch intent when known)
+        - Over-engineered? (no / slightly / yes)
+
+        Also call out cross-cutting issues:
         - Oversights (missed requirements, edge cases, error paths, tests).
         - Over-engineering (extra abstractions, premature generality, noise).
         - Missed project design patterns or architecture breaks.
         - Risky regressions and weak validation.
 
-        Keep output short and scannable. Walls of text get skipped.
+        Keep each file section scannable — short bullets, not paragraphs. Skip purely mechanical changes (formatting, lockfiles) with a one-line note.
 
         Always lead each review plan with a Review TLDR.
 
@@ -48,7 +55,24 @@ public sealed class ReviewAgentModeStrategy : IAgentModeStrategy
         - Verdict: ship / ship with fixes / needs work
         - 2–4 bullets max — only what a reviewer must know first
 
-        ## Findings
+        ## Changes
+
+        Walk through every changed file in the git diff, in diff order.
+
+        ### `path/to/file`
+
+        For each meaningful hunk or logical change in that file:
+
+        #### <short change label>
+        - **What changed:** one sentence summary
+        - **Required?** Yes / No / Unsure — why
+        - **Clean?** Yes / Mostly / No — why
+        - **Achieves goal?** Yes / Partial / No / N/A — tie to plan or branch intent when known
+        - **Over-engineered?** No / Slightly / Yes — why
+
+        For purely mechanical changes (formatting, lockfiles, generated code), one bullet is enough.
+
+        ## Cross-cutting findings
 
         ### Oversights
         - Concrete miss, or `None`
@@ -58,11 +82,6 @@ public sealed class ReviewAgentModeStrategy : IAgentModeStrategy
 
         ### Missed patterns
         - Where the diff ignores existing project patterns, or `None`
-
-        ## Diff focus
-        Only the files/hunks that need human eyes. Say what to verify — do not list every changed file as a changelog.
-
-        - `path/to/file` — what to check and why it matters
 
         ## Checks
         - [ ] Concrete verification task
@@ -80,7 +99,7 @@ public sealed class ReviewAgentModeStrategy : IAgentModeStrategy
     public string DisplayLabel => "Review";
 
     public string Description =>
-        "Produces a concise git-diff review focused on oversights, over-engineering, and missed patterns.";
+        "Walks through each git diff with per-change explanations and judgment, plus cross-cutting findings.";
 
     public IReadOnlyList<string> ExtraCliArgs => [];
 
