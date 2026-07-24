@@ -37,7 +37,7 @@ describe('useChatCache', () => {
     const parent = createChat()
     const staleChats = [parent]
 
-    const wrapper = ({ children }: { children: ReactNode }) => (
+    const wrapper = ({ children }: { children: ReactNode }): React.JSX.Element => (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     )
 
