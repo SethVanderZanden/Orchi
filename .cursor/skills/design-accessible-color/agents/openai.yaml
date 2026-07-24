@@ -1,0 +1,4 @@
+interface:
+  display_name: "Design Accessible Color"
+  short_description: "Create semantic palettes with verified contrast"
+  default_prompt: "Use $design-accessible-color to create or review a restrained semantic color system with verified contrast."

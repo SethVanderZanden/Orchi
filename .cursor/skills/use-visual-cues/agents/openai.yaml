@@ -1,0 +1,4 @@
+interface:
+  display_name: "Use Visual Cues"
+  short_description: "Improve comprehension with purposeful visual cues"
+  default_prompt: "Use $use-visual-cues to select and evaluate icons, imagery, indicators, and affordances for this interface."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Craft Readable Typography"
+  short_description: "Create clear, readable type systems"
+  default_prompt: "Use $craft-readable-typography to improve type hierarchy, readability, and text composition."

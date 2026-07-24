@@ -1,0 +1,4 @@
+interface:
+  display_name: "Reduce Interaction Cost"
+  short_description: "Reduce cognitive, physical, and time effort"
+  default_prompt: "Use $reduce-interaction-cost to analyze this task flow and reduce cognitive, physical, and time effort."

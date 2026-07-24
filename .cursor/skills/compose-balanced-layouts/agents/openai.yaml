@@ -1,0 +1,4 @@
+interface:
+  display_name: "Compose Balanced Layouts"
+  short_description: "Build aligned, balanced, responsive layouts"
+  default_prompt: "Use $compose-balanced-layouts to improve the grid, alignment, balance, and responsive composition."

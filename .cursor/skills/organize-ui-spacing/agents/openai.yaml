@@ -1,0 +1,4 @@
+interface:
+  display_name: "Organize UI Spacing"
+  short_description: "Improve proximity, whitespace, and spacing"
+  default_prompt: "Use $organize-ui-spacing to improve grouping, whitespace, and spacing relationships in this interface."

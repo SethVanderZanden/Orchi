@@ -1,0 +1,4 @@
+interface:
+  display_name: "Design Safe Destructive Actions"
+  short_description: "Make destructive actions clear and recoverable"
+  default_prompt: "Use $design-safe-destructive-actions to make these destructive actions clear, deliberate, and recoverable."

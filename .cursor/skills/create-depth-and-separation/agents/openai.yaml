@@ -1,0 +1,4 @@
+interface:
+  display_name: "Create Depth and Separation"
+  short_description: "Separate surfaces with intentional visual depth"
+  default_prompt: "Use $create-depth-and-separation to improve surface separation with intentional borders, backgrounds, overlap, and shadows."

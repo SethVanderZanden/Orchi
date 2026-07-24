@@ -1,0 +1,4 @@
+interface:
+  display_name: "Design Clear Navigation"
+  short_description: "Improve navigation labels, grouping, and cues"
+  default_prompt: "Use $design-clear-navigation to improve menu structure, labels, grouping, current-location cues, and dropdown behavior."

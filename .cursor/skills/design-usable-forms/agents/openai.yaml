@@ -1,0 +1,4 @@
+interface:
+  display_name: "Design Usable Forms"
+  short_description: "Improve form controls, guidance, and validation"
+  default_prompt: "Use $design-usable-forms to improve form fields, controls, guidance, validation, and completion flow."

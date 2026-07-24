@@ -1,0 +1,4 @@
+interface:
+  display_name: "Design Mobile Touch Layouts"
+  short_description: "Improve mobile reachability and touch reliability"
+  default_prompt: "Use $design-mobile-touch-layouts to improve mobile action placement, reachability, and touch reliability."

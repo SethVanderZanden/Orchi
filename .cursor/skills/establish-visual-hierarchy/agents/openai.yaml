@@ -1,0 +1,4 @@
+interface:
+  display_name: "Establish Visual Hierarchy"
+  short_description: "Direct attention and clarify action priority"
+  default_prompt: "Use $establish-visual-hierarchy to improve the attention order and action priority of this interface."

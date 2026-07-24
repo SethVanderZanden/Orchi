@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review UI UX"
+  short_description: "Run a prioritized holistic UI and UX review"
+  default_prompt: "Use $review-ui-ux to review this interface and prioritize concrete improvements."

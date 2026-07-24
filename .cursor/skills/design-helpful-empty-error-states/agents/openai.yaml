@@ -1,0 +1,4 @@
+interface:
+  display_name: "Design Helpful Empty and Error States"
+  short_description: "Create actionable empty and recovery states"
+  default_prompt: "Use $design-helpful-empty-error-states to make empty, validation, failure, and not-found states actionable."

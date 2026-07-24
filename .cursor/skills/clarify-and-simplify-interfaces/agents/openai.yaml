@@ -1,0 +1,4 @@
+interface:
+  display_name: "Clarify and Simplify Interfaces"
+  short_description: "Reduce complexity while preserving needed context"
+  default_prompt: "Use $clarify-and-simplify-interfaces to remove avoidable complexity while preserving necessary context and actions."
