@@ -68,10 +68,7 @@ export function attachWindowRecovery(
     reload(mainWindow)
   }
 
-  const onRenderProcessGone = (
-    _event: Electron.Event,
-    details: RenderProcessGoneDetails
-  ): void => {
+  const onRenderProcessGone = (_event: Electron.Event, details: RenderProcessGoneDetails): void => {
     log.error('Renderer process gone', details)
     if (details.reason === 'clean-exit') {
       return

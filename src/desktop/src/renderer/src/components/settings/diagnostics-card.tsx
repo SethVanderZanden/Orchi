@@ -36,7 +36,12 @@ export function DiagnosticsCard(): React.JSX.Element {
           If the window turns white after sitting idle, Orchi tries to reload automatically. If it
           keeps happening, grab the latest log and share it when reporting the issue.
         </p>
-        <Button type="button" variant="secondary" disabled={opening} onClick={() => void openLogFolder()}>
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={opening}
+          onClick={() => void openLogFolder()}
+        >
           {opening ? 'Opening…' : 'Open log folder'}
         </Button>
       </CardContent>
