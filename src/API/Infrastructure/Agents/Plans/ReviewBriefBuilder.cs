@@ -41,8 +41,9 @@ public static partial class ReviewBriefBuilder
             ## Instructions
 
             {diffInstructions}
-            Focus on oversights, over-engineering, and missed patterns — not a restatement of the changes.
-            Lead with a Review TLDR. Keep the review short and scannable.
+            Walk through every changed file in the diff with a short explanation and judgment (required, clean, goal alignment, over-engineering).
+            Also call out cross-cutting oversights, over-engineering, and missed patterns.
+            Lead with a Review TLDR. Keep each file section scannable.
             Produce one or more review plans using the exact format in your context section.
             """;
     }
@@ -67,8 +68,9 @@ public static partial class ReviewBriefBuilder
 
             This is a pull-request style review. There is no orchestration implementation plan.
             Review the three-dot git diff (`{baseBranch}...{headBranch}`) in your context.
-            Focus on oversights, over-engineering, and missed patterns — not a restatement of the changes.
-            Lead with a Review TLDR. Keep the review short and scannable.
+            Walk through every changed file in the diff with a short explanation and judgment (required, clean, goal alignment, over-engineering).
+            Also call out cross-cutting oversights, over-engineering, and missed patterns.
+            Lead with a Review TLDR. Keep each file section scannable.
             Produce one or more review plans using the exact format in your context section.
             """;
     }
