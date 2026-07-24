@@ -5,7 +5,14 @@ import tailwindcss from '@tailwindcss/vite'
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
 
 export default defineConfig({
-  main: {},
+  main: {
+    build: {
+      // Bundle electron-log so packaged apps resolve it without node_modules.
+      externalizeDeps: {
+        exclude: ['electron-log']
+      }
+    }
+  },
   preload: {},
   renderer: {
     resolve: {
