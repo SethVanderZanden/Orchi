@@ -13,6 +13,7 @@ internal sealed class CodexAgentCliProcessorProfile(
     public int TimeoutSeconds => options.Value.TimeoutSeconds;
     public bool SurfaceStderrWhenNoParsedEvents => true;
     public bool UseWindowsCmdShim => true;
+    public bool PassPromptViaStdin => true;
     public IAgentLaunchResolver LaunchResolver => launchResolver;
     public IAgentCliArgumentBuilder ArgumentBuilder => argumentBuilder;
 

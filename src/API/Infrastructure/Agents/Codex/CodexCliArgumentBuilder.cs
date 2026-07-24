@@ -10,7 +10,8 @@ internal sealed class CodexCliArgumentBuilder(IOptions<CodexAgentOptions> option
         ChatSession session,
         string prompt,
         IReadOnlyList<string> extraCliArgs,
-        string? entryScript)
+        string? entryScript,
+        bool passPromptViaStdin)
     {
         CodexAgentOptions config = options.Value;
         var arguments = new List<string>();
@@ -55,7 +56,9 @@ internal sealed class CodexCliArgumentBuilder(IOptions<CodexAgentOptions> option
             arguments.Add(session.ExternalSessionId);
         }
 
-        arguments.Add(prompt);
+        // Large review prompts (git diff + brief) exceed Windows CreateProcess argv limits
+        // when launched through cmd.exe /c codex.cmd. Read prompt from stdin instead.
+        arguments.Add(passPromptViaStdin ? "-" : prompt);
         return arguments;
     }
 

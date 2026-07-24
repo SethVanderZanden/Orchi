@@ -23,6 +23,12 @@ public interface IAgentCliProcessorProfile
     /// </summary>
     bool UseWindowsCmdShim { get; }
 
+    /// <summary>
+    /// When true, the composed prompt is written to stdin after spawn (e.g. <c>codex exec -</c>)
+    /// instead of argv, avoiding Windows <c>CreateProcess</c> command-line length limits.
+    /// </summary>
+    bool PassPromptViaStdin { get; }
+
     IAgentLaunchResolver LaunchResolver { get; }
 
     IAgentCliArgumentBuilder ArgumentBuilder { get; }

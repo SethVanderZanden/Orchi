@@ -51,15 +51,12 @@ Codex’s official docs cover [installation](https://developers.openai.com/codex
 Orchi resolves the executable before spawning:
 
 1. Absolute path from `Agents:Codex:Executable` (if set and file exists)
-2. **Native `codex.exe`** in known Windows install dirs:
-   - `%LOCALAPPDATA%\Programs\OpenAI\Codex\bin` (PowerShell / standalone installer)
-   - `%LOCALAPPDATA%\OpenAI\Codex\bin` (Codex app CLI)
-   - npm platform package binaries under `node_modules/@openai/codex-win32-*`
-3. Search merged user + machine PATH with `PATHEXT` (`.exe`, `.cmd`, …), **skipping extensionless shims on Windows**
+2. Search merged user + machine PATH with `PATHEXT` (`.exe`, `.cmd`, …), **skipping extensionless shims on Windows** — same shortcut your terminal runs
+3. Known Windows install dirs: `%LOCALAPPDATA%\Programs\OpenAI\Codex\bin`, `%LOCALAPPDATA%\OpenAI\Codex\bin`
 4. Windows fallback: `%LOCALAPPDATA%\…\codex.exe`, then `%APPDATA%\npm\codex.cmd`
 5. **Last resort:** `node.exe` + `@openai/codex/bin/codex.js` (npm layout only when no `.exe`/`.cmd` was found)
 
-Orchi prefers **`codex.exe`** and **`codex.cmd`** over launching `node.exe` directly. Preferring the npm node-bundle first could pick a stale `C:\Program Files\nodejs\node.exe` layout even when a working native `codex` (the one your terminal runs) is already installed.
+Orchi does **not** dig into nested `node_modules/@openai/codex-win32-*/vendor/.../codex.exe` paths. Those binaries are deep enough to hit Windows `MAX_PATH` when combined with worktree working directories (common in review mode).
 
 When only a `.cmd` shim is found, Orchi launches it via `cmd.exe /c` so stdout/stderr redirection still works.
 
@@ -119,12 +116,14 @@ codex exec --json [--skip-git-repo-check] \
   [-c model_context_window={tokens}] \
   [-c model_reasoning_effort={effort}] \
   [resume {threadId}] \
-  "{composedPrompt}"
+  -
 ```
+
+Orchi passes the composed prompt on **stdin** (`codex exec -`) instead of argv. Review prompts embed large git diffs that exceed Windows `CreateProcess` command-line limits (~32KB), especially when launched through `cmd.exe /c codex.cmd`.
 
 Orchi does **not** pass `-c approval_policy=…`. `codex exec` is non-interactive and defaults to `approval_policy=never`; overriding with `on-request` or `untrusted` can stall until the Orchi timeout because exec cannot surface approval prompts ([non-interactive docs](https://developers.openai.com/codex/noninteractive)).
 
-Orchi closes the child process stdin immediately after spawn. Codex treats a piped stdin as extra prompt input and blocks until EOF; API hosts often inherit an open stdin pipe, which otherwise leaves chats stuck on "…" with no JSONL events.
+Orchi closes the child process stdin after writing the composed prompt (when using `codex exec -`). Codex treats a piped stdin as prompt input and blocks until EOF; API hosts often inherit an open stdin pipe with no content, which otherwise leaves chats stuck on "…" with no JSONL events.
 
 Working directory is the chat workspace path. Model, context, reasoning effort, and approval policy come from the chat (mode defaults or composer overrides). Extra `-c` keys are assembled from `ChatSession.CliConfigOverrides` via `AgentCliConfigArgs`.
 
