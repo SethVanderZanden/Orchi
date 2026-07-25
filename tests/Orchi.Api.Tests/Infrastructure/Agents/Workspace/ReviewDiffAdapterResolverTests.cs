@@ -63,41 +63,7 @@ public class ReviewDiffAdapterResolverTests : IDisposable
         });
 
         Assert.NotNull(payload);
-        Assert.Contains("Implementation changes", payload.Intro);
-        Assert.Contains("main...feature", payload.Intro);
-        Assert.Contains("branch-pair-diff", payload.Diff);
-        Assert.DoesNotContain("workspace-head-diff", payload.Diff);
-    }
-
-    [Fact]
-    public void Resolve_WhenBranchReviewMode_UsesPullRequestIntro()
-    {
-        string reviewPath = ".orchi/review-branch-feature.md";
-        File.WriteAllText(
-            Path.Combine(_workspacePath, ".orchi", "review-branch-feature.md"),
-            ReviewBriefBuilder.BuildForBranchReview("branch-feature", "feature", "main"));
-
-        var provider = new FakeWorkspaceDiffProvider
-        {
-            Diff = "workspace-head-diff",
-            BranchDiff = "branch-pair-diff",
-        };
-
-        var resolver = new ReviewDiffAdapterResolver([
-            new BranchPairReviewDiffAdapter(provider),
-            new WorkspaceHeadReviewDiffAdapter(provider),
-        ]);
-
-        ReviewDiffPayload? payload = resolver.Resolve(new PromptBuildContext
-        {
-            ModeId = "branch-review",
-            UserContent = "Begin review.",
-            WorkspacePath = _workspacePath,
-            PlanFilePath = reviewPath,
-        });
-
-        Assert.NotNull(payload);
-        Assert.Contains("Pull request changes", payload.Intro);
+        Assert.Contains("Changes", payload.Intro);
         Assert.Contains("main...feature", payload.Intro);
         Assert.Contains("branch-pair-diff", payload.Diff);
         Assert.DoesNotContain("workspace-head-diff", payload.Diff);

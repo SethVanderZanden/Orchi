@@ -4,6 +4,7 @@ namespace Orchi.Api.Infrastructure.Agents.Modes;
 
 /// <summary>
 /// Work-conducted review: judge completed implementation against its orchestration plan.
+/// Shares review pipeline plumbing with <see cref="BranchReviewAgentModeStrategy"/>.
 /// </summary>
 public sealed class ReviewAgentModeStrategy : IAgentModeStrategy
 {
@@ -18,32 +19,8 @@ public sealed class ReviewAgentModeStrategy : IAgentModeStrategy
         Output the review as markdown in your response — not a plan to review later.
         """;
 
-    internal const string Rules = """
-        Do not modify code unless the user explicitly asks.
-
-        Review from the git diff and review brief in your context.
+    internal const string IntentRules = """
         The brief includes the original implementation plan — treat that plan as the source of truth for intent and scope.
-
-        Complete the entire review in your first response. Write the full review now.
-        Do not stop after acknowledging, planning, or stating intent — produce the review.
-
-        Walk through every changed file in the git diff, in diff order. For each file, explain what changed and assess it:
-        - Required? (yes / no / unsure) — relative to the plan
-        - Clean? (yes / mostly / no)
-        - Achieves goal? (yes / partial / no / n/a — tie to the plan when known)
-        - Over-engineered? (no / slightly / yes)
-
-        Also call out cross-cutting issues:
-        - Oversights (missed plan requirements, edge cases, error paths, tests).
-        - Over-engineering (extra abstractions, premature generality, noise beyond the plan).
-        - Missed project design patterns or architecture breaks.
-        - Risky regressions and weak validation.
-
-        Keep each file section scannable — short bullets, not paragraphs. Skip purely mechanical changes (formatting, lockfiles) with a one-line note.
-
-        Always lead with a Review TLDR.
-
-        If the diff or plan is insufficient, say exactly what is missing.
         """;
 
     public string ModeId => Mode;
@@ -58,7 +35,8 @@ public sealed class ReviewAgentModeStrategy : IAgentModeStrategy
     public void ContributeSections(PromptBuildContext context, OrchiPromptDocument document)
     {
         document.Identity = Identity;
-        document.AppendRules(Rules);
+        document.AppendRules(IntentRules);
+        document.AppendRules(ReviewModeOutputFormat.CommonRules);
         document.AppendContext(ReviewModeOutputFormat.Context);
     }
 }

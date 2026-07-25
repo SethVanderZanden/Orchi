@@ -8,7 +8,7 @@ public class BranchReviewAgentModeStrategyTests
     private readonly BranchReviewAgentModeStrategy _strategy = new();
 
     [Fact]
-    public void ContributeSections_SetsPrFocusedIdentityRulesAndSharedContext()
+    public void ContributeSections_SetsPrIdentityAndSharedReviewPlumbing()
     {
         var document = new OrchiPromptDocument();
         var context = new PromptBuildContext
@@ -23,9 +23,9 @@ public class BranchReviewAgentModeStrategyTests
         Assert.Contains("You are in Branch Review Mode.", document.Identity);
         Assert.Contains("pull-request style review", document.Identity);
         Assert.Contains("no orchestration implementation plan", document.Identity);
-        Assert.Contains("Do not modify code unless the user explicitly asks", document.Rules);
         Assert.Contains("Treat this like a PR review", document.Rules);
-        Assert.Contains("Merge readiness", document.Rules);
+        Assert.Contains("Do not modify code unless the user explicitly asks", document.Rules);
+        Assert.Contains("Complete the entire review in your first response", document.Rules);
         Assert.Contains("Review TLDR", document.Rules);
         Assert.Contains("# Short title", document.Context);
         Assert.Contains("## Review TLDR", document.Context);

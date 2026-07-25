@@ -184,32 +184,29 @@ Plan kickoff child chats use **`implementation`** mode with scoped rules: read t
 
 Scoped implementation rules and deduplicated kickoff prompts reduce context growth, but multi-file plans still incur Cache Read proportional to agent rounds × context size. Orchestration plans should list every file the implementation agent needs to read under Affected files.
 
-### Review mode (work conducted)
+### Review modes (strategy plug-in)
 
-After an implementation child agent completes, the API automatically kicks off a **review child** in `review` mode via the orchestration step pipeline (same outcome as `POST /chats/{implementationChildChatId}/review/kickoff`). This mode reviews **completed work against the original plan** — not a pull request. The agent reads the git diff + plan brief and writes a structured markdown review — TLDR first, then a per-file diff walkthrough (what changed, required, clean, goal alignment, over-engineering), then cross-cutting findings.
+Review uses the same pipeline for both modes — brief contributor, diff adapters, artifact writer, shared markdown output. The **only intentional difference** is the agent mode strategy (`IAgentModeStrategy`):
 
-At prompt composition time, Orchi runs **`git diff HEAD`** in the workspace (falling back to **`git show HEAD`** when there are no uncommitted changes) and appends the result to the review agent's `<context>` section. When the implementation workspace is a worktree with head/base branches, the brief may include `<!-- orchi-branch-review … -->` so `BranchPairReviewDiffAdapter` can inject **`git diff base...head`** instead. The review agent does not need to run git itself. The `IWorkspaceDiffProvider` abstraction allows swapping in snapshot-based diffs later.
+| Mode | Strategy | Intent |
+|------|----------|--------|
+| `review` | `ReviewAgentModeStrategy` | Completed implementation work vs its orchestration plan |
+| `branch-review` | `BranchReviewAgentModeStrategy` | Kickoff-only PR-style head vs base (no plan) |
 
-```
-Implementation child completes  →  auto review kickoff  →  .orchi/review-*.md + review child (mode: review)
-  →  git diff appended to <context>  →  structured review markdown  →  parent highlights review
-```
+`ReviewDiffContributor` / `ReviewBriefContributor` accept the review family (`AgentModeIds.IsReviewFamily`). Diff capture still uses **review diff adapters** (`IReviewDiffAdapter`): `BranchPairReviewDiffAdapter` wins when `<!-- orchi-branch-review … -->` is present and injects **`git diff base...head`**; otherwise `WorkspaceHeadReviewDiffAdapter` keeps workspace `git diff HEAD`.
 
-The orchestration parent highlights review-ready plan cards and opens the review panel when review content appears.
-
-### Branch review mode (PR-style)
-
-**Branch review** is a separate kickoff-only mode (`branch-review`) for pull-request style reviews of any head branch against a base — no orchestration plan or implementation child required:
-
-1. Desktop: **Git → Branch review…** (or finder command **Branch review**)
-2. API: `POST /projects/{projectId}/reviews/from-branches` with `{ headBranch, baseBranch?, fetch? }`
-3. Orchi optionally runs `git fetch --prune --all`, lists branches via `GET /projects/{id}/branches?fetch=true`, creates a worktree on the head branch, writes `.orchi/review-branch-*.md`, opens a **`branch-review`** chat, and the desktop auto-sends `Begin review.`
-
-The brief embeds `<!-- orchi-branch-review head: … base: … -->`. Diff capture uses **review diff adapters** (`IReviewDiffAdapter`): `BranchPairReviewDiffAdapter` wins when that marker is present and injects **`git diff base...head`**; otherwise `WorkspaceHeadReviewDiffAdapter` keeps the workspace `git diff HEAD` path. Both `review` and `branch-review` share brief/diff contributors and the same markdown output shape; only the agent mode strategy (identity/rules) and kickoff path differ.
+**Work-conducted path:** after an implementation child completes, the orchestration step pipeline kicks off a `review` child (same as `POST /chats/{implementationChildChatId}/review/kickoff`).
 
 ```
-Pick head + base  →  fetch/list branches  →  worktree on head  →  branch-review chat + auto-send
-  →  BranchPairReviewDiffAdapter → git diff base...head in <context>  →  structured PR review
+Implementation child completes  →  auto review kickoff  →  .orchi/review-*.md + review child
+  →  git diff in <context>  →  structured review markdown  →  parent highlights review
+```
+
+**Branch / PR path:** Desktop **Git → Branch review…** (or finder **Branch review**) → `POST /projects/{projectId}/reviews/from-branches` → worktree on head → `.orchi/review-branch-*.md` → `branch-review` chat → desktop auto-sends `Begin review.`
+
+```
+Pick head + base  →  worktree on head  →  branch-review chat + auto-send
+  →  same contributors/adapters  →  BranchReviewAgentModeStrategy shapes the prompt
 ```
 
 ### Artifact files (Strategy + Factory)

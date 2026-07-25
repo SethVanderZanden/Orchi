@@ -1,10 +1,38 @@
 namespace Orchi.Api.Infrastructure.Agents.Modes;
 
 /// <summary>
-/// Shared markdown shape for work-conducted review and branch/PR review so desktop parsers stay aligned.
+/// Shared review prompt pieces. Mode strategies only swap identity / intent;
+/// contributors, adapters, and output shape stay the same for both review modes.
 /// </summary>
 internal static class ReviewModeOutputFormat
 {
+    internal const string CommonRules = """
+        Do not modify code unless the user explicitly asks.
+
+        Review from the git diff and review brief in your context.
+
+        Complete the entire review in your first response. Write the full review now.
+        Do not stop after acknowledging, planning, or stating intent — produce the review.
+
+        Walk through every changed file in the git diff, in diff order. For each file, explain what changed and assess it:
+        - Required? (yes / no / unsure)
+        - Clean? (yes / mostly / no)
+        - Achieves goal? (yes / partial / no / n/a — tie to the review brief when known)
+        - Over-engineered? (no / slightly / yes)
+
+        Also call out cross-cutting issues:
+        - Oversights (missed requirements, edge cases, error paths, tests).
+        - Over-engineering (extra abstractions, premature generality, noise).
+        - Missed project design patterns or architecture breaks.
+        - Risky regressions and weak validation.
+
+        Keep each file section scannable — short bullets, not paragraphs. Skip purely mechanical changes (formatting, lockfiles) with a one-line note.
+
+        Always lead with a Review TLDR.
+
+        If the diff or brief is insufficient, say exactly what is missing.
+        """;
+
     internal const string Context = """
         Output the review using this markdown structure:
 

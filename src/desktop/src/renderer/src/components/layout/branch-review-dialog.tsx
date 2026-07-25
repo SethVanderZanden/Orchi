@@ -133,8 +133,8 @@ export function BranchReviewDialog({
         <DialogHeader>
           <DialogTitle>Branch review</DialogTitle>
           <DialogDescription>
-            Pull-request style review: pick a head branch against a base. Orchi opens a branch-review
-            chat with the three-dot diff — separate from plan-based Review mode after implementation.
+            Pick a head branch to review against a base. Orchi opens a review chat with the branch
+            diff.
           </DialogDescription>
         </DialogHeader>
 
