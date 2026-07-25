@@ -29,6 +29,7 @@ internal static class PromptTestHelpers
             new DefaultAgentModeStrategy(),
             new OrchestrationAgentModeStrategy(),
             new ReviewAgentModeStrategy(),
+            new BranchReviewAgentModeStrategy(),
             new ImplementationAgentModeStrategy(),
         ]);
 
@@ -44,6 +45,7 @@ internal static class PromptTestHelpers
             new DefaultAgentModeStrategy(),
             new OrchestrationAgentModeStrategy(),
             new ReviewAgentModeStrategy(),
+            new BranchReviewAgentModeStrategy(),
             new ImplementationAgentModeStrategy(),
         ]);
 

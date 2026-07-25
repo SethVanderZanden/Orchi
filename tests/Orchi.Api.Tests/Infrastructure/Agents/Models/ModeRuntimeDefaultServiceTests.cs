@@ -264,6 +264,7 @@ public class ModeRuntimeDefaultServiceTests
         services.AddSingleton<IAgentModeStrategy, DefaultAgentModeStrategy>();
         services.AddSingleton<IAgentModeStrategy, OrchestrationAgentModeStrategy>();
         services.AddSingleton<IAgentModeStrategy, ReviewAgentModeStrategy>();
+        services.AddSingleton<IAgentModeStrategy, BranchReviewAgentModeStrategy>();
         services.AddSingleton<IAgentModeStrategy, ImplementationAgentModeStrategy>();
         services.AddSingleton<FakeAgentModelListProvider>();
         services.AddSingleton<IAgentModelListProvider>(sp => sp.GetRequiredService<FakeAgentModelListProvider>());
