@@ -1,10 +1,11 @@
+using Orchi.Api.Infrastructure.Agents.Modes;
 using Orchi.Api.Infrastructure.Agents.Modes.Prompt;
 using Orchi.Api.Infrastructure.Agents.Plans;
 
 namespace Orchi.Api.Infrastructure.Agents.Workspace;
 
 /// <summary>
-/// PR-style review: three-dot diff from the <c>orchi-branch-review</c> brief marker.
+/// Three-dot diff from the <c>orchi-branch-review</c> brief marker (branch/PR review, or worktree work review).
 /// </summary>
 public sealed class BranchPairReviewDiffAdapter(IWorkspaceDiffProvider diffProvider) : IReviewDiffAdapter
 {
@@ -31,9 +32,14 @@ public sealed class BranchPairReviewDiffAdapter(IWorkspaceDiffProvider diffProvi
             refs.BaseBranch,
             refs.HeadBranch);
 
-        return new ReviewDiffPayload(
-            $"Pull request changes (`{refs.BaseBranch}...{refs.HeadBranch}`):",
-            diff);
+        string intro = string.Equals(
+                context.ModeId,
+                AgentModeIds.BranchReview,
+                StringComparison.OrdinalIgnoreCase)
+            ? $"Pull request changes (`{refs.BaseBranch}...{refs.HeadBranch}`):"
+            : $"Implementation changes (`{refs.BaseBranch}...{refs.HeadBranch}`):";
+
+        return new ReviewDiffPayload(intro, diff);
     }
 
     private static bool IsReviewPlanPath(string? planFilePath) =>

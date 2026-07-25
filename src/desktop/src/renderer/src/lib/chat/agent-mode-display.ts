@@ -1,4 +1,4 @@
-import { Bot, Network, Shield, type LucideIcon } from 'lucide-react'
+import { Bot, GitPullRequest, Network, Shield, type LucideIcon } from 'lucide-react'
 
 import type { AgentMode } from '@/lib/chat/types'
 
@@ -23,6 +23,11 @@ const REVIEW: AgentModeDisplay = {
   label: 'Review',
   badgeClassName: 'border-violet-500/30 bg-violet-500/15 text-violet-200'
 }
+const BRANCH_REVIEW: AgentModeDisplay = {
+  Icon: GitPullRequest,
+  label: 'Branch review',
+  badgeClassName: 'border-sky-500/30 bg-sky-500/15 text-sky-200'
+}
 
 export function getAgentModeDisplay(mode: AgentMode): AgentModeDisplay {
   switch (mode.toLowerCase()) {
@@ -33,6 +38,8 @@ export function getAgentModeDisplay(mode: AgentMode): AgentModeDisplay {
       return AGENT
     case 'review':
       return REVIEW
+    case 'branch-review':
+      return BRANCH_REVIEW
     default:
       return AGENT
   }

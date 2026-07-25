@@ -161,7 +161,7 @@ export function ChatGitActionsMenu({
                 title={projectId == null ? 'Select a project chat first.' : undefined}
                 onClick={openBranchReviewDialog}
               >
-                Review branch…
+                Branch review…
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

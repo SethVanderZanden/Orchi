@@ -40,6 +40,7 @@ public static partial class ReviewBriefBuilder
 
             ## Instructions
 
+            This is Review Mode — a review of completed implementation work against the original plan above.
             {diffInstructions}
             Walk through every changed file in the diff with a short explanation and judgment (required, clean, goal alignment, over-engineering).
             Also call out cross-cutting oversights, over-engineering, and missed patterns.
@@ -66,10 +67,11 @@ public static partial class ReviewBriefBuilder
 
             ## Instructions
 
-            This is a pull-request style review. There is no orchestration implementation plan.
+            This is Branch Review Mode — a pull-request style review. There is no orchestration implementation plan.
             Review the three-dot git diff (`{baseBranch}...{headBranch}`) in your context.
+            Judge merge readiness, correctness, and design quality as if approving a PR from `{headBranch}` into `{baseBranch}`.
             Walk through every changed file in the diff with a short explanation and judgment (required, clean, goal alignment, over-engineering).
-            Also call out cross-cutting oversights, over-engineering, and missed patterns.
+            Also call out cross-cutting oversights, over-engineering, missed patterns, and merge risks.
             Lead with a Review TLDR. Keep each file section scannable.
             Write the full structured review in your response.
             """;

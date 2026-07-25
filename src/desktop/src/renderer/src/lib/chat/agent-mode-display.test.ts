@@ -1,4 +1,4 @@
-import { Bot, Network, Shield } from 'lucide-react'
+import { Bot, GitPullRequest, Network, Shield } from 'lucide-react'
 import { describe, expect, it } from 'vitest'
 
 import { getAgentModeDisplay } from './agent-mode-display'
@@ -31,9 +31,17 @@ describe('getAgentModeDisplay', () => {
     expect(display.badgeClassName).toContain('violet')
   })
 
+  it('returns GitPullRequest for branch-review mode', () => {
+    const display = getAgentModeDisplay('branch-review')
+    expect(display.Icon).toBe(GitPullRequest)
+    expect(display.label).toBe('Branch review')
+    expect(display.badgeClassName).toContain('sky')
+  })
+
   it('matches modes case-insensitively', () => {
     expect(getAgentModeDisplay('Orchestration').Icon).toBe(Network)
     expect(getAgentModeDisplay('REVIEW').Icon).toBe(Shield)
+    expect(getAgentModeDisplay('BRANCH-REVIEW').Icon).toBe(GitPullRequest)
   })
 
   it('falls back to Bot for unknown modes', () => {

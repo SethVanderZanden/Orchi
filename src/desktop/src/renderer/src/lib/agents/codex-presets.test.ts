@@ -40,11 +40,12 @@ describe('resolveAgentSettingsStrategy', () => {
 })
 
 describe('MODE_DEFAULT_SETUP_MODES', () => {
-  it('covers orchestrator, default/implementation, and review', () => {
+  it('covers orchestrator, default/implementation, review, and branch review', () => {
     expect(MODE_DEFAULT_SETUP_MODES.map((mode) => mode.mode)).toEqual([
       'orchestration',
       'default',
-      'review'
+      'review',
+      'branch-review'
     ])
   })
 })

@@ -57,7 +57,14 @@ export const MODE_DEFAULT_SETUP_MODES = [
   {
     mode: 'review',
     label: 'Review',
-    description: 'Reviews git diffs against the original plan or branch intent.',
+    description: 'Reviews completed implementation work against its plan.',
+    suggestedModelId: 'gpt-5.6-terra' as CodexModelPresetId,
+    suggestedReasoningEffortId: 'medium' as CodexReasoningPresetId
+  },
+  {
+    mode: 'branch-review',
+    label: 'Branch review',
+    description: 'Pull-request style review of a head branch against a base.',
     suggestedModelId: 'gpt-5.6-terra' as CodexModelPresetId,
     suggestedReasoningEffortId: 'medium' as CodexReasoningPresetId
   }

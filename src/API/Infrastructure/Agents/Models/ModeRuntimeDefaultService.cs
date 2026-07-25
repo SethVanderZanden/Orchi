@@ -63,6 +63,7 @@ public sealed class ModeRuntimeDefaultService(
         AgentModeIds.Default,
         AgentModeIds.Orchestration,
         AgentModeIds.Review,
+        AgentModeIds.BranchReview,
         AgentModeIds.Implementation
     ];
 

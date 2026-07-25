@@ -160,6 +160,7 @@ export function ScriptsSettingsCard(): React.JSX.Element {
                 <option value="orchestration">Orchestration</option>
                 <option value="implementation">Implementation</option>
                 <option value="review">Review</option>
+                <option value="branch-review">Branch review</option>
               </NativeSelect>
             </div>
           </div>

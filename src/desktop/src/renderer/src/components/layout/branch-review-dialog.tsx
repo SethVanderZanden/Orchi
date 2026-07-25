@@ -131,10 +131,10 @@ export function BranchReviewDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Review branch</DialogTitle>
+          <DialogTitle>Branch review</DialogTitle>
           <DialogDescription>
-            Fetch branches, pick a head branch to review against a base, and Orchi opens a review
-            chat with the branch diff.
+            Pull-request style review: pick a head branch against a base. Orchi opens a branch-review
+            chat with the three-dot diff — separate from plan-based Review mode after implementation.
           </DialogDescription>
         </DialogHeader>
 

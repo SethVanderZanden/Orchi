@@ -57,7 +57,7 @@ public class ModeRuntimeDefaultsEndpointTests : IClassFixture<TestWebApplication
             await response.Content.ReadFromJsonAsync<ListModeRuntimeDefaults.Response>();
 
         Assert.NotNull(body);
-        Assert.Equal(4, body.Defaults.Count);
+        Assert.Equal(5, body.Defaults.Count);
         Assert.Equal(AgentModeIds.Default, body.Defaults[0].Mode);
         Assert.Equal("Default", body.Defaults[0].Label);
         Assert.Equal("cursor", body.Defaults[0].AgentId);
@@ -65,7 +65,8 @@ public class ModeRuntimeDefaultsEndpointTests : IClassFixture<TestWebApplication
         Assert.Null(body.Defaults[0].ContextSizeId);
         Assert.Equal(AgentModeIds.Orchestration, body.Defaults[1].Mode);
         Assert.Equal(AgentModeIds.Review, body.Defaults[2].Mode);
-        Assert.Equal(AgentModeIds.Implementation, body.Defaults[3].Mode);
+        Assert.Equal(AgentModeIds.BranchReview, body.Defaults[3].Mode);
+        Assert.Equal(AgentModeIds.Implementation, body.Defaults[4].Mode);
         Assert.All(body.Defaults, row => Assert.Null(row.ModelId));
         Assert.All(body.Defaults, row => Assert.Null(row.ContextSizeId));
     }

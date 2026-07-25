@@ -8,7 +8,7 @@ public class ReviewAgentModeStrategyTests
     private readonly ReviewAgentModeStrategy _strategy = new();
 
     [Fact]
-    public void ContributeSections_SetsIdentityRulesAndContext()
+    public void ContributeSections_SetsWorkConductedIdentityRulesAndContext()
     {
         var document = new OrchiPromptDocument();
         var context = new PromptBuildContext
@@ -21,10 +21,13 @@ public class ReviewAgentModeStrategyTests
         _strategy.ContributeSections(context, document);
 
         Assert.Contains("You are in Review Mode.", document.Identity);
-        Assert.Contains("structured git-diff review", document.Identity);
+        Assert.Contains("completed implementation work", document.Identity);
+        Assert.Contains("original orchestration plan", document.Identity);
         Assert.Contains("not a plan to review later", document.Identity);
         Assert.DoesNotContain("orchi-review-plan:id", document.Identity);
+        Assert.DoesNotContain("pull-request", document.Identity, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Do not modify code unless the user explicitly asks", document.Rules);
+        Assert.Contains("original implementation plan", document.Rules);
         Assert.Contains("Complete the entire review in your first response", document.Rules);
         Assert.Contains("Do not stop after acknowledging", document.Rules);
         Assert.Contains("Walk through every changed file in the git diff", document.Rules);
@@ -47,5 +50,6 @@ public class ReviewAgentModeStrategyTests
     public void ModeId_IsReview()
     {
         Assert.Equal("review", _strategy.ModeId);
+        Assert.Contains("plan", _strategy.Description, StringComparison.OrdinalIgnoreCase);
     }
 }

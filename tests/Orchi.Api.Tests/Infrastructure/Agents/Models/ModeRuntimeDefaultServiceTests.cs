@@ -24,7 +24,7 @@ public class ModeRuntimeDefaultServiceTests
         IReadOnlyList<ModeRuntimeDefaultDto> defaults =
             await service.ListAsync(CancellationToken.None);
 
-        Assert.Equal(4, defaults.Count);
+        Assert.Equal(5, defaults.Count);
         Assert.Equal(AgentModeIds.Default, defaults[0].Mode);
         Assert.Equal("Default", defaults[0].Label);
         Assert.Equal("cursor", defaults[0].AgentId);
@@ -32,7 +32,8 @@ public class ModeRuntimeDefaultServiceTests
         Assert.Null(defaults[0].ContextSizeId);
         Assert.Equal(AgentModeIds.Orchestration, defaults[1].Mode);
         Assert.Equal(AgentModeIds.Review, defaults[2].Mode);
-        Assert.Equal(AgentModeIds.Implementation, defaults[3].Mode);
+        Assert.Equal(AgentModeIds.BranchReview, defaults[3].Mode);
+        Assert.Equal(AgentModeIds.Implementation, defaults[4].Mode);
         Assert.All(defaults, dto => Assert.Null(dto.ModelId));
         Assert.All(defaults, dto => Assert.Null(dto.ContextSizeId));
     }

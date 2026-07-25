@@ -66,7 +66,11 @@ export function isReviewChildChat(chat: ChatThread): boolean {
     return false
   }
 
-  return chat.mode === 'review' || reviewPlanIdFromPlanFilePath(chat.planFilePath) !== null
+  return (
+    chat.mode === 'review' ||
+    chat.mode === 'branch-review' ||
+    reviewPlanIdFromPlanFilePath(chat.planFilePath) !== null
+  )
 }
 
 function sortChatsByUpdatedAtDesc(chats: ChatThread[]): ChatThread[] {

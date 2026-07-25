@@ -96,8 +96,8 @@ export function useFinderCommands(onComplete: () => void): AppFinderCommand[] {
       },
       {
         id: 'review-branch',
-        label: 'Review branch',
-        keywords: ['review', 'branch', 'pr', 'pull', 'request', 'git', 'diff'],
+        label: 'Branch review',
+        keywords: ['review', 'branch', 'pr', 'pull', 'request', 'git', 'diff', 'branch-review'],
         disabled: !activeChat?.projectId,
         onSelect: () => complete(() => requestOpenBranchReview())
       },
