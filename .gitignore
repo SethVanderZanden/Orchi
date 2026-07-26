@@ -30,6 +30,9 @@ src/API/orchi-context.db-*
 scripts/runtime.config.local.json
 scripts/generated/
 
+# Local Orchi agent worktrees / review notes
+/.orchi/
+
 # OS / IDE
 .DS_Store
 Thumbs.db
