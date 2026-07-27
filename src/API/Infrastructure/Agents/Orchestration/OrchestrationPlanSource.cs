@@ -32,7 +32,13 @@ public sealed class OrchestrationPlanSource(
         CancellationToken cancellationToken)
     {
         IReadOnlyList<PlanMarkdownParser.ParsedPlan> fromMessages =
-            PlanMarkdownParser.ExtractAllPlansFromMessages(parent.Messages);
+            string.IsNullOrWhiteSpace(parent.WorkspacePath)
+                ? PlanMarkdownParser.ExtractAllPlansFromMessages(parent.Messages)
+                : await PlanMarkdownParser.HydratePlansFromWorkspaceAsync(
+                    parent.WorkspacePath,
+                    parent.Messages,
+                    artifactFileStore,
+                    cancellationToken);
 
         if (!IsOrchestrationParent(parent))
         {
@@ -51,21 +57,36 @@ public sealed class OrchestrationPlanSource(
 
         foreach (StoredPlan storedPlan in storedPlans)
         {
+            string relativePath = PlanMarkdownParser.BuildConventionalPlanFilePath(storedPlan.PlanId);
             string content = await ReadPlanContentAsync(
                 parent.WorkspacePath,
-                storedPlan.PlanId,
+                relativePath,
                 storedPlan.ContentMarkdown,
                 cancellationToken);
 
             merged[storedPlan.PlanId] = new PlanMarkdownParser.ParsedPlan(
                 storedPlan.PlanId,
                 storedPlan.Title,
-                content);
+                content,
+                relativePath);
         }
 
         foreach (PlanMarkdownParser.ParsedPlan messagePlan in fromMessages)
         {
-            merged.TryAdd(messagePlan.PlanId, messagePlan);
+            if (merged.TryGetValue(messagePlan.PlanId, out PlanMarkdownParser.ParsedPlan? existing))
+            {
+                if (!string.IsNullOrWhiteSpace(messagePlan.ContentMarkdown))
+                {
+                    merged[messagePlan.PlanId] = messagePlan with
+                    {
+                        PlanFilePath = messagePlan.PlanFilePath ?? existing.PlanFilePath
+                    };
+                }
+
+                continue;
+            }
+
+            merged[messagePlan.PlanId] = messagePlan;
         }
 
         return merged.Values.ToArray();
@@ -104,19 +125,10 @@ public sealed class OrchestrationPlanSource(
         string? fallbackContentMarkdown,
         CancellationToken cancellationToken)
     {
-        StoredPlan? storedPlan = await planStore.GetAsync(parent.Id, planId, cancellationToken);
-        if (storedPlan is not null)
-        {
-            return await ReadPlanContentAsync(
-                parent.WorkspacePath,
-                storedPlan.PlanId,
-                storedPlan.ContentMarkdown,
-                cancellationToken);
-        }
+        string relativePath = PlanMarkdownParser.BuildConventionalPlanFilePath(planId);
 
         if (!string.IsNullOrWhiteSpace(parent.WorkspacePath))
         {
-            string relativePath = BuildPlanRelativePath(planId);
             string? fileContent = await artifactFileStore.TryReadAsync(
                 parent.WorkspacePath,
                 relativePath,
@@ -126,6 +138,16 @@ public sealed class OrchestrationPlanSource(
             {
                 return fileContent;
             }
+        }
+
+        StoredPlan? storedPlan = await planStore.GetAsync(parent.Id, planId, cancellationToken);
+        if (storedPlan is not null)
+        {
+            return await ReadPlanContentAsync(
+                parent.WorkspacePath,
+                relativePath,
+                storedPlan.ContentMarkdown,
+                cancellationToken);
         }
 
         string? fromMessages = PlanMarkdownParser.TryExtractPlanFromMessages(parent.Messages, planId);
@@ -139,7 +161,7 @@ public sealed class OrchestrationPlanSource(
 
     private async Task<string> ReadPlanContentAsync(
         string workspacePath,
-        string planId,
+        string relativePath,
         string storedContent,
         CancellationToken cancellationToken)
     {
@@ -148,19 +170,12 @@ public sealed class OrchestrationPlanSource(
             return storedContent;
         }
 
-        string relativePath = BuildPlanRelativePath(planId);
         string? fileContent = await artifactFileStore.TryReadAsync(
             workspacePath,
             relativePath,
             cancellationToken);
 
         return string.IsNullOrWhiteSpace(fileContent) ? storedContent : fileContent;
-    }
-
-    private static string BuildPlanRelativePath(string planId)
-    {
-        string sanitizedPlanId = OrchiArtifactFileStore.SanitizePlanId(planId);
-        return $".orchi/plan-{sanitizedPlanId}.md";
     }
 
     private static bool IsOrchestrationParent(ChatSession parent) =>

@@ -33,7 +33,11 @@ public sealed class OrchestrationPlanSyncService(
         }
 
         IReadOnlyList<PlanMarkdownParser.ParsedPlan> plans =
-            PlanMarkdownParser.ExtractAllPlansFromMessages(parent.Messages);
+            await PlanMarkdownParser.HydratePlansFromWorkspaceAsync(
+                parent.WorkspacePath,
+                parent.Messages,
+                artifactFileStore,
+                cancellationToken);
 
         if (plans.Count == 0)
         {
@@ -41,9 +45,19 @@ public sealed class OrchestrationPlanSyncService(
         }
 
         IOrchiArtifactWriterStrategy planWriter = artifactWriterFactory.GetStrategy(OrchiArtifactKind.Plan);
+        int syncedCount = 0;
 
         foreach (PlanMarkdownParser.ParsedPlan plan in plans)
         {
+            if (string.IsNullOrWhiteSpace(plan.ContentMarkdown))
+            {
+                logger.LogDebug(
+                    "Skipping plan {PlanId} for chat {ChatId}: referenced file is missing or empty.",
+                    plan.PlanId,
+                    parent.Id);
+                continue;
+            }
+
             await planStore.UpsertAsync(
                 new PlanUpsertModel(
                     plan.PlanId,
@@ -52,15 +66,20 @@ public sealed class OrchestrationPlanSyncService(
                     plan.ContentMarkdown),
                 cancellationToken);
 
-            await planWriter.WriteAsync(
-                parent.WorkspacePath,
-                plan.PlanId,
-                plan.ContentMarkdown,
-                cancellationToken);
+            if (plan.PlanFilePath is null)
+            {
+                await planWriter.WriteAsync(
+                    parent.WorkspacePath,
+                    plan.PlanId,
+                    plan.ContentMarkdown,
+                    cancellationToken);
+            }
+
+            syncedCount++;
         }
 
         IReadOnlyList<string> sequencePlanIds =
-            PlanSequenceMarkdownParser.ParseSequenceFromMessages(parent.Messages);
+            await ResolveSequencePlanIdsAsync(parent, cancellationToken);
 
         if (sequencePlanIds.Count > 0)
         {
@@ -75,9 +94,60 @@ public sealed class OrchestrationPlanSyncService(
                 cancellationToken);
         }
 
-        logger.LogInformation(
-            "Synced {PlanCount} plan file(s) for orchestration chat {ChatId}.",
-            plans.Count,
-            parent.Id);
+        if (syncedCount > 0)
+        {
+            logger.LogInformation(
+                "Synced {PlanCount} plan file(s) for orchestration chat {ChatId}.",
+                syncedCount,
+                parent.Id);
+        }
+    }
+
+    private async Task<IReadOnlyList<string>> ResolveSequencePlanIdsAsync(
+        ChatSession parent,
+        CancellationToken cancellationToken)
+    {
+        string? sequenceFile = await artifactFileStore.TryReadAsync(
+            parent.WorkspacePath,
+            OrchiArtifactFileStore.PlanSequenceRelativePath,
+            cancellationToken);
+
+        IReadOnlyList<string>? fromFile = TryParseSequenceFile(sequenceFile);
+        if (fromFile is { Count: > 0 })
+        {
+            return fromFile;
+        }
+
+        return PlanSequenceMarkdownParser.ParseSequenceFromMessages(parent.Messages);
+    }
+
+    private static IReadOnlyList<string>? TryParseSequenceFile(string? content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return null;
+        }
+
+        var ids = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (string rawLine in content.Split('\n'))
+        {
+            string trimmed = rawLine.Trim();
+            if (string.IsNullOrEmpty(trimmed))
+            {
+                continue;
+            }
+
+            string id = trimmed.ToLowerInvariant();
+            if (!seen.Add(id))
+            {
+                continue;
+            }
+
+            ids.Add(id);
+        }
+
+        return ids.Count == 0 ? null : ids;
     }
 }

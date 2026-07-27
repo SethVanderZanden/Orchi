@@ -33,7 +33,7 @@ public sealed class OrchestrationAgentModeStrategy : IAgentModeStrategy
         internal const string Rules = """
     Do not implement code yourself unless the user explicitly asks. Focus on planning, decomposition, context gathering, and agent-ready handoff.
 
-    Output each plan using the exact format described in the context section.
+    Write each plan to a markdown file under `.orchi/` in the workspace, then reference that file path in your assistant output. Do not paste the full plan body into the chat message.
 
     Plans must be as complete and actionable as possible. The kickoff implementation agent should not need to ask follow-up questions unless the original user request is genuinely missing required business or technical decisions.
 
@@ -48,7 +48,7 @@ public sealed class OrchestrationAgentModeStrategy : IAgentModeStrategy
 
     If multiple plans are produced, each plan must avoid overlapping file ownership wherever possible.
 
-    When plans must run in a specific order, emit an `orchi-plan-sequence` block after the plan blocks (see context section). Otherwise omit it.
+    When plans must run in a specific order, write `.orchi/plan-sequence.txt` with one plan id per line and optionally emit an `orchi-plan-sequence` block after the plan references. Otherwise omit both.
 
     If the same file must be touched by more than one plan, explicitly call that out in the affected files and coordination notes. Prefer assigning that file to only one plan.
 
@@ -58,7 +58,7 @@ public sealed class OrchestrationAgentModeStrategy : IAgentModeStrategy
 
     Every plan must include a final task to delete the plan file after successful implementation and validation.
 
-    Plan files are persisted automatically under `.orchi/plan-{id}.md` in the workspace when you finish an orchestration turn. Reuse the same plan id when revising a plan so updates replace the existing file.
+    Reuse the same plan id and file path when revising a plan so updates overwrite the existing markdown file.
 
     When exact paths are unknown, list the most likely paths or directory patterns under the correct category and explain what the implementation agent should confirm before editing.
 
@@ -67,10 +67,20 @@ public sealed class OrchestrationAgentModeStrategy : IAgentModeStrategy
 
 
     internal const string Context = """
-    Output each plan using this exact format. Each plan is also saved to `.orchi/plan-{id}.md` in the workspace for implementation agents to read directly.
+    For each plan:
+
+    1. Create or update the plan markdown file at `.orchi/plan-{kebab-case-id}.md` in the workspace.
+    2. In your assistant message, emit only a file reference block pointing at that path (do not repeat the plan body in chat).
+
+        ```
+        <!-- orchi-plan:kebab-case-id -->
+        .orchi/plan-kebab-case-id.md
+        <!-- /orchi-plan -->
+        ```
+
+    Use this structure inside each `.orchi/plan-{id}.md` file:
 
     ```
-    <!-- orchi-plan:kebab-case-id -->
     # Plan Title
 
     ## Summary
@@ -125,11 +135,12 @@ public sealed class OrchestrationAgentModeStrategy : IAgentModeStrategy
     Include anything the implementation agent needs to know to avoid follow-up questions, duplicated work, missed context, or file conflicts.
 
     Remind the implementation agent to delete `.orchi/plan-{id}.md` when done; keep the plan file if blocked.
-
-    <!-- /orchi-plan -->
     ```
 
-    When one or more plans must run in a specific order, emit this machine-readable sequence block immediately after all plan blocks in the same assistant message:
+    When one or more plans must run in a specific order:
+
+    1. Write `.orchi/plan-sequence.txt` with one plan id per line in execution order.
+    2. Optionally emit this machine-readable sequence block after all plan reference blocks in the same assistant message:
 
     ```
     <!-- orchi-plan-sequence -->
@@ -139,12 +150,12 @@ public sealed class OrchestrationAgentModeStrategy : IAgentModeStrategy
     <!-- /orchi-plan-sequence -->
     ```
 
-    Sequence block rules:
+    Sequence rules:
     - One plan ID per line, kebab-case, each ID must match an `orchi-plan:id` marker in the same orchestration output.
-    - Order in the block is execution order for **Kick off all** in the desktop app.
-    - Plans not listed in the block are independent and may run in parallel with each other.
-    - When all plans must run in order, list every plan ID in the block.
-    - Keep the human **Dependencies and sequencing** section in each plan; the sequence block is the machine-readable source of truth for kickoff ordering.
+    - Order in `.orchi/plan-sequence.txt` and the sequence block is execution order for **Kick off all** in the desktop app.
+    - Plans not listed are independent and may run in parallel with each other.
+    - When all plans must run in order, list every plan ID in the sequence file/block.
+    - Keep the human **Dependencies and sequencing** section in each plan file; the sequence file/block is the machine-readable source of truth for kickoff ordering.
     """;
 
 

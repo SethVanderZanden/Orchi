@@ -14,14 +14,26 @@ namespace Orchi.Api.Tests.Infrastructure.Agents.Orchestration;
 public class OrchestrationPlanSyncServiceTests
 {
     [Fact]
-    public async Task SyncFromMessagesAsync_WritesPlanFilesAndSequenceFile()
+    public async Task SyncFromMessagesAsync_ReadsReferencedPlanFilesAndSequenceFile()
     {
         string workspacePath = Path.Combine(Path.GetTempPath(), $"orchi-plan-sync-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(workspacePath);
+        Directory.CreateDirectory(Path.Combine(workspacePath, ".orchi"));
         Guid sourceChatId = Guid.NewGuid();
 
         try
         {
+            await File.WriteAllTextAsync(
+                Path.Combine(workspacePath, ".orchi", "plan-auth-refactor.md"),
+                """
+                # Auth refactor
+
+                Implement JWT auth.
+                """);
+
+            await File.WriteAllTextAsync(
+                Path.Combine(workspacePath, ".orchi", "plan-sequence.txt"),
+                "auth-refactor");
+
             var services = new ServiceCollection();
             services.AddDbContextFactory<AppDbContext>(options =>
                 options.UseSqlite($"Data Source={Path.Combine(Path.GetTempPath(), $"orchi-plan-sync-db-{Guid.NewGuid():N}.db")}"));
@@ -71,14 +83,8 @@ public class OrchestrationPlanSyncServiceTests
                         "assistant",
                         """
                         <!-- orchi-plan:auth-refactor -->
-                        # Auth refactor
-
-                        Implement JWT auth.
+                        .orchi/plan-auth-refactor.md
                         <!-- /orchi-plan -->
-
-                        <!-- orchi-plan-sequence -->
-                        auth-refactor
-                        <!-- /orchi-plan-sequence -->
                         """,
                         DateTimeOffset.UtcNow,
                         Status: "complete")
@@ -87,17 +93,10 @@ public class OrchestrationPlanSyncServiceTests
 
             await syncService.SyncFromMessagesAsync(parent, CancellationToken.None);
 
-            string planFile = Path.Combine(workspacePath, ".orchi", "plan-auth-refactor.md");
-            Assert.True(File.Exists(planFile));
-            Assert.Contains("Implement JWT auth.", await File.ReadAllTextAsync(planFile));
-
-            string sequenceFile = Path.Combine(workspacePath, ".orchi", "plan-sequence.txt");
-            Assert.True(File.Exists(sequenceFile));
-            Assert.Equal("auth-refactor", (await File.ReadAllTextAsync(sequenceFile)).Trim());
-
             StoredPlan? stored = await planStore.GetAsync(sourceChatId, "auth-refactor", CancellationToken.None);
             Assert.NotNull(stored);
             Assert.Equal("Auth refactor", stored.Title);
+            Assert.Contains("Implement JWT auth", stored.ContentMarkdown);
         }
         finally
         {
