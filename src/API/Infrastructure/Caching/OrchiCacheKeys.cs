@@ -18,6 +18,9 @@ public static class OrchiCacheKeys
     public static string Plan(Guid sourceChatId, string planId) =>
         $"plan:{sourceChatId:N}:{planId}";
 
+    public static string PlansBySourceChat(Guid sourceChatId) =>
+        $"plans-by-source-chat:{sourceChatId:N}";
+
     public static string AgentModels(string agentId, bool includeDisabled) =>
         $"agent-models:{agentId}:{includeDisabled}";
 

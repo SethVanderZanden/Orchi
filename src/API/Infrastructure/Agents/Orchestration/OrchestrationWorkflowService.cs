@@ -41,6 +41,7 @@ public sealed class OrchestrationWorkflowService(
     OrchestrationStepPipeline stepPipeline,
     OrchestrationEventHub eventHub,
     IOrchiKickoffExecutor kickoffExecutor,
+    IOrchestrationPlanSource planSource,
     ILogger<OrchestrationWorkflowService> logger) : IOrchestrationWorkflowService
 {
     private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> ParentLocks = new();
@@ -65,7 +66,7 @@ public sealed class OrchestrationWorkflowService(
         OrchestrationWorkflowRecord? workflow = await workflowStore.GetAsync(parentChatId, cancellationToken);
         IReadOnlyList<ChatSession> childChats = await GetChildChatsAsync(parentChatId, cancellationToken);
 
-        return Result.Success(BuildSnapshot(parent, workflow, childChats));
+        return Result.Success(await BuildSnapshotAsync(parent, workflow, childChats, cancellationToken));
     }
 
     /// <summary>
@@ -103,9 +104,9 @@ public sealed class OrchestrationWorkflowService(
             //   - sequencePlanIds = the "do these in order" list (if any)
             //   - childChats   = worker chats already spawned under this parent
             IReadOnlyList<PlanMarkdownParser.ParsedPlan> plans =
-                PlanMarkdownParser.ExtractAllPlansFromMessages(parent.Messages);
+                await planSource.ResolvePlansAsync(parent, cancellationToken);
             IReadOnlyList<string> sequencePlanIds =
-                PlanSequenceMarkdownParser.ParseSequenceFromMessages(parent.Messages);
+                await planSource.ResolveSequencePlanIdsAsync(parent, null, cancellationToken);
             IReadOnlyList<ChatSession> childChats = await GetChildChatsAsync(parentChatId, cancellationToken);
 
             // Step 3: Filter to plans that don't have an implementation worker yet.
@@ -198,7 +199,7 @@ public sealed class OrchestrationWorkflowService(
             }
 
             // Step 7: Return the status board — plans, children, current step, running/idle/paused.
-            return Result.Success(BuildSnapshot(parent, workflow, childChats));
+            return Result.Success(await BuildSnapshotAsync(parent, workflow, childChats, cancellationToken));
         }
         finally
         {
@@ -232,7 +233,7 @@ public sealed class OrchestrationWorkflowService(
             OrchestrationWorkflowRecord? workflow = await workflowStore.GetAsync(parent.Id, cancellationToken);
             IReadOnlyList<ChatSession> childChats = await GetChildChatsAsync(parent.Id, cancellationToken);
             IReadOnlyList<PlanMarkdownParser.ParsedPlan> plans =
-                PlanMarkdownParser.ExtractAllPlansFromMessages(parent.Messages);
+                await planSource.ResolvePlansAsync(parent, cancellationToken);
             string? completedPlanId = PlanMarkdownParser.TryExtractPlanIdFromPath(completedChat.PlanFilePath);
 
             await AppendParentStatusMessageAsync(
@@ -458,15 +459,18 @@ public sealed class OrchestrationWorkflowService(
         return -1;
     }
 
-    private static OrchestrationSnapshot BuildSnapshot(
+    private async Task<OrchestrationSnapshot> BuildSnapshotAsync(
         ChatSession parent,
         OrchestrationWorkflowRecord? workflow,
-        IReadOnlyList<ChatSession> childChats)
+        IReadOnlyList<ChatSession> childChats,
+        CancellationToken cancellationToken)
     {
         IReadOnlyList<PlanMarkdownParser.ParsedPlan> plans =
-            PlanMarkdownParser.ExtractAllPlansFromMessages(parent.Messages);
-        IReadOnlyList<string> sequencePlanIds = workflow?.SequencePlanIds ??
-            PlanSequenceMarkdownParser.ParseSequenceFromMessages(parent.Messages);
+            await planSource.ResolvePlansAsync(parent, cancellationToken);
+        IReadOnlyList<string> sequencePlanIds = await planSource.ResolveSequencePlanIdsAsync(
+            parent,
+            workflow?.SequencePlanIds,
+            cancellationToken);
 
         string status = workflow?.Status ?? OrchestrationWorkflowStatus.Idle;
         int totalSteps = sequencePlanIds.Count;

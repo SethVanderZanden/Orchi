@@ -11,8 +11,23 @@ public sealed class AgentTurnCompletionNotifier(
             try
             {
                 using IServiceScope scope = scopeFactory.CreateScope();
+                AgentSessionManager sessionManager =
+                    scope.ServiceProvider.GetRequiredService<AgentSessionManager>();
                 IOrchestrationWorkflowService workflow =
                     scope.ServiceProvider.GetRequiredService<IOrchestrationWorkflowService>();
+
+                if (succeeded)
+                {
+                    ChatSession? completedChat =
+                        await sessionManager.GetOrLoadSessionAsync(chatId, CancellationToken.None);
+
+                    if (completedChat is not null)
+                    {
+                        IOrchestrationPlanSyncService planSync =
+                            scope.ServiceProvider.GetRequiredService<IOrchestrationPlanSyncService>();
+                        await planSync.SyncFromMessagesAsync(completedChat, CancellationToken.None);
+                    }
+                }
 
                 await workflow.OnAgentTurnCompletedAsync(chatId, succeeded, CancellationToken.None);
             }

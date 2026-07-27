@@ -67,6 +67,7 @@ export function createOrchestrationEventHandlers(
   options?: {
     onWorkflow?: OrchestrationEventHandlers['onWorkflow']
     onChatCreated?: OrchestrationEventHandlers['onChatCreated']
+    onParentMessage?: OrchestrationEventHandlers['onParentMessage']
     loadChat?: (chatId: string) => Promise<ChatThread | undefined>
   }
 ): OrchestrationEventHandlers {
@@ -141,6 +142,7 @@ export function createOrchestrationEventHandlers(
         const base = current ?? resolveParentDetailCache(queryClient, parentChat, getChat)
         return appendParentOrchestrationMessage(base, payload)
       })
+      options?.onParentMessage?.(payload)
     },
     onAgentToken: ({ childChatId, text }) => {
       getTokenBatcher(childChatId).push(text)

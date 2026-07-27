@@ -58,6 +58,8 @@ public sealed class OrchestrationAgentModeStrategy : IAgentModeStrategy
 
     Every plan must include a final task to delete the plan file after successful implementation and validation.
 
+    Plan files are persisted automatically under `.orchi/plan-{id}.md` in the workspace when you finish an orchestration turn. Reuse the same plan id when revising a plan so updates replace the existing file.
+
     When exact paths are unknown, list the most likely paths or directory patterns under the correct category and explain what the implementation agent should confirm before editing.
 
     If the user's request does not contain enough detail to produce a useful plan, or no plan can be formed, clearly explain why and list the exact missing information needed.
@@ -65,7 +67,7 @@ public sealed class OrchestrationAgentModeStrategy : IAgentModeStrategy
 
 
     internal const string Context = """
-    Output each plan using this exact format:
+    Output each plan using this exact format. Each plan is also saved to `.orchi/plan-{id}.md` in the workspace for implementation agents to read directly.
 
     ```
     <!-- orchi-plan:kebab-case-id -->

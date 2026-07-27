@@ -25,6 +25,8 @@ public sealed partial class OrchiArtifactFileStore
         return normalized;
     }
 
+    public const string PlanSequenceRelativePath = ".orchi/plan-sequence.txt";
+
     public Task<string> WriteAsync(
         string workspacePath,
         string relativePath,
@@ -34,12 +36,32 @@ public sealed partial class OrchiArtifactFileStore
         cancellationToken.ThrowIfCancellationRequested();
 
         string normalizedRelativePath = relativePath.Replace('\\', '/');
-        string fullDirectory = Path.Combine(workspacePath, ".orchi");
-        string fullPath = Path.Combine(workspacePath, normalizedRelativePath.Replace('/', Path.DirectorySeparatorChar));
+        string fullPath = ResolveFullPath(workspacePath, normalizedRelativePath);
 
-        Directory.CreateDirectory(fullDirectory);
+        Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
         File.WriteAllText(fullPath, contentMarkdown);
 
         return Task.FromResult(normalizedRelativePath);
     }
+
+    public Task<string?> TryReadAsync(
+        string workspacePath,
+        string relativePath,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        string normalizedRelativePath = relativePath.Replace('\\', '/');
+        string fullPath = ResolveFullPath(workspacePath, normalizedRelativePath);
+
+        if (!File.Exists(fullPath))
+        {
+            return Task.FromResult<string?>(null);
+        }
+
+        return Task.FromResult<string?>(File.ReadAllText(fullPath));
+    }
+
+    private static string ResolveFullPath(string workspacePath, string normalizedRelativePath) =>
+        Path.Combine(workspacePath, normalizedRelativePath.Replace('/', Path.DirectorySeparatorChar));
 }
