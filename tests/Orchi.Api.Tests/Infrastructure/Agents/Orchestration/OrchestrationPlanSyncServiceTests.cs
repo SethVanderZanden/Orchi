@@ -14,7 +14,7 @@ namespace Orchi.Api.Tests.Infrastructure.Agents.Orchestration;
 public class OrchestrationPlanSyncServiceTests
 {
     [Fact]
-    public async Task SyncFromMessagesAsync_ReadsReferencedPlanFilesAndSequenceFile()
+    public async Task SyncFromWorkspaceAsync_UpsertsDiscoveredPlanFilesWithoutMessageReferences()
     {
         string workspacePath = Path.Combine(Path.GetTempPath(), $"orchi-plan-sync-{Guid.NewGuid():N}");
         Directory.CreateDirectory(Path.Combine(workspacePath, ".orchi"));
@@ -75,23 +75,10 @@ public class OrchestrationPlanSyncServiceTests
                 Mode = OrchestrationAgentModeStrategy.Mode,
                 AgentId = "cursor",
                 WorkspaceId = Guid.NewGuid(),
-                ProjectId = Guid.NewGuid(),
-                Messages =
-                {
-                    new ChatMessage(
-                        Guid.NewGuid(),
-                        "assistant",
-                        """
-                        <!-- orchi-plan:auth-refactor -->
-                        .orchi/plan-auth-refactor.md
-                        <!-- /orchi-plan -->
-                        """,
-                        DateTimeOffset.UtcNow,
-                        Status: "complete")
-                }
+                ProjectId = Guid.NewGuid()
             };
 
-            await syncService.SyncFromMessagesAsync(parent, CancellationToken.None);
+            await syncService.SyncFromWorkspaceAsync(parent, CancellationToken.None);
 
             StoredPlan? stored = await planStore.GetAsync(sourceChatId, "auth-refactor", CancellationToken.None);
             Assert.NotNull(stored);

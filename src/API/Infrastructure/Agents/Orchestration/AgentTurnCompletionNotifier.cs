@@ -25,7 +25,7 @@ public sealed class AgentTurnCompletionNotifier(
                     {
                         IOrchestrationPlanSyncService planSync =
                             scope.ServiceProvider.GetRequiredService<IOrchestrationPlanSyncService>();
-                        await planSync.SyncFromMessagesAsync(completedChat, CancellationToken.None);
+                        await planSync.SyncFromWorkspaceAsync(completedChat, CancellationToken.None);
                     }
                 }
 

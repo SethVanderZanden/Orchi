@@ -31,10 +31,10 @@ public sealed class OrchestrationPlanSource(
         ChatSession parent,
         CancellationToken cancellationToken)
     {
-        IReadOnlyList<PlanMarkdownParser.ParsedPlan> fromMessages =
+        IReadOnlyList<PlanMarkdownParser.ParsedPlan> fromWorkspace =
             string.IsNullOrWhiteSpace(parent.WorkspacePath)
                 ? PlanMarkdownParser.ExtractAllPlansFromMessages(parent.Messages)
-                : await PlanMarkdownParser.HydratePlansFromWorkspaceAsync(
+                : await PlanMarkdownParser.ResolvePlansFromWorkspaceAndMessagesAsync(
                     parent.WorkspacePath,
                     parent.Messages,
                     artifactFileStore,
@@ -42,7 +42,7 @@ public sealed class OrchestrationPlanSource(
 
         if (!IsOrchestrationParent(parent))
         {
-            return fromMessages;
+            return fromWorkspace;
         }
 
         IReadOnlyList<StoredPlan> storedPlans =
@@ -50,7 +50,7 @@ public sealed class OrchestrationPlanSource(
 
         if (storedPlans.Count == 0)
         {
-            return fromMessages;
+            return fromWorkspace;
         }
 
         var merged = new Dictionary<string, PlanMarkdownParser.ParsedPlan>(StringComparer.OrdinalIgnoreCase);
@@ -71,7 +71,7 @@ public sealed class OrchestrationPlanSource(
                 relativePath);
         }
 
-        foreach (PlanMarkdownParser.ParsedPlan messagePlan in fromMessages)
+        foreach (PlanMarkdownParser.ParsedPlan messagePlan in fromWorkspace)
         {
             if (merged.TryGetValue(messagePlan.PlanId, out PlanMarkdownParser.ParsedPlan? existing))
             {

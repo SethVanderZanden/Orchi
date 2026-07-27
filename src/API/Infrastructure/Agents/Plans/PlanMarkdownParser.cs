@@ -152,6 +152,101 @@ public static partial class PlanMarkdownParser
         return plans.Values.ToArray();
     }
 
+    public static async Task<IReadOnlyList<ParsedPlan>> DiscoverPlansFromWorkspaceAsync(
+        string workspacePath,
+        OrchiArtifactFileStore artifactFileStore,
+        CancellationToken cancellationToken)
+    {
+        string orchiDirectory = Path.Combine(workspacePath, ".orchi");
+        if (!Directory.Exists(orchiDirectory))
+        {
+            return [];
+        }
+
+        var plans = new List<ParsedPlan>();
+
+        foreach (string filePath in Directory.EnumerateFiles(orchiDirectory, "plan-*.md"))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            string fileName = Path.GetFileName(filePath);
+            string relativePath = $".orchi/{fileName}";
+            string? planId = TryExtractPlanIdFromPath(relativePath);
+            if (planId is null)
+            {
+                continue;
+            }
+
+            string? content = await artifactFileStore.TryReadAsync(
+                workspacePath,
+                relativePath,
+                cancellationToken);
+
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                continue;
+            }
+
+            plans.Add(new ParsedPlan(
+                planId,
+                ExtractTitle(content),
+                content,
+                relativePath));
+        }
+
+        return plans;
+    }
+
+    public static async Task<IReadOnlyList<ParsedPlan>> ResolvePlansFromWorkspaceAndMessagesAsync(
+        string workspacePath,
+        IEnumerable<ChatMessage> messages,
+        OrchiArtifactFileStore artifactFileStore,
+        CancellationToken cancellationToken)
+    {
+        var merged = new Dictionary<string, ParsedPlan>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (ParsedPlan inlinePlan in ExtractAllPlansFromMessages(messages))
+        {
+            if (inlinePlan.PlanFilePath is null && !string.IsNullOrWhiteSpace(inlinePlan.ContentMarkdown))
+            {
+                merged[inlinePlan.PlanId] = inlinePlan;
+            }
+        }
+
+        IReadOnlyList<ParsedPlan> workspacePlans =
+            await DiscoverPlansFromWorkspaceAsync(workspacePath, artifactFileStore, cancellationToken);
+
+        foreach (ParsedPlan workspacePlan in workspacePlans)
+        {
+            merged[workspacePlan.PlanId] = workspacePlan;
+        }
+
+        IReadOnlyList<ParsedPlan> referencedPlans = ExtractAllPlansFromMessages(messages)
+            .Where(plan => plan.PlanFilePath is not null)
+            .ToArray();
+
+        foreach (ParsedPlan referencedPlan in referencedPlans)
+        {
+            if (merged.ContainsKey(referencedPlan.PlanId))
+            {
+                continue;
+            }
+
+            ParsedPlan hydrated = await HydratePlanFromWorkspaceAsync(
+                workspacePath,
+                referencedPlan,
+                artifactFileStore,
+                cancellationToken);
+
+            if (!string.IsNullOrWhiteSpace(hydrated.ContentMarkdown))
+            {
+                merged[hydrated.PlanId] = hydrated;
+            }
+        }
+
+        return merged.Values.ToArray();
+    }
+
     public static async Task<IReadOnlyList<ParsedPlan>> HydratePlansFromWorkspaceAsync(
         string workspacePath,
         IEnumerable<ChatMessage> messages,

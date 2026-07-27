@@ -63,6 +63,43 @@ public class PlanMarkdownParserTests
     }
 
     [Fact]
+    public async Task DiscoverPlansFromWorkspaceAsync_LoadsPlanFilesByFilename()
+    {
+        string workspacePath = Path.Combine(Path.GetTempPath(), $"orchi-plan-discover-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(Path.Combine(workspacePath, ".orchi"));
+
+        try
+        {
+            await File.WriteAllTextAsync(
+                Path.Combine(workspacePath, ".orchi", "plan-auth-refactor.md"),
+                """
+                # Auth refactor
+
+                Implement JWT.
+                """);
+
+            IReadOnlyList<PlanMarkdownParser.ParsedPlan> plans =
+                await PlanMarkdownParser.DiscoverPlansFromWorkspaceAsync(
+                    workspacePath,
+                    new OrchiArtifactFileStore(),
+                    CancellationToken.None);
+
+            Assert.Single(plans);
+            Assert.Equal("auth-refactor", plans[0].PlanId);
+            Assert.Equal(".orchi/plan-auth-refactor.md", plans[0].PlanFilePath);
+            Assert.Equal("Auth refactor", plans[0].Title);
+            Assert.Contains("Implement JWT", plans[0].ContentMarkdown);
+        }
+        finally
+        {
+            if (Directory.Exists(workspacePath))
+            {
+                Directory.Delete(workspacePath, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task HydratePlansFromWorkspaceAsync_LoadsReferencedPlanFiles()
     {
         string workspacePath = Path.Combine(Path.GetTempPath(), $"orchi-plan-hydrate-{Guid.NewGuid():N}");

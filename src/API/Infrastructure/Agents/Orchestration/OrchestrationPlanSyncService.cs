@@ -7,7 +7,7 @@ namespace Orchi.Api.Infrastructure.Agents.Orchestration;
 
 public interface IOrchestrationPlanSyncService
 {
-    Task SyncFromMessagesAsync(ChatSession parent, CancellationToken cancellationToken);
+    Task SyncFromWorkspaceAsync(ChatSession parent, CancellationToken cancellationToken);
 }
 
 public sealed class OrchestrationPlanSyncService(
@@ -16,7 +16,7 @@ public sealed class OrchestrationPlanSyncService(
     OrchiArtifactFileStore artifactFileStore,
     ILogger<OrchestrationPlanSyncService> logger) : IOrchestrationPlanSyncService
 {
-    public async Task SyncFromMessagesAsync(ChatSession parent, CancellationToken cancellationToken)
+    public async Task SyncFromWorkspaceAsync(ChatSession parent, CancellationToken cancellationToken)
     {
         if (!string.Equals(parent.Mode, OrchestrationAgentModeStrategy.Mode, StringComparison.OrdinalIgnoreCase) ||
             parent.ParentChatId is not null)
@@ -33,7 +33,7 @@ public sealed class OrchestrationPlanSyncService(
         }
 
         IReadOnlyList<PlanMarkdownParser.ParsedPlan> plans =
-            await PlanMarkdownParser.HydratePlansFromWorkspaceAsync(
+            await PlanMarkdownParser.ResolvePlansFromWorkspaceAndMessagesAsync(
                 parent.WorkspacePath,
                 parent.Messages,
                 artifactFileStore,
@@ -52,7 +52,7 @@ public sealed class OrchestrationPlanSyncService(
             if (string.IsNullOrWhiteSpace(plan.ContentMarkdown))
             {
                 logger.LogDebug(
-                    "Skipping plan {PlanId} for chat {ChatId}: referenced file is missing or empty.",
+                    "Skipping plan {PlanId} for chat {ChatId}: plan file is missing or empty.",
                     plan.PlanId,
                     parent.Id);
                 continue;
@@ -83,15 +83,23 @@ public sealed class OrchestrationPlanSyncService(
 
         if (sequencePlanIds.Count > 0)
         {
-            string sequenceContent = string.Join(
-                Environment.NewLine,
-                sequencePlanIds.Select(planId => planId.ToLowerInvariant()));
-
-            await artifactFileStore.WriteAsync(
+            string? existingSequence = await artifactFileStore.TryReadAsync(
                 parent.WorkspacePath,
                 OrchiArtifactFileStore.PlanSequenceRelativePath,
-                sequenceContent,
                 cancellationToken);
+
+            if (string.IsNullOrWhiteSpace(existingSequence))
+            {
+                string sequenceContent = string.Join(
+                    Environment.NewLine,
+                    sequencePlanIds.Select(planId => planId.ToLowerInvariant()));
+
+                await artifactFileStore.WriteAsync(
+                    parent.WorkspacePath,
+                    OrchiArtifactFileStore.PlanSequenceRelativePath,
+                    sequenceContent,
+                    cancellationToken);
+            }
         }
 
         if (syncedCount > 0)
