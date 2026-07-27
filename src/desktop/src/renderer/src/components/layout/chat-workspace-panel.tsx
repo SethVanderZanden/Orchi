@@ -108,7 +108,6 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
         : { plans: [], sequencePlanIds: [] as string[] },
     [chat.mode, chat.messages]
   )
-  const plans = orchestrationParse.plans
   const parentChat =
     chat.parentChatId && chat.mode !== 'orchestration' ? getChat(chat.parentChatId) : undefined
   const childCount = getChildChats(chat.id).length
