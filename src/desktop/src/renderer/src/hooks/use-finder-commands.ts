@@ -58,9 +58,9 @@ export function useFinderCommands(onComplete: () => void): AppFinderCommand[] {
       {
         id: 'open-beside',
         label: 'Open chat beside',
-        keywords: ['split', 'pane', 'beside', 'side'],
+        keywords: ['split', 'pane', 'beside', 'side', 'parallel', 'agent', 'workspace'],
         shortcut: 'Ctrl+→',
-        disabled: isCreatingTab,
+        disabled: isCreatingTab || !activeTabId,
         onSelect: () => complete(() => createAndOpenSplitTab())
       },
       {

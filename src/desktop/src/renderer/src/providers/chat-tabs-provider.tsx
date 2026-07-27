@@ -45,6 +45,8 @@ import { useChat } from '@/providers/chat-context'
 import { useProjects } from '@/providers/project-provider'
 
 export type OpenSplitChatOptions = {
+  /** Source chat to inherit workspace and settings from. Defaults to the active tab. */
+  sourceChatId?: string
   /** Prefill the composer (user sends manually). */
   initialDraft?: string
   /** Send this message immediately after opening the split chat. */
@@ -70,7 +72,7 @@ type ChatTabsContextValue = {
   createAndOpenTab: () => Promise<void>
   /** Pick a folder, register it as a project, then open a new chat there. */
   registerProjectAndOpenTab: () => Promise<void>
-  /** Opens a new chat in the resizable split pane. Optionally prefill or auto-send. */
+  /** Opens a new chat beside the active tab in the same workspace. */
   createAndOpenSplitTab: (options?: OpenSplitChatOptions) => Promise<void>
   isCreatingTab: boolean
   finderOpen: boolean
@@ -387,14 +389,19 @@ export function ChatTabsProvider({ children }: { children: ReactNode }): React.J
         return
       }
 
-      // Need a primary pane to split beside.
-      if (!state.activeTabId && !routeChatId) {
+      const sourceChatId = options?.sourceChatId ?? state.activeTabId ?? routeChatId
+      if (!sourceChatId) {
         await createAndOpenTab()
         return
       }
 
-      const plan = resolveNewTabPlan()
-      if (plan.kind === 'needsProject') {
+      const sourceChat = getChat(sourceChatId)
+      if (!sourceChat) {
+        return
+      }
+
+      const plan = planNewChatTab(sourceChat, projects)
+      if (plan.kind !== 'create') {
         void navigate({ to: '/' })
         return
       }
@@ -420,9 +427,10 @@ export function ChatTabsProvider({ children }: { children: ReactNode }): React.J
     [
       createAndOpenTab,
       createChatFromWorkspace,
+      getChat,
       isCreatingTab,
       navigate,
-      resolveNewTabPlan,
+      projects,
       routeChatId,
       sendMessage,
       state.activeTabId

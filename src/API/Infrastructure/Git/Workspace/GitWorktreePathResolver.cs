@@ -6,7 +6,7 @@ namespace Orchi.Api.Infrastructure.Git.Workspace;
 
 /// <summary>
 /// Resolves git worktree checkout paths outside deep repository trees so agent CLIs
-/// stay under Windows MAX_PATH limits while keeping reviews isolated from the primary workspace.
+/// stay under Windows MAX_PATH limits.
 /// </summary>
 public static partial class GitWorktreePathResolver
 {

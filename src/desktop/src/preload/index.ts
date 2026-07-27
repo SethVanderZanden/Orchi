@@ -5,9 +5,10 @@ const api = {
   openDirectory: (): Promise<string | null> => ipcRenderer.invoke('dialog:openDirectory'),
   openInEditor: (
     folderPath: string,
-    editor: 'vscode' | 'cursor'
+    editor: 'vscode' | 'cursor',
+    location?: { relativePath: string; line: number; column?: number }
   ): Promise<{ ok: true } | { ok: false; error: string }> =>
-    ipcRenderer.invoke('shell:openInEditor', folderPath, editor),
+    ipcRenderer.invoke('shell:openInEditor', folderPath, editor, location),
   getLogPath: (): Promise<string> => ipcRenderer.invoke('logs:getPath'),
   openLogFolder: (): Promise<{ logFile: string; logDirectory: string }> =>
     ipcRenderer.invoke('logs:openFolder')

@@ -60,9 +60,17 @@ app.whenReady().then(async () => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  ipcMain.handle('shell:openInEditor', async (_event, folderPath: string, editor: EditorId) => {
-    return openInEditor(folderPath, editor)
-  })
+  ipcMain.handle(
+    'shell:openInEditor',
+    async (
+      _event,
+      folderPath: string,
+      editor: EditorId,
+      location?: { relativePath: string; line: number; column?: number }
+    ) => {
+      return openInEditor(folderPath, editor, undefined, { location })
+    }
+  )
 
   ipcMain.handle('dialog:openDirectory', async (event) => {
     const window = BrowserWindow.fromWebContents(event.sender)
