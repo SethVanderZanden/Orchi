@@ -2,6 +2,7 @@ export type OrchestrationPlanResponse = {
   planId: string
   title: string
   contentMarkdown: string
+  planFilePath: string
 }
 
 export type OrchestrationChildResponse = {

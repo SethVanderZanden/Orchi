@@ -19,4 +19,9 @@ public interface IPlanStore
     Task UpsertAsync(PlanUpsertModel model, CancellationToken cancellationToken);
 
     Task<StoredPlan?> GetAsync(Guid sourceChatId, string planId, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<StoredPlan>> ListBySourceChatAsync(
+        Guid sourceChatId,
+        CancellationToken cancellationToken);
 }
+

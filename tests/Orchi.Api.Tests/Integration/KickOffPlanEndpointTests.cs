@@ -6,6 +6,7 @@ using Orchi.Api.Data;
 using Orchi.Api.Entities;
 using Orchi.Api.Features.Chats.Shared;
 using Orchi.Api.Infrastructure.Agents.Modes;
+using Orchi.Api.Infrastructure.Agents.Plans.Persistence;
 using Orchi.Api.Tests.Common;
 
 namespace Orchi.Api.Tests.Integration;
@@ -95,6 +96,48 @@ public class KickOffPlanEndpointTests : IClassFixture<TestWebApplicationFactory>
             Assert.Equal("Auth refactor", plan.Title);
             Assert.Contains("Implement JWT auth", plan.ContentMarkdown);
         }
+    }
+
+    [Fact]
+    public async Task KickOffPlan_ResolvesContentFromPlanStoreWhenRequestOmitsMarkdown()
+    {
+        HttpResponseMessage createResponse = await _client.PostAsJsonAsync(
+            "/chats",
+            new CreateChatRequest(_workspaceId, "cursor", OrchestrationAgentModeStrategy.Mode));
+
+        CreateChatResponse? parent = await createResponse.Content.ReadFromJsonAsync<CreateChatResponse>();
+        Assert.NotNull(parent);
+
+        Directory.CreateDirectory(Path.Combine(_workspacePath, ".orchi"));
+        await File.WriteAllTextAsync(
+            Path.Combine(_workspacePath, ".orchi", "plan-auth-refactor.md"),
+            "# Auth refactor\n\nImplement JWT auth from store.");
+
+        using (IServiceScope scope = _factory.Services.CreateScope())
+        {
+            IPlanStore planStore = scope.ServiceProvider.GetRequiredService<IPlanStore>();
+            await planStore.UpsertAsync(
+                new PlanUpsertModel(
+                    "auth-refactor",
+                    parent.Id,
+                    "Auth refactor",
+                    "# Auth refactor\n\nImplement JWT auth from store."),
+                CancellationToken.None);
+        }
+
+        HttpResponseMessage kickoffResponse = await _client.PostAsJsonAsync(
+            $"/chats/{parent.Id}/plans/kickoff",
+            new KickOffPlanRequest("auth-refactor"));
+
+        Assert.Equal(HttpStatusCode.Created, kickoffResponse.StatusCode);
+
+        KickOffPlanResponse? kickedOff = await kickoffResponse.Content.ReadFromJsonAsync<KickOffPlanResponse>();
+        Assert.NotNull(kickedOff);
+        Assert.Equal(".orchi/plan-auth-refactor.md", kickedOff.PlanFilePath);
+
+        string planFile = Path.Combine(_workspacePath, ".orchi", "plan-auth-refactor.md");
+        Assert.True(File.Exists(planFile));
+        Assert.Contains("Implement JWT auth from store.", await File.ReadAllTextAsync(planFile));
     }
 
     [Fact]

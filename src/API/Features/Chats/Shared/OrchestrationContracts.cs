@@ -2,7 +2,11 @@ using Orchi.Api.Infrastructure.Agents.Orchestration;
 
 namespace Orchi.Api.Features.Chats.Shared;
 
-public sealed record OrchestrationPlanResponse(string PlanId, string Title, string ContentMarkdown);
+public sealed record OrchestrationPlanResponse(
+    string PlanId,
+    string Title,
+    string ContentMarkdown,
+    string PlanFilePath);
 
 public sealed record OrchestrationChildResponse(
     string PlanId,
@@ -63,7 +67,11 @@ internal static class OrchestrationMapper
             snapshot.CurrentPlanId,
             snapshot.SequencePlanIds,
             snapshot.Plans
-                .Select(plan => new OrchestrationPlanResponse(plan.PlanId, plan.Title, plan.ContentMarkdown))
+                .Select(plan => new OrchestrationPlanResponse(
+                    plan.PlanId,
+                    plan.Title,
+                    plan.ContentMarkdown,
+                    plan.PlanFilePath))
                 .ToArray(),
             snapshot.Children
                 .Select(child => new OrchestrationChildResponse(

@@ -24,4 +24,10 @@ public sealed class CachingPlanStore(
             async ct => await inner.GetAsync(sourceChatId, planId, ct),
             cacheOptions.CreatePlanEntryOptions(),
             cancellationToken);
+
+    public Task<IReadOnlyList<StoredPlan>> ListBySourceChatAsync(
+        Guid sourceChatId,
+        CancellationToken cancellationToken) =>
+        // List results stay uncached: upserts invalidate per-plan keys, not a list key.
+        inner.ListBySourceChatAsync(sourceChatId, cancellationToken);
 }

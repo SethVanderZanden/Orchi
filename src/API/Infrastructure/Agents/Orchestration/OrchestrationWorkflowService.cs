@@ -3,6 +3,8 @@ using Orchi.Api.Common.Results;
 using Orchi.Api.Infrastructure.Agents.Modes;
 using Orchi.Api.Infrastructure.Agents.Orchestration.Persistence;
 using Orchi.Api.Infrastructure.Agents.Plans;
+using Orchi.Api.Infrastructure.Agents.Plans.Artifacts;
+using Orchi.Api.Infrastructure.Agents.Plans.Persistence;
 
 namespace Orchi.Api.Infrastructure.Agents.Orchestration;
 
@@ -27,7 +29,8 @@ public sealed record OrchestrationSnapshot(
 public sealed record OrchestrationPlanSnapshot(
     string PlanId,
     string Title,
-    string ContentMarkdown);
+    string ContentMarkdown,
+    string PlanFilePath);
 
 public sealed record OrchestrationChildSnapshot(
     string PlanId,
@@ -41,6 +44,9 @@ public sealed class OrchestrationWorkflowService(
     OrchestrationStepPipeline stepPipeline,
     OrchestrationEventHub eventHub,
     IOrchiKickoffExecutor kickoffExecutor,
+    IPlanMaterializer planMaterializer,
+    IPlanStore planStore,
+    IOrchiArtifactWriterFactory artifactWriterFactory,
     ILogger<OrchestrationWorkflowService> logger) : IOrchestrationWorkflowService
 {
     private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> ParentLocks = new();
@@ -64,8 +70,10 @@ public sealed class OrchestrationWorkflowService(
 
         OrchestrationWorkflowRecord? workflow = await workflowStore.GetAsync(parentChatId, cancellationToken);
         IReadOnlyList<ChatSession> childChats = await GetChildChatsAsync(parentChatId, cancellationToken);
+        IReadOnlyList<PlanMarkdownParser.ParsedPlan> plans =
+            await ResolvePlansAsync(parent, materializeIfMissing: true, cancellationToken);
 
-        return Result.Success(BuildSnapshot(parent, workflow, childChats));
+        return Result.Success(BuildSnapshot(parent, workflow, childChats, plans));
     }
 
     /// <summary>
@@ -98,12 +106,10 @@ public sealed class OrchestrationWorkflowService(
                     Error.Validation("Mode.Invalid", "Kick off all is only available for orchestration chats."));
             }
 
-            // Step 2: Read the parent's conversation to learn what plans exist and in what order.
-            //   - plans        = every plan card the orchestrator wrote out
-            //   - sequencePlanIds = the "do these in order" list (if any)
-            //   - childChats   = worker chats already spawned under this parent
+            // Step 2: Read persisted plan markdown (store / .orchi files) with message fallback,
+            // plus the machine-readable sequence block and any existing child workers.
             IReadOnlyList<PlanMarkdownParser.ParsedPlan> plans =
-                PlanMarkdownParser.ExtractAllPlansFromMessages(parent.Messages);
+                await ResolvePlansAsync(parent, materializeIfMissing: true, cancellationToken);
             IReadOnlyList<string> sequencePlanIds =
                 PlanSequenceMarkdownParser.ParseSequenceFromMessages(parent.Messages);
             IReadOnlyList<ChatSession> childChats = await GetChildChatsAsync(parentChatId, cancellationToken);
@@ -198,7 +204,7 @@ public sealed class OrchestrationWorkflowService(
             }
 
             // Step 7: Return the status board — plans, children, current step, running/idle/paused.
-            return Result.Success(BuildSnapshot(parent, workflow, childChats));
+            return Result.Success(BuildSnapshot(parent, workflow, childChats, plans));
         }
         finally
         {
@@ -209,8 +215,39 @@ public sealed class OrchestrationWorkflowService(
     public async Task OnAgentTurnCompletedAsync(Guid chatId, bool succeeded, CancellationToken cancellationToken)
     {
         ChatSession? completedChat = await sessionManager.GetOrLoadSessionAsync(chatId, cancellationToken);
-        if (completedChat?.ParentChatId is null)
+        if (completedChat is null)
         {
+            return;
+        }
+
+        // Orchestration parent turn: extract / sync plan markdown into the store + .orchi files.
+        if (completedChat.ParentChatId is null)
+        {
+            if (succeeded &&
+                string.Equals(
+                    completedChat.Mode,
+                    OrchestrationAgentModeStrategy.Mode,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    IReadOnlyList<StoredPlan> materialized =
+                        await planMaterializer.MaterializeAsync(completedChat, cancellationToken);
+
+                    logger.LogInformation(
+                        "Materialized {PlanCount} plan(s) for orchestration chat {ChatId}.",
+                        materialized.Count,
+                        completedChat.Id);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(
+                        ex,
+                        "Failed to materialize plans for orchestration chat {ChatId}.",
+                        completedChat.Id);
+                }
+            }
+
             return;
         }
 
@@ -232,7 +269,7 @@ public sealed class OrchestrationWorkflowService(
             OrchestrationWorkflowRecord? workflow = await workflowStore.GetAsync(parent.Id, cancellationToken);
             IReadOnlyList<ChatSession> childChats = await GetChildChatsAsync(parent.Id, cancellationToken);
             IReadOnlyList<PlanMarkdownParser.ParsedPlan> plans =
-                PlanMarkdownParser.ExtractAllPlansFromMessages(parent.Messages);
+                await ResolvePlansAsync(parent, materializeIfMissing: false, cancellationToken);
             string? completedPlanId = PlanMarkdownParser.TryExtractPlanIdFromPath(completedChat.PlanFilePath);
 
             await AppendParentStatusMessageAsync(
@@ -458,13 +495,34 @@ public sealed class OrchestrationWorkflowService(
         return -1;
     }
 
-    private static OrchestrationSnapshot BuildSnapshot(
+    private async Task<IReadOnlyList<PlanMarkdownParser.ParsedPlan>> ResolvePlansAsync(
+        ChatSession parent,
+        bool materializeIfMissing,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyList<StoredPlan> stored = await planStore.ListBySourceChatAsync(parent.Id, cancellationToken);
+
+        if (stored.Count == 0 && materializeIfMissing)
+        {
+            stored = await planMaterializer.MaterializeAsync(parent, cancellationToken);
+        }
+
+        if (stored.Count > 0)
+        {
+            return stored
+                .Select(plan => new PlanMarkdownParser.ParsedPlan(plan.PlanId, plan.Title, plan.ContentMarkdown))
+                .ToArray();
+        }
+
+        return PlanMarkdownParser.ExtractAllPlansFromMessages(parent.Messages);
+    }
+
+    private OrchestrationSnapshot BuildSnapshot(
         ChatSession parent,
         OrchestrationWorkflowRecord? workflow,
-        IReadOnlyList<ChatSession> childChats)
+        IReadOnlyList<ChatSession> childChats,
+        IReadOnlyList<PlanMarkdownParser.ParsedPlan> plans)
     {
-        IReadOnlyList<PlanMarkdownParser.ParsedPlan> plans =
-            PlanMarkdownParser.ExtractAllPlansFromMessages(parent.Messages);
         IReadOnlyList<string> sequencePlanIds = workflow?.SequencePlanIds ??
             PlanSequenceMarkdownParser.ParseSequenceFromMessages(parent.Messages);
 
@@ -487,13 +545,19 @@ public sealed class OrchestrationWorkflowService(
             children.Add(new OrchestrationChildSnapshot(planId, child.Id, child.Mode, child.PlanFilePath));
         }
 
+        IOrchiArtifactWriterStrategy planWriter = artifactWriterFactory.GetStrategy(OrchiArtifactKind.Plan);
+
         return new OrchestrationSnapshot(
             status,
             totalSteps > 0 ? currentStep : null,
             totalSteps > 0 ? totalSteps : null,
             currentPlanId,
             sequencePlanIds,
-            plans.Select(plan => new OrchestrationPlanSnapshot(plan.PlanId, plan.Title, plan.ContentMarkdown)).ToArray(),
+            plans.Select(plan => new OrchestrationPlanSnapshot(
+                plan.PlanId,
+                plan.Title,
+                plan.ContentMarkdown,
+                planWriter.BuildRelativePath(plan.PlanId))).ToArray(),
             children);
     }
 

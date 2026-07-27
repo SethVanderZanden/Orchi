@@ -119,15 +119,28 @@ A global meta-rule tells the agent not to respond to instruction sections — on
 
 ### Orchestration mode
 
-`orchestration` is an enhanced plan mode. The orchestrator decomposes work into several small plans wrapped in `<!-- orchi-plan:id -->` markers. Those markers still live in the stored assistant message (for parsing and kickoff), but the desktop **does not render plan/sequence blocks in the chat bubble** — it opens **Plan review** instead. Each plan can be **kicked off** via `POST /chats/{parentChatId}/plans/kickoff`, which:
+`orchestration` is an enhanced plan mode. The orchestrator decomposes work into several small plans wrapped in `<!-- orchi-plan:id -->` markers **and** writes each plan body to `.orchi/plan-{id}.md`.
 
-1. Writes `.orchi/plan-{id}.md` in the workspace
-2. Creates a child chat in `implementation` mode (kickoff-only; not listed in `GET /agents/modes`)
-3. Returns `initialPrompt` (for sidebar preview) and `kickoffMessage` (`"Begin implementation."`); the desktop auto-sends `kickoffMessage` to the child agent
-4. The child agent deletes the plan file after successful implementation and validation (if blocked, the plan file is kept)
+When an orchestration turn completes successfully, Orchi **materializes** plans into:
+
+1. The `Plans` table (upsert by chat + plan id — `UpdatedAt` tracks revisions)
+2. Workspace markdown files at `.orchi/plan-{id}.md`
+
+`GET /chats/{parentChatId}/orchestration` prefers these stored plans (with `planFilePath`) over re-parsing chat history. The desktop still parses markers while a turn is streaming so plan cards appear live, then switches to the persisted markdown once idle.
+
+Each plan can be **kicked off** via `POST /chats/{parentChatId}/plans/kickoff`, which:
+
+1. Resolves plan content from the request body, else the plan store / `.orchi` files, else chat markers
+2. Upserts the plan store and writes (or ports) `.orchi/plan-{id}.md` into the child workspace (including worktrees)
+3. Creates a child chat in `implementation` mode (kickoff-only; not listed in `GET /agents/modes`)
+4. Returns `initialPrompt` (for sidebar preview) and `kickoffMessage` (`"Begin implementation."`); the desktop auto-sends `kickoffMessage` to the child agent
+5. The child agent deletes the plan file after successful implementation and validation (if blocked, the plan file is kept)
+
+Revising a plan: ask the orchestrator to update it. It should edit `.orchi/plan-{id}.md` in place (same id) and re-emit the updated marker block; Orchi re-materializes on turn complete.
 
 ```
-Orchestration chat  →  plans in stored assistant output  →  Plan review panel (not chat bubble)  →  kick off  →  .orchi/plan-*.md + child chat
+Orchestration chat  →  plan markers + .orchi/plan-*.md + Plans table
+  →  Plan review panel (loads persisted markdown)  →  kick off  →  port plan file + child chat
 ```
 
 #### Sequential plan kickoff

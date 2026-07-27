@@ -262,8 +262,8 @@ export type ChatDetailResponse = {
 
 export type KickOffPlanRequest = {
   planId: string
-  title: string
-  contentMarkdown: string
+  title?: string | null
+  contentMarkdown?: string | null
   baseBranch?: string | null
 }
 

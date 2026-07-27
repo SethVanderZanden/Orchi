@@ -210,8 +210,8 @@ public sealed record CreateChatResponse(
 
 public sealed record KickOffPlanRequest(
     string PlanId,
-    string Title,
-    string ContentMarkdown,
+    string? Title = null,
+    string? ContentMarkdown = null,
     string? BaseBranch = null);
 
 public sealed record KickOffPlanResponse(

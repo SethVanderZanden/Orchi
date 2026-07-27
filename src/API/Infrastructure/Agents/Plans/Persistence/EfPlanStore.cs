@@ -59,12 +59,33 @@ public sealed class EfPlanStore(IDbContextFactory<AppDbContext> dbContextFactory
             return null;
         }
 
-        return new StoredPlan(
+        return ToStoredPlan(entity);
+    }
+
+    public async Task<IReadOnlyList<StoredPlan>> ListBySourceChatAsync(
+        Guid sourceChatId,
+        CancellationToken cancellationToken)
+    {
+        await using AppDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        List<Plan> entities = await db.Plans
+            .AsNoTracking()
+            .Where(plan => plan.SourceChatId == sourceChatId)
+            .ToListAsync(cancellationToken);
+
+        return entities
+            .OrderBy(plan => plan.CreatedAt)
+            .ThenBy(plan => plan.PlanId, StringComparer.Ordinal)
+            .Select(ToStoredPlan)
+            .ToArray();
+    }
+
+    private static StoredPlan ToStoredPlan(Plan entity) =>
+        new(
             entity.PlanId,
             entity.SourceChatId,
             entity.Title,
             entity.ContentMarkdown,
             entity.CreatedAt,
             entity.UpdatedAt);
-    }
 }

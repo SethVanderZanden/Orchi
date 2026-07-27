@@ -19,13 +19,14 @@ public static class KickOffPlan
     public sealed record Command(
         Guid ParentChatId,
         string PlanId,
-        string Title,
-        string ContentMarkdown,
+        string? Title,
+        string? ContentMarkdown,
         string? BaseBranch) : ICommand<KickOffPlanResponse>;
 
     internal sealed class Handler(
         AgentSessionManager sessionManager,
         IPlanStore planStore,
+        IPlanMaterializer planMaterializer,
         IOrchiArtifactWriterFactory artifactWriterFactory,
         IProjectStore projectStore,
         IGitWorkspaceService gitWorkspaceService)
@@ -45,14 +46,23 @@ public static class KickOffPlan
                     Error.Validation("Mode.Invalid", "Plan kick-off is only available for orchestration chats."));
             }
 
+            Result<(string PlanId, string Title, string ContentMarkdown)> resolvedPlan =
+                await ResolvePlanContentAsync(parent, command, cancellationToken);
+            if (resolvedPlan.IsFailure)
+            {
+                return Result.Failure<KickOffPlanResponse>(resolvedPlan.Error);
+            }
+
+            (string planId, string title, string contentMarkdown) = resolvedPlan.Value;
+
             try
             {
                 await planStore.UpsertAsync(
                     new PlanUpsertModel(
-                        command.PlanId,
+                        planId,
                         command.ParentChatId,
-                        command.Title,
-                        command.ContentMarkdown),
+                        title,
+                        contentMarkdown),
                     cancellationToken);
             }
             catch (ArgumentException ex)
@@ -87,7 +97,7 @@ public static class KickOffPlan
                 Result<(Guid WorkspaceId, string Path)> worktreeResult = await ProvisionWorktreeAsync(
                     project,
                     repositoryPath,
-                    command.PlanId,
+                    planId,
                     command.BaseBranch,
                     cancellationToken);
 
@@ -100,6 +110,8 @@ public static class KickOffPlan
                 childWorkspacePath = worktreeResult.Value.Path;
             }
 
+            // Always write (or re-write) the plan file in the child workspace so worktree
+            // kickoffs get a ported copy of the persisted markdown.
             string planFilePath;
             try
             {
@@ -107,9 +119,21 @@ public static class KickOffPlan
                     .GetStrategy(OrchiArtifactKind.Plan)
                     .WriteAsync(
                         childWorkspacePath,
-                        command.PlanId,
-                        command.ContentMarkdown,
+                        planId,
+                        contentMarkdown,
                         cancellationToken);
+
+                // Keep the parent workspace copy in sync when kickoff uses a worktree.
+                if (!string.Equals(childWorkspacePath, parent.WorkspacePath, StringComparison.OrdinalIgnoreCase))
+                {
+                    await artifactWriterFactory
+                        .GetStrategy(OrchiArtifactKind.Plan)
+                        .WriteAsync(
+                            parent.WorkspacePath,
+                            planId,
+                            contentMarkdown,
+                            cancellationToken);
+                }
             }
             catch (ArgumentException ex)
             {
@@ -142,6 +166,73 @@ public static class KickOffPlan
                 planFilePath,
                 initialPrompt,
                 kickoffMessage));
+        }
+
+        private async Task<Result<(string PlanId, string Title, string ContentMarkdown)>> ResolvePlanContentAsync(
+            ChatSession parent,
+            Command command,
+            CancellationToken cancellationToken)
+        {
+            string planId;
+            try
+            {
+                planId = OrchiArtifactFileStore.SanitizePlanId(command.PlanId);
+            }
+            catch (ArgumentException ex)
+            {
+                return Result.Failure<(string, string, string)>(Error.Validation("PlanId.Invalid", ex.Message));
+            }
+
+            if (!string.IsNullOrWhiteSpace(command.ContentMarkdown))
+            {
+                string title = string.IsNullOrWhiteSpace(command.Title)
+                    ? ExtractTitle(command.ContentMarkdown)
+                    : command.Title.Trim();
+
+                return Result.Success((planId, title, command.ContentMarkdown.Trim()));
+            }
+
+            StoredPlan? stored = await planStore.GetAsync(parent.Id, planId, cancellationToken);
+            if (stored is null)
+            {
+                await planMaterializer.MaterializeAsync(parent, cancellationToken);
+                stored = await planStore.GetAsync(parent.Id, planId, cancellationToken);
+            }
+
+            if (stored is not null)
+            {
+                string title = string.IsNullOrWhiteSpace(command.Title) ? stored.Title : command.Title.Trim();
+                return Result.Success((stored.PlanId, title, stored.ContentMarkdown));
+            }
+
+            string? fromMessages = PlanMarkdownParser.TryExtractPlanFromMessages(parent.Messages, planId);
+            if (fromMessages is not null)
+            {
+                string title = string.IsNullOrWhiteSpace(command.Title)
+                    ? ExtractTitle(fromMessages)
+                    : command.Title.Trim();
+
+                return Result.Success((planId, title, fromMessages));
+            }
+
+            return Result.Failure<(string, string, string)>(
+                Error.Validation(
+                    "Plan.NotFound",
+                    $"Plan '{planId}' was not found in the plan store, workspace files, or chat messages."));
+        }
+
+        private static string ExtractTitle(string content)
+        {
+            foreach (string line in content.Split('\n'))
+            {
+                string trimmed = line.Trim();
+                if (trimmed.StartsWith("# ", StringComparison.Ordinal))
+                {
+                    return trimmed[2..].Trim();
+                }
+            }
+
+            return "Untitled plan";
         }
 
         private async Task<Result<(Guid WorkspaceId, string Path)>> ProvisionWorktreeAsync(
@@ -204,10 +295,6 @@ public static class KickOffPlan
             RuleFor(command => command.PlanId)
                 .NotEmpty()
                 .WithMessage("Plan id is required.");
-
-            RuleFor(command => command.ContentMarkdown)
-                .NotEmpty()
-                .WithMessage("Plan content is required.");
         }
     }
 

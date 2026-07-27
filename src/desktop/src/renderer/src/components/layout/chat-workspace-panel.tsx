@@ -93,7 +93,6 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
         : { plans: [], sequencePlanIds: [] as string[] },
     [chat.mode, chat.messages]
   )
-  const plans = orchestrationParse.plans
   const parentChat =
     chat.parentChatId && chat.mode !== 'orchestration' ? getChat(chat.parentChatId) : undefined
   const childCount = getChildChats(chat.id).length
@@ -133,12 +132,19 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
     [getChat, loadChat]
   )
 
-  const { workflowProgress, sequencePlanIds: backendSequencePlanIds } = useOrchestration({
+  const {
+    workflowProgress,
+    sequencePlanIds: backendSequencePlanIds,
+    plans: backendPlans
+  } = useOrchestration({
     parentChatId: needsHydration ? chat.id : undefined,
     parentChat: needsHydration ? chat : undefined,
     getChat,
     loadChat,
     enabled: needsHydration,
+    refreshKey: needsHydration
+      ? `${chat.messages.at(-1)?.id ?? ''}:${chat.messages.at(-1)?.status ?? ''}:${chat.messages.length}`
+      : undefined,
     onWorkflowProgress,
     onChildrenHydrated
   })
@@ -150,6 +156,19 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
     getChat,
     loadChat
   })
+  const isAgentRunning = chat.messages.some(
+    (message) => message.status === 'processing' || message.status === 'streaming'
+  )
+  // Prefer persisted plan markdown from the API once the turn is idle; while streaming,
+  // keep parsing chat markers so cards appear live.
+  const plans =
+    !isAgentRunning && backendPlans.length > 0
+      ? backendPlans.map((plan) => ({
+          planId: plan.planId,
+          title: plan.title,
+          contentMarkdown: plan.contentMarkdown
+        }))
+      : orchestrationParse.plans
   const sequencePlanIds =
     backendSequencePlanIds.length > 0 ? backendSequencePlanIds : orchestrationParse.sequencePlanIds
   const orchestrationKickoffProgress = workflowProgress ?? getOrchestrationKickoffProgress(chat.id)
@@ -201,9 +220,6 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
     }
   }, [childChatIds, getChat, loadChat, needsHydration])
 
-  const isAgentRunning = chat.messages.some(
-    (message) => message.status === 'processing' || message.status === 'streaming'
-  )
   const showModeSelector = chat.messages.length === 0 && chat.parentChatId === null
   const canChangeMode = showModeSelector && !isAgentRunning
   const canChangeProject = isLocalChat(chat.id) && showModeSelector

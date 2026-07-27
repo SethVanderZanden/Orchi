@@ -35,6 +35,10 @@ public sealed class OrchestrationAgentModeStrategy : IAgentModeStrategy
 
     Output each plan using the exact format described in the context section.
 
+    After emitting plan blocks, also write each plan body to `.orchi/plan-{id}.md` in the workspace (create `.orchi/` if needed). Orchi loads and revises these markdown files directly — they are the durable plan artifacts.
+
+    When the user asks you to update an existing plan, prefer editing `.orchi/plan-{id}.md` in place (and re-emit the updated `orchi-plan` block in your reply so the chat stays in sync). Do not invent a new plan id for a revision of the same work.
+
     Plans must be as complete and actionable as possible. The kickoff implementation agent should not need to ask follow-up questions unless the original user request is genuinely missing required business or technical decisions.
 
     Before producing plans, reason about whether the work can be safely split. Prefer fewer, better-scoped plans over many shallow plans.
@@ -65,7 +69,14 @@ public sealed class OrchestrationAgentModeStrategy : IAgentModeStrategy
 
 
     internal const string Context = """
-    Output each plan using this exact format:
+    Persist each plan as a markdown file and also emit it in chat using this exact format.
+
+    File path (required): `.orchi/plan-{kebab-case-id}.md`
+    - Write the plan body (everything between the markers, without the HTML comment markers) to that path.
+    - Orchi stores revisions of these files and loads them for kickoff / plan review.
+    - When revising a plan, edit the existing file at that path; keep the same plan id.
+
+    Chat marker format (required so Orchi can detect plans while streaming):
 
     ```
     <!-- orchi-plan:kebab-case-id -->

@@ -8,6 +8,7 @@ using Orchi.Api.Infrastructure.Agents.Modes.Prompt;
 using Orchi.Api.Infrastructure.Agents.Modes.Prompt.Behaviours;
 using Orchi.Api.Infrastructure.Agents.Persistence;
 using Orchi.Api.Infrastructure.Agents.Search;
+using Orchi.Api.Infrastructure.Agents.Plans;
 using Orchi.Api.Infrastructure.Agents.Plans.Artifacts;
 using Orchi.Api.Infrastructure.Agents.Plans.Persistence;
 using Orchi.Api.Infrastructure.Agents.Orchestration;
@@ -67,6 +68,7 @@ public static class AgentsExtensions
         services.AddSingleton<IScriptEventDispatcher, ScriptEventDispatcher>();
         services.AddSingleton<EfPlanStore>();
         services.AddSingleton<IPlanStore, CachingPlanStore>();
+        services.AddSingleton<IPlanMaterializer, PlanMaterializer>();
         services.AddSingleton<EfOrchestrationWorkflowStore>();
         services.AddSingleton<IOrchestrationWorkflowStore, EfOrchestrationWorkflowStore>();
         services.AddSingleton<OrchestrationEventHub>();

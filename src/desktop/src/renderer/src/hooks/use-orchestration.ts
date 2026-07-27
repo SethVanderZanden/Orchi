@@ -15,7 +15,7 @@ import {
   subscribeOrchestrationEvents
 } from '@/lib/orchestration/orchestration-events'
 
-import type { OrchestrationWorkflowProgress } from '@/lib/orchestration/orchestration-state'
+import type { OrchestrationPlanResponse, OrchestrationWorkflowProgress } from '@/lib/orchestration/orchestration-state'
 import {
   workflowProgressFromState,
   workflowProgressFromWorkflowEvent
@@ -27,6 +27,8 @@ type UseOrchestrationOptions = {
   getChat: (chatId: string) => ChatThread | undefined
   loadChat?: (chatId: string) => Promise<ChatThread | undefined>
   enabled: boolean
+  /** Re-seed orchestration state when this changes (e.g. parent turn completes). */
+  refreshKey?: string
   onWorkflowProgress?: (progress: OrchestrationWorkflowProgress | null) => void
   onChildrenHydrated?: (childIds: string[]) => void
 }
@@ -37,11 +39,13 @@ export function useOrchestration({
   getChat,
   loadChat,
   enabled,
+  refreshKey,
   onWorkflowProgress,
   onChildrenHydrated
 }: UseOrchestrationOptions): {
   workflowProgress: OrchestrationWorkflowProgress | null
   sequencePlanIds: string[]
+  plans: OrchestrationPlanResponse[]
 } {
   const queryClient = useQueryClient()
 
@@ -49,6 +53,7 @@ export function useOrchestration({
     null
   )
   const [sequencePlanIds, setSequencePlanIds] = useState<string[]>([])
+  const [plans, setPlans] = useState<OrchestrationPlanResponse[]>([])
 
   const parentChatRef = useLiveRef(parentChat)
   const getChatRef = useLiveRef(getChat)
@@ -88,6 +93,7 @@ export function useOrchestration({
             onChildrenHydratedRef.current?.(newChildIds)
           }
           setSequencePlanIds(state.sequencePlanIds)
+          setPlans(state.plans)
           emitWorkflowProgress(workflowProgressFromState(state))
         }
       } catch {
@@ -133,8 +139,13 @@ export function useOrchestration({
     onWorkflowProgressRef,
     parentChatId,
     parentChatRef,
-    queryClient
+    queryClient,
+    refreshKey
   ])
 
-  return { workflowProgress: isTracking ? workflowProgress : null, sequencePlanIds }
+  return {
+    workflowProgress: isTracking ? workflowProgress : null,
+    sequencePlanIds,
+    plans: isTracking ? plans : []
+  }
 }
