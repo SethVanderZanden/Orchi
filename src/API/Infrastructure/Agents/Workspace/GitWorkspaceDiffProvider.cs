@@ -8,6 +8,12 @@ public sealed class GitWorkspaceDiffProvider : IWorkspaceDiffProvider
 {
     internal const int MaxDiffChars = 512_000;
 
+    /// <summary>
+    /// Git accepts <c>/dev/null</c> as the empty-tree side of <c>git diff --no-index</c>
+    /// on both Unix and Windows (Git for Windows).
+    /// </summary>
+    private const string EmptyBlobPath = "/dev/null";
+
     internal static string? TryGetHeadRevision(string workspacePath)
     {
         if (string.IsNullOrWhiteSpace(workspacePath) || !Directory.Exists(workspacePath))
@@ -37,9 +43,11 @@ public sealed class GitWorkspaceDiffProvider : IWorkspaceDiffProvider
         }
 
         string uncommitted = RunGit(workspacePath, "diff", "HEAD");
-        if (!string.IsNullOrWhiteSpace(uncommitted))
+        string untracked = BuildUntrackedDiff(workspacePath);
+        string combined = CombineDiffParts(uncommitted, untracked);
+        if (!string.IsNullOrWhiteSpace(combined))
         {
-            return FormatSection("git diff HEAD", Truncate(uncommitted));
+            return FormatSection(DescribeDiffSource(uncommitted, untracked), Truncate(combined));
         }
 
         string lastCommit = RunGit(workspacePath, "show", "HEAD", "--format=", "--patch", "--no-color");
@@ -48,7 +56,7 @@ public sealed class GitWorkspaceDiffProvider : IWorkspaceDiffProvider
             return FormatSection("git show HEAD", Truncate(lastCommit));
         }
 
-        return "No changes detected (git diff HEAD and git show HEAD are empty).";
+        return "No changes detected (git diff HEAD, untracked files, and git show HEAD are empty).";
     }
 
     public WorkspaceDiffStats? TryGetDiffStats(string workspacePath)
@@ -65,9 +73,11 @@ public sealed class GitWorkspaceDiffProvider : IWorkspaceDiffProvider
 
         IReadOnlyList<WorkspaceDiffStatsEntry> uncommitted = ParseNumStat(
             RunGit(workspacePath, "diff", "--numstat", "HEAD"));
-        if (uncommitted.Count > 0)
+        IReadOnlyList<WorkspaceDiffStatsEntry> untracked = BuildUntrackedDiffStats(workspacePath);
+        IReadOnlyList<WorkspaceDiffStatsEntry> combined = CombineStatsEntries(uncommitted, untracked);
+        if (combined.Count > 0)
         {
-            return BuildStats(uncommitted, "git diff --numstat HEAD");
+            return BuildStats(combined, DescribeDiffStatsSource(uncommitted, untracked));
         }
 
         IReadOnlyList<WorkspaceDiffStatsEntry> lastCommit = ParseNumStat(
@@ -128,6 +138,174 @@ public sealed class GitWorkspaceDiffProvider : IWorkspaceDiffProvider
                trimmed.StartsWith("error:", StringComparison.OrdinalIgnoreCase) ||
                trimmed.Contains("unknown revision", StringComparison.OrdinalIgnoreCase) ||
                trimmed.Contains("bad revision", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string BuildUntrackedDiff(string workspacePath)
+    {
+        IReadOnlyList<string> files = ListUntrackedFiles(workspacePath);
+        if (files.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var builder = new StringBuilder();
+        foreach (string file in files)
+        {
+            // Exit code 1 with stdout is expected when the file differs from /dev/null.
+            string fileDiff = RunGit(
+                workspacePath,
+                "diff",
+                "--no-color",
+                "--no-index",
+                "--",
+                EmptyBlobPath,
+                file);
+
+            if (string.IsNullOrWhiteSpace(fileDiff) || LooksLikeGitError(fileDiff))
+            {
+                continue;
+            }
+
+            if (builder.Length > 0)
+            {
+                builder.Append('\n');
+            }
+
+            builder.Append(fileDiff.TrimEnd());
+            builder.Append('\n');
+
+            if (builder.Length >= MaxDiffChars)
+            {
+                break;
+            }
+        }
+
+        return builder.ToString();
+    }
+
+    private static IReadOnlyList<WorkspaceDiffStatsEntry> BuildUntrackedDiffStats(string workspacePath)
+    {
+        IReadOnlyList<string> files = ListUntrackedFiles(workspacePath);
+        if (files.Count == 0)
+        {
+            return [];
+        }
+
+        var entries = new List<WorkspaceDiffStatsEntry>(files.Count);
+        foreach (string file in files)
+        {
+            string numstat = RunGit(
+                workspacePath,
+                "diff",
+                "--numstat",
+                "--no-index",
+                "--",
+                EmptyBlobPath,
+                file);
+
+            IReadOnlyList<WorkspaceDiffStatsEntry> parsed = ParseNumStat(numstat);
+            if (parsed.Count == 0)
+            {
+                // Still surface empty or oddly reported new files in the stats table.
+                entries.Add(new WorkspaceDiffStatsEntry(file, 0, 0));
+                continue;
+            }
+
+            // --no-index reports paths as "/dev/null => file"; keep the workspace-relative path.
+            WorkspaceDiffStatsEntry first = parsed[0];
+            entries.Add(new WorkspaceDiffStatsEntry(file, first.Added, first.Removed));
+        }
+
+        return entries;
+    }
+
+    private static IReadOnlyList<string> ListUntrackedFiles(string workspacePath)
+    {
+        // -z: NUL-delimited, unquoted paths (handles spaces); --exclude-standard honors .gitignore.
+        string output = RunGit(workspacePath, "ls-files", "-z", "--others", "--exclude-standard");
+        if (string.IsNullOrEmpty(output) || LooksLikeGitError(output))
+        {
+            return [];
+        }
+
+        return output
+            .Split('\0', StringSplitOptions.RemoveEmptyEntries)
+            .Select(path => path.Trim())
+            .Where(path => path.Length > 0)
+            .ToArray();
+    }
+
+    private static string CombineDiffParts(string tracked, string untracked)
+    {
+        bool hasTracked = !string.IsNullOrWhiteSpace(tracked);
+        bool hasUntracked = !string.IsNullOrWhiteSpace(untracked);
+        if (!hasTracked)
+        {
+            return hasUntracked ? untracked.TrimEnd() + "\n" : string.Empty;
+        }
+
+        if (!hasUntracked)
+        {
+            return tracked;
+        }
+
+        return tracked.TrimEnd() + "\n" + untracked.TrimEnd() + "\n";
+    }
+
+    private static IReadOnlyList<WorkspaceDiffStatsEntry> CombineStatsEntries(
+        IReadOnlyList<WorkspaceDiffStatsEntry> tracked,
+        IReadOnlyList<WorkspaceDiffStatsEntry> untracked)
+    {
+        if (tracked.Count == 0)
+        {
+            return untracked;
+        }
+
+        if (untracked.Count == 0)
+        {
+            return tracked;
+        }
+
+        var combined = new List<WorkspaceDiffStatsEntry>(tracked.Count + untracked.Count);
+        combined.AddRange(tracked);
+        combined.AddRange(untracked);
+        return combined;
+    }
+
+    private static string DescribeDiffSource(string tracked, string untracked)
+    {
+        bool hasTracked = !string.IsNullOrWhiteSpace(tracked);
+        bool hasUntracked = !string.IsNullOrWhiteSpace(untracked);
+        if (hasTracked && hasUntracked)
+        {
+            return "git diff HEAD (+ untracked)";
+        }
+
+        if (hasUntracked)
+        {
+            return "untracked files (git diff --no-index)";
+        }
+
+        return "git diff HEAD";
+    }
+
+    private static string DescribeDiffStatsSource(
+        IReadOnlyList<WorkspaceDiffStatsEntry> tracked,
+        IReadOnlyList<WorkspaceDiffStatsEntry> untracked)
+    {
+        bool hasTracked = tracked.Count > 0;
+        bool hasUntracked = untracked.Count > 0;
+        if (hasTracked && hasUntracked)
+        {
+            return "git diff --numstat HEAD (+ untracked)";
+        }
+
+        if (hasUntracked)
+        {
+            return "untracked files (git diff --numstat --no-index)";
+        }
+
+        return "git diff --numstat HEAD";
     }
 
     private static bool IsGitRepository(string workspacePath)

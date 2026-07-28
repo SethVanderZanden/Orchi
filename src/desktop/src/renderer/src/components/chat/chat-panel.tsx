@@ -105,6 +105,8 @@ type ChatPanelProps = {
 
   workspaceName: string | null
 
+  workspacePath?: string | null
+
   projectName: string | null
 
   projects: Project[]
@@ -208,6 +210,8 @@ export function ChatPanel({
   workspaceId,
 
   workspaceName,
+
+  workspacePath,
 
   projectName,
 
@@ -440,6 +444,7 @@ export function ChatPanel({
                       messages={messages}
                       markers={markers}
                       mode={mode}
+                      workspacePath={workspacePath}
                     />
 
                     {showPlanReview ? (
@@ -490,6 +495,7 @@ export function ChatPanel({
           parentChatId={parentChatId!}
           childChats={childChats}
           reviewPlansByPlanId={reviewPlansByPlanId}
+          workspacePath={workspacePath}
           isPlanKickingOff={isPlanKickingOff!}
           onSelectTab={(planId) => dispatchReview({ type: 'select-tab', planId })}
           onCloseTab={(planId) => dispatchReview({ type: 'close-tab', planId })}

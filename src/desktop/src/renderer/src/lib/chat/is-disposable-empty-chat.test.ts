@@ -58,6 +58,10 @@ describe('isDisposableEmptyChat', () => {
     takeComposerDraft('chat-1')
   })
 
+  it('returns false while the chat is sending or preparing', () => {
+    expect(isDisposableEmptyChat(createChat(), 'chat-1', { isSending: true })).toBe(false)
+  })
+
   it('returns false when the chat is missing', () => {
     expect(isDisposableEmptyChat(undefined, 'chat-1')).toBe(false)
   })

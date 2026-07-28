@@ -96,7 +96,8 @@ export function ChatTabsProvider({ children }: { children: ReactNode }): React.J
     sendMessage,
     deleteChat,
     evictChatDetail,
-    getChildChats
+    getChildChats,
+    isChatSending
   } = useChat()
   const { projects, addProject, pickDirectory } = useProjects()
 
@@ -194,7 +195,7 @@ export function ChatTabsProvider({ children }: { children: ReactNode }): React.J
     (chatId: string) => {
       const chat = getChat(chatId)
 
-      if (isDisposableEmptyChat(chat, chatId)) {
+      if (isDisposableEmptyChat(chat, chatId, { isSending: isChatSending(chatId) })) {
         clearComposerDraft(chatId)
         void deleteChat(chatId)
         return
@@ -228,7 +229,7 @@ export function ChatTabsProvider({ children }: { children: ReactNode }): React.J
       })
       evictClosedChatCache(chatId)
     },
-    [deleteChat, evictClosedChatCache, getChat, navigateToTab]
+    [deleteChat, evictClosedChatCache, getChat, isChatSending, navigateToTab]
   )
 
   const closeAllTabs = useCallback(

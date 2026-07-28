@@ -20,7 +20,8 @@ public class FileReferenceContributorTests
         _contributor.Contribute(context, document);
 
         Assert.Contains("<orchi-open-editor>", document.Rules);
-        Assert.Contains("code {workspacePath} -g {relativePath}:{line}", document.Rules);
+        Assert.Contains("code /workspace/project -g {relativePath}:{line}", document.Rules);
+        Assert.Contains("Do not substitute a primary/main checkout", document.Rules);
     }
 
     [Fact]

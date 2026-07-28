@@ -25,6 +25,7 @@ type PlanReviewPanelProps = {
   parentChatId: string
   childChats?: ChatThread[]
   reviewPlansByPlanId?: Record<string, ParsedReviewPlan | undefined>
+  workspacePath?: string | null
   isPlanKickingOff: (parentChatId: string, planId: string) => boolean
   onSelectTab: (planId: string) => void
   onCloseTab: (planId: string) => void
@@ -40,6 +41,7 @@ export function PlanReviewPanel({
   parentChatId,
   childChats = [],
   reviewPlansByPlanId = {},
+  workspacePath,
   isPlanKickingOff,
   onSelectTab,
   onCloseTab,
@@ -167,7 +169,10 @@ export function PlanReviewPanel({
             <ScrollArea className="min-h-0 flex-1">
               <div className="min-w-0 max-w-full space-y-2 break-words px-4 py-4">
                 <p className="truncate text-xs text-muted-foreground">{activePlan.planId}</p>
-                <MarkdownContent className="min-w-0 w-full max-w-full">
+                <MarkdownContent
+                  className="min-w-0 w-full max-w-full"
+                  workspacePath={workspacePath}
+                >
                   {showingReview ? activeReviewPlan!.contentMarkdown : activePlan.contentMarkdown}
                 </MarkdownContent>
               </div>

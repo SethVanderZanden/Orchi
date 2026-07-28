@@ -358,6 +358,7 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
         projectId={chat.projectId}
         workspaceId={chat.workspaceId}
         workspaceName={workspace?.name ?? null}
+        workspacePath={chat.workspacePath}
         projectName={projectName}
         projects={projects}
         canChangeWorkspace={canChangeWorkspace}

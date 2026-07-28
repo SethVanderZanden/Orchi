@@ -8,6 +8,7 @@ type AssistantMessageContentProps = {
   content: string
   status: ChatMessage['status']
   className?: string
+  workspacePath?: string | null
 }
 
 /**
@@ -17,7 +18,8 @@ type AssistantMessageContentProps = {
 export const AssistantMessageContent = memo(function AssistantMessageContent({
   content,
   status,
-  className
+  className,
+  workspacePath
 }: AssistantMessageContentProps): React.JSX.Element {
   const isStreaming = status === 'processing' || status === 'streaming'
 
@@ -27,5 +29,9 @@ export const AssistantMessageContent = memo(function AssistantMessageContent({
     )
   }
 
-  return <MarkdownContent className={className}>{content}</MarkdownContent>
+  return (
+    <MarkdownContent className={className} workspacePath={workspacePath}>
+      {content}
+    </MarkdownContent>
+  )
 })

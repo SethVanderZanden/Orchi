@@ -41,6 +41,15 @@ function ChatPage(): React.JSX.Element {
   }
 
   if (!chat) {
+    // Local drafts are removed from cache on promote; avoid bouncing through "/" mid-transition.
+    if (isLocalDraft) {
+      return (
+        <div className="flex h-full items-center justify-center">
+          <p className="text-sm text-muted-foreground">Loading chat…</p>
+        </div>
+      )
+    }
+
     return <Navigate to="/" replace />
   }
 

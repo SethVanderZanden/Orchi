@@ -49,6 +49,14 @@ export function SplitChatPane({ chatId, onCloseSplit }: SplitChatPaneProps): Rea
   }
 
   if (!chat) {
+    if (isLocalDraft) {
+      return (
+        <div className="flex h-full items-center justify-center border-l border-border">
+          <p className="text-sm text-muted-foreground">Loading chat…</p>
+        </div>
+      )
+    }
+
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 border-l border-border px-4">
         <p className="text-sm text-muted-foreground">Chat not found.</p>

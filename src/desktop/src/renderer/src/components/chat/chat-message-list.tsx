@@ -23,6 +23,7 @@ type ChatMessageListProps = {
   markers: ChatMarker[]
   mode: AgentMode
   hideEmptyState?: boolean
+  workspacePath?: string | null
 }
 
 export function OrchiChatMessageList({
@@ -30,7 +31,8 @@ export function OrchiChatMessageList({
   messages,
   markers,
   mode,
-  hideEmptyState = false
+  hideEmptyState = false,
+  workspacePath
 }: ChatMessageListProps): React.JSX.Element | null {
   if (messages.length === 0 && markers.length === 0) {
     if (hideEmptyState) {
@@ -79,6 +81,7 @@ export function OrchiChatMessageList({
               showEmptyResponse={display.showEmptyResponse}
               markers={rowMarkers}
               mode={mode}
+              workspacePath={workspacePath}
             />
           </MessageScrollerItem>
         )
@@ -96,6 +99,7 @@ type ChatMessageRowProps = {
   showEmptyResponse: boolean
   markers: ChatMarker[]
   mode: AgentMode
+  workspacePath?: string | null
 }
 
 const ChatMessageRow = memo(function ChatMessageRow({
@@ -106,7 +110,8 @@ const ChatMessageRow = memo(function ChatMessageRow({
   showActivity,
   showEmptyResponse,
   markers,
-  mode
+  mode,
+  workspacePath
 }: ChatMessageRowProps): React.JSX.Element {
   if (message.role === 'user') {
     return (
@@ -115,7 +120,9 @@ const ChatMessageRow = memo(function ChatMessageRow({
           <MessageSelectionMenu>
             <Bubble>
               <BubbleContent className="overflow-x-auto">
-                {message.content ? <MarkdownContent>{message.content}</MarkdownContent> : null}
+                {message.content ? (
+                  <MarkdownContent workspacePath={workspacePath}>{message.content}</MarkdownContent>
+                ) : null}
                 {message.attachments?.length ? (
                   <MessageAttachments chatId={chatId} attachments={message.attachments} />
                 ) : null}
@@ -151,6 +158,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
             <AssistantMessageContent
               content={displayContent}
               status={message.status}
+              workspacePath={workspacePath}
               className={message.status === 'error' ? 'prose-base text-destructive' : 'prose-base'}
             />
           ) : null}

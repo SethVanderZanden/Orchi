@@ -15,8 +15,9 @@ import { createMessageStreamHandlers } from '@/lib/chat/message-stream-handlers'
 import { registerChatIdMigrator } from '@/lib/chat/migrate-chat-client-state'
 import { resolveDetailCache } from '@/lib/chat/resolve-detail-cache'
 import { maybeHydrateOrchestrationAfterChildSend } from '@/lib/orchestration/orchestration-cache'
-import { promoteLocalChat } from '@/lib/chat/promote-local-chat'
+import { clearLocalChatDetailBridge, promoteLocalChat } from '@/lib/chat/promote-local-chat'
 import { provisionWorktreeForSendIfNeeded } from '@/lib/chat/provision-worktree-for-send'
+import { isWorktreeIntentEnabled } from '@/lib/chat/worktree-intent'
 import type { ChatMarker, ChatThread, SendMessageOptions } from '@/lib/chat/types'
 import { chatKeys } from '@/lib/query-keys'
 
@@ -219,26 +220,25 @@ export function useChatStream({
     async (chatId: string, content: string, options?: SendMessageOptions) => {
       let resolvedChatId = chatId
       let resolvedAttachmentIds = [...(options?.attachmentIds ?? [])]
+      // Capture before promote/navigate; activeChatId in this closure stays the pre-send id.
+      const wasActiveChat = chatId === activeChatId
+
+      // Mark sending before promote/worktree so the UI never treats the new chat as empty
+      // disposable or "Loading chat…" during the (often slow) worktree window.
+      markChatSending(chatId, true)
 
       try {
         if (isLocalChat(chatId)) {
           resolvedChatId = await promoteLocalChat(queryClient, chatId)
-          if (activeChatId === chatId) {
-            navigate({
-              to: '/chat/$chatId',
-              params: { chatId: resolvedChatId },
-              replace: true
-            })
-          }
         }
 
-        await provisionWorktreeForSendIfNeeded(queryClient, resolvedChatId)
-
-        for (const file of options?.pendingAttachmentFiles ?? []) {
-          const uploaded = await uploadChatAttachment(resolvedChatId, file)
-          resolvedAttachmentIds.push(uploaded.id)
-        }
+        // Re-assert after promote: setState may not have flushed before the id migrator ran.
+        markChatSending(resolvedChatId, true)
       } catch (error) {
+        markChatSending(chatId, false)
+        if (resolvedChatId !== chatId) {
+          markChatSending(resolvedChatId, false)
+        }
         const message = error instanceof Error ? error.message : 'Failed to prepare chat.'
         toast.error(message)
         return
@@ -256,7 +256,6 @@ export function useChatStream({
       const isActiveTurn = (): boolean =>
         turnGenerationByChatRef.current.get(resolvedChatId) === turnGeneration
 
-      markChatSending(resolvedChatId, true)
       clearMarkers(resolvedChatId)
 
       const assistantMessageId = crypto.randomUUID()
@@ -270,7 +269,9 @@ export function useChatStream({
         )
       )
 
-      queryClient.setQueryData<ChatThread>(chatKeys.detail(resolvedChatId), (current) => {
+      // Append optimistic messages before worktree provisioning so the chat is never blank
+      // while git worktree creation runs.
+      const withOptimisticMessages = (current: ChatThread | undefined): ChatThread | undefined => {
         const base = current ?? resolveDetailCache(queryClient, resolvedChatId, getChat)
         if (!base) {
           return current
@@ -281,8 +282,59 @@ export function useChatStream({
           content,
           assistantMessageId
         )
-      })
+      }
 
+      queryClient.setQueryData<ChatThread>(chatKeys.detail(resolvedChatId), withOptimisticMessages)
+
+      // Mirror onto the local bridge (if still on /chat/local:…) so the panel does not flash
+      // empty before navigate replaces the route.
+      if (chatId !== resolvedChatId) {
+        queryClient.setQueryData<ChatThread>(chatKeys.detail(chatId), (current) => {
+          const next = withOptimisticMessages(
+            current ? { ...current, id: resolvedChatId } : current
+          )
+          return next ? { ...next, id: chatId } : current
+        })
+
+        if (wasActiveChat) {
+          navigate({
+            to: '/chat/$chatId',
+            params: { chatId: resolvedChatId },
+            replace: true
+          })
+        }
+        clearLocalChatDetailBridge(queryClient, chatId)
+      }
+
+      try {
+        if (isWorktreeIntentEnabled(resolvedChatId)) {
+          appendMarker(resolvedChatId, {
+            id: crypto.randomUUID(),
+            content: 'Setting up worktree…',
+            variant: 'status'
+          })
+        }
+
+        await provisionWorktreeForSendIfNeeded(queryClient, resolvedChatId)
+
+        for (const file of options?.pendingAttachmentFiles ?? []) {
+          const uploaded = await uploadChatAttachment(resolvedChatId, file)
+          resolvedAttachmentIds.push(uploaded.id)
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to prepare chat.'
+        updateAssistantMessage(resolvedChatId, assistantMessageId, (currentMessage) => ({
+          ...currentMessage,
+          content: currentMessage.content || message,
+          status: 'error'
+        }))
+        clearMarkers(resolvedChatId)
+        releaseStream(resolvedChatId, controller)
+        toast.error(message)
+        return
+      }
+
+      clearMarkers(resolvedChatId)
       appendMarker(resolvedChatId, {
         id: crypto.randomUUID(),
         content: 'Agent is working…',
@@ -348,11 +400,7 @@ export function useChatStream({
           loadChat
         )
 
-        if (
-          !options?.skipPostMessageBehavior &&
-          applyPostMessageBehavior &&
-          resolvedChatId === activeChatId
-        ) {
+        if (!options?.skipPostMessageBehavior && applyPostMessageBehavior && wasActiveChat) {
           await applyPostMessageBehavior(resolvedChatId)
         }
       } catch (error) {

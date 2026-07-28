@@ -216,11 +216,15 @@ export function useChatOrchestration({
 
       queryClient.setQueryData(chatKeys.detail(childChat.id), childChat)
 
+      const sendPromise = sendMessage(childChat.id, response.kickoffMessage, {
+        skipPostMessageBehavior: true
+      })
+
       if (navigateToChild) {
         navigate({ to: '/chat/$chatId', params: { chatId: childChat.id } })
       }
 
-      await sendMessage(childChat.id, response.kickoffMessage, { skipPostMessageBehavior: true })
+      await sendPromise
     },
     [getChat, navigate, queryClient, sendMessage]
   )
