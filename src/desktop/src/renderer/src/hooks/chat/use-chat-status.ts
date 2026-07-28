@@ -7,7 +7,7 @@ import { getChatStatusVariant, type ChatStatusVariant } from '@/lib/chat/chat-st
 import { mergeChatThread } from '@/lib/chat/merge-chat-lists'
 import { preferChatStatus } from '@/lib/chat/prefer-chat-status'
 import { needsOrchestrationHydration } from '@/lib/orchestration/needs-orchestration-hydration'
-import type { ChatThread } from '@/lib/chat/types'
+import type { ChatStatus, ChatThread } from '@/lib/chat/types'
 import { chatKeys } from '@/lib/query-keys'
 
 type UseChatStatusOptions = {
@@ -28,6 +28,17 @@ function applyStatusToCaches(
   queryClient: ReturnType<typeof useQueryClient>,
   summary: ChatThread
 ): void {
+  // Mark-read must not clear an in-flight turn. Kickoff navigates to a child that
+  // is still Read on the server; the mark-read response would otherwise force Done
+  // before InProgress lands. Idle InProgress→Read still arrives via status SSE.
+  const nextStatus = (current: ChatStatus | undefined): ChatStatus => {
+    if (current === 'inProgress' && summary.status === 'read') {
+      return current
+    }
+
+    return preferChatStatus(current, summary.status)
+  }
+
   queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) =>
     current.map((chat) => {
       if (chat.id !== summary.id) {
@@ -36,7 +47,7 @@ function applyStatusToCaches(
 
       return mergeChatThread(chat, {
         ...chat,
-        status: preferChatStatus(chat.status, summary.status),
+        status: nextStatus(chat.status),
         lastReadAt: summary.lastReadAt,
         updatedAt: summary.updatedAt
       })
@@ -50,7 +61,7 @@ function applyStatusToCaches(
 
     return {
       ...current,
-      status: preferChatStatus(current.status, summary.status),
+      status: nextStatus(current.status),
       lastReadAt: summary.lastReadAt,
       updatedAt: summary.updatedAt || current.updatedAt
     }
@@ -68,9 +79,17 @@ export function useChatStatus({
   const queryClient = useQueryClient()
   const activeChat = activeChatId ? getChat(activeChatId) : undefined
   const activeStatus = activeChat?.status
+  const isActiveSending = activeChatId ? isChatSending(activeChatId) : false
 
   useEffect(() => {
     if (!activeChatId || isLocalChat(activeChatId)) {
+      return
+    }
+
+    // Kickoff/send navigates to a child before the agent turn is running on the
+    // server. Mark-read in that window clears status to Read (Done) and races
+    // with InProgress. Defer until the local send finishes.
+    if (isActiveSending) {
       return
     }
 
@@ -91,7 +110,7 @@ export function useChatStatus({
     return () => {
       cancelled = true
     }
-  }, [activeChatId, activeStatus, queryClient])
+  }, [activeChatId, activeStatus, isActiveSending, queryClient])
 
   useEffect(() => {
     if (!activeChatId || isLocalChat(activeChatId)) {

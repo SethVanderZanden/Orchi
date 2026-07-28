@@ -7,14 +7,18 @@ describe('preferChatStatus', () => {
     expect(preferChatStatus(undefined, 'inProgress')).toBe('inProgress')
   })
 
-  it('keeps readyForReview / read when incoming is a late inProgress', () => {
+  it('keeps readyForReview when incoming is a late inProgress', () => {
     expect(preferChatStatus('readyForReview', 'inProgress')).toBe('readyForReview')
-    expect(preferChatStatus('read', 'inProgress')).toBe('read')
+  })
+
+  it('allows inProgress after read so kickoff can leave Done', () => {
+    expect(preferChatStatus('read', 'inProgress')).toBe('inProgress')
   })
 
   it('allows upgrades and same-value updates', () => {
     expect(preferChatStatus('inProgress', 'readyForReview')).toBe('readyForReview')
     expect(preferChatStatus('readyForReview', 'read')).toBe('read')
     expect(preferChatStatus('read', 'read')).toBe('read')
+    expect(preferChatStatus('inProgress', 'read')).toBe('read')
   })
 })

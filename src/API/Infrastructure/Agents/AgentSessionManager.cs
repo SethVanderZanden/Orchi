@@ -1071,9 +1071,10 @@ public sealed class AgentSessionManager
             return;
         }
 
-        // A late mark-read snapshot must not clobber ReadyForReview / Read with InProgress.
+        // A late InProgress after completion must not clobber ReadyForReview.
+        // Read → InProgress is a new turn (e.g. plan kickoff), not a downgrade.
         bool isDowngrade = status == ChatStatus.InProgress
-            && session.Status is ChatStatus.ReadyForReview or ChatStatus.Read;
+            && session.Status == ChatStatus.ReadyForReview;
 
         if (!isDowngrade)
         {

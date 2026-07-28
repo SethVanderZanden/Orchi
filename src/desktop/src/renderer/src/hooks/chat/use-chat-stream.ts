@@ -53,6 +53,7 @@ export function useChatStream({
 }: UseChatStreamOptions): UseChatStreamResult {
   const queryClient = useQueryClient()
   const [sendingChatIds, setSendingChatIds] = useState<Set<string>>(() => new Set())
+  const sendingChatIdsRef = useRef<Set<string>>(new Set())
   const [markersByChat, setMarkersByChat] = useState<Record<string, ChatMarker[]>>({})
   const streamAbortByChatRef = useRef<Map<string, AbortController>>(new Map())
   const turnGenerationByChatRef = useRef<Map<string, number>>(new Map())
@@ -68,6 +69,7 @@ export function useChatStream({
         const next = new Set(current)
         next.delete(fromId)
         next.add(toId)
+        sendingChatIdsRef.current = next
         return next
       })
 
@@ -127,25 +129,27 @@ export function useChatStream({
   }, [])
 
   const markChatSending = useCallback((chatId: string, sending: boolean) => {
-    setSendingChatIds((current) => {
-      const hasChat = current.has(chatId)
-      if (sending === hasChat) {
-        return current
-      }
+    const current = sendingChatIdsRef.current
+    const hasChat = current.has(chatId)
+    if (sending === hasChat) {
+      return
+    }
 
-      const next = new Set(current)
-      if (sending) {
-        next.add(chatId)
-      } else {
-        next.delete(chatId)
-      }
+    const next = new Set(current)
+    if (sending) {
+      next.add(chatId)
+    } else {
+      next.delete(chatId)
+    }
 
-      return next
-    })
+    // Keep a sync ref so kickoff can navigate immediately after starting a send
+    // without mark-read racing ahead of the next React render.
+    sendingChatIdsRef.current = next
+    setSendingChatIds(next)
   }, [])
 
   const isChatSending = useCallback(
-    (chatId: string) => sendingChatIds.has(chatId),
+    (chatId: string) => sendingChatIdsRef.current.has(chatId) || sendingChatIds.has(chatId),
     [sendingChatIds]
   )
 

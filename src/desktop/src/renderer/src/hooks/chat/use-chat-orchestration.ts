@@ -216,11 +216,18 @@ export function useChatOrchestration({
 
       queryClient.setQueryData(chatKeys.detail(childChat.id), childChat)
 
+      // Start the kickoff turn before navigating so isChatSending is true when
+      // the child becomes active. Otherwise mark-read fires on a still-idle
+      // server chat and clears status to Done before InProgress lands.
+      const sendPromise = sendMessage(childChat.id, response.kickoffMessage, {
+        skipPostMessageBehavior: true
+      })
+
       if (navigateToChild) {
         navigate({ to: '/chat/$chatId', params: { chatId: childChat.id } })
       }
 
-      await sendMessage(childChat.id, response.kickoffMessage, { skipPostMessageBehavior: true })
+      await sendPromise
     },
     [getChat, navigate, queryClient, sendMessage]
   )
