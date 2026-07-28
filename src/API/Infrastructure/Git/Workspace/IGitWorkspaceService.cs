@@ -39,6 +39,11 @@ public interface IGitWorkspaceService
         string message,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Pushes the current branch to <c>origin</c> under the same branch name.
+    /// Always uses an explicit <c>branch:branch</c> refspec so a mis-inherited
+    /// upstream (e.g. <c>origin/staging</c>) cannot redirect the push.
+    /// </summary>
     Task PushAsync(
         string workspacePath,
         bool setUpstream,

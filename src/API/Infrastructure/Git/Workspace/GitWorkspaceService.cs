@@ -228,13 +228,23 @@ public sealed partial class GitWorkspaceService(IProcessRunner processRunner) : 
     public async Task PushAsync(string workspacePath, bool setUpstream, CancellationToken cancellationToken)
     {
         string? branch = await GetCurrentBranchAsync(workspacePath, cancellationToken);
+        if (string.IsNullOrWhiteSpace(branch))
+        {
+            throw new InvalidOperationException(
+                "Cannot push: workspace is not on a named branch (detached HEAD).");
+        }
+
+        // Always push the current branch to the same-named remote branch.
+        // Bare `git push` follows @{upstream}, which worktrees created from a base
+        // like origin/staging may incorrectly inherit (pushing orchi/* into staging).
         var args = new List<string> { "push" };
-        if (setUpstream && !string.IsNullOrWhiteSpace(branch))
+        if (setUpstream)
         {
             args.Add("-u");
-            args.Add("origin");
-            args.Add(branch);
         }
+
+        args.Add("origin");
+        args.Add($"{branch}:{branch}");
 
         ProcessRunResult result = await RunGitAsync(workspacePath, args, cancellationToken);
         EnsureSuccess(result, "git push");
@@ -285,9 +295,12 @@ public sealed partial class GitWorkspaceService(IProcessRunner processRunner) : 
         ProcessRunResult fetch = await RunGitAsync(repoRoot, ["fetch", "origin", baseBranch], cancellationToken);
         _ = fetch; // Best-effort; local base branch may still exist.
 
+        string? baseRef = await ResolveBranchRefAsync(repoRoot, baseBranch, cancellationToken)
+            ?? baseBranch.Trim();
+
         ProcessRunResult create = await RunGitAsync(
             repoRoot,
-            ["worktree", "add", "-b", branch, worktreePath, baseBranch],
+            ["worktree", "add", "-b", branch, worktreePath, baseRef],
             cancellationToken);
 
         if (!create.Succeeded)
@@ -297,7 +310,13 @@ public sealed partial class GitWorkspaceService(IProcessRunner processRunner) : 
                 ["worktree", "add", worktreePath, branch],
                 cancellationToken);
             EnsureSuccess(retry, "git worktree add");
+            return new GitWorktreeCreateResult(worktreePath, branch, baseBranch);
         }
+
+        // Creating from origin/<base> (or with branch.autoSetupMerge=inherit) makes the
+        // new branch track the base remote branch. Clear that so `git push` targets the
+        // orchi branch, not staging/main.
+        await UnsetUpstreamBestEffortAsync(worktreePath, branch, cancellationToken);
 
         return new GitWorktreeCreateResult(worktreePath, branch, baseBranch);
     }
@@ -350,6 +369,7 @@ public sealed partial class GitWorkspaceService(IProcessRunner processRunner) : 
                 ["worktree", "add", "-b", localReviewBranch, worktreePath, headRef],
                 cancellationToken);
             EnsureSuccess(createFromRef, "git worktree add");
+            await UnsetUpstreamBestEffortAsync(worktreePath, localReviewBranch, cancellationToken);
             return new GitWorktreeCreateResult(worktreePath, localReviewBranch, baseRef);
         }
 
@@ -362,6 +382,28 @@ public sealed partial class GitWorkspaceService(IProcessRunner processRunner) : 
         ProcessRunResult result = await RunGitAsync(workspacePath, ["status", "--porcelain"], cancellationToken);
         EnsureSuccess(result, "git status");
         return result.StdOut.Trim();
+    }
+
+    private async Task UnsetUpstreamBestEffortAsync(
+        string workspacePath,
+        string branch,
+        CancellationToken cancellationToken)
+    {
+        // Prefer operating in the worktree so the current branch is unambiguous.
+        ProcessRunResult unset = await RunGitAsync(
+            workspacePath,
+            ["branch", "--unset-upstream"],
+            cancellationToken);
+
+        if (unset.Succeeded)
+        {
+            return;
+        }
+
+        _ = await RunGitAsync(
+            workspacePath,
+            ["branch", "--unset-upstream", branch],
+            cancellationToken);
     }
 
     private async Task<ProcessRunResult> RunGitAsync(
