@@ -132,6 +132,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
       getReasoningEffortUpdateError: mutations.getReasoningEffortUpdateError,
       updateChatApprovalPolicy: mutations.updateChatApprovalPolicy,
       getApprovalPolicyUpdateError: mutations.getApprovalPolicyUpdateError,
+      updateChatWorkspace: mutations.updateChatWorkspace,
       updateChatProject: mutations.updateChatProject,
       closeChat: mutations.closeChat,
       deleteChat: mutations.deleteChat,

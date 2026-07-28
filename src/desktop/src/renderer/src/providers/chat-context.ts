@@ -37,6 +37,7 @@ export type ChatContextValue = {
   getReasoningEffortUpdateError: (chatId: string) => string | undefined
   updateChatApprovalPolicy: (chatId: string, approvalPolicyId: string | null) => Promise<void>
   getApprovalPolicyUpdateError: (chatId: string) => string | undefined
+  updateChatWorkspace: (chatId: string, workspaceId: string) => void
   updateChatProject: (chatId: string, projectId: string) => void
   closeChat: (chatId: string) => Promise<void>
   deleteChat: (chatId: string) => Promise<void>

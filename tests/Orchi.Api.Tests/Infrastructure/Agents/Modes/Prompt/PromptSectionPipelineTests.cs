@@ -40,6 +40,22 @@ public class PromptSectionPipelineTests
     }
 
     [Fact]
+    public void Build_AddsFileReferenceRuleWhenWorkspacePresent()
+    {
+        var context = new PromptBuildContext
+        {
+            ModeId = "default",
+            UserContent = "hi",
+            WorkspacePath = "/path/to/project",
+        };
+
+        OrchiPromptDocument document = _pipeline.Build(context);
+
+        Assert.Contains("<orchi-open-editor>", document.Rules);
+        Assert.Contains("code {workspacePath} -g {relativePath}:{line}", document.Rules);
+    }
+
+    [Fact]
     public void Build_AddsTaskWhenPlanFilePathPresent()
     {
         var context = new PromptBuildContext

@@ -8,6 +8,16 @@ export type EditorId = 'vscode' | 'cursor'
 
 export type OpenInEditorResult = { ok: true } | { ok: false; error: string }
 
+export type EditorGotoLocation = {
+  relativePath: string
+  line: number
+  column?: number
+}
+
+export type OpenInEditorOptions = {
+  location?: EditorGotoLocation
+}
+
 export type OpenInEditorDeps = {
   openExternal: (url: string) => Promise<void>
   spawnDetached: (command: string, args: string[]) => boolean
@@ -79,10 +89,24 @@ const defaultDeps: OpenInEditorDeps = {
   fileExists: existsSync
 }
 
+function formatGotoArg(location: EditorGotoLocation): string {
+  const { relativePath, line, column } = location
+  return column !== undefined ? `${relativePath}:${line}:${column}` : `${relativePath}:${line}`
+}
+
+function buildCliArgs(resolvedPath: string, location?: EditorGotoLocation): string[] {
+  if (!location) {
+    return [resolvedPath]
+  }
+
+  return [resolvedPath, '-g', formatGotoArg(location)]
+}
+
 export async function openInEditor(
   folderPath: string,
   editor: EditorId,
-  deps: OpenInEditorDeps = defaultDeps
+  deps: OpenInEditorDeps = defaultDeps,
+  options: OpenInEditorOptions = {}
 ): Promise<OpenInEditorResult> {
   if (!folderPath.trim()) {
     return { ok: false, error: 'Workspace path is empty.' }
@@ -93,15 +117,19 @@ export async function openInEditor(
     return { ok: false, error: `Path does not exist: ${resolvedPath}` }
   }
 
-  try {
-    await deps.openExternal(getEditorProtocolUrl(resolvedPath, editor))
-    return { ok: true }
-  } catch {
-    // Fall through to CLI and install-path strategies.
+  const cliArgs = buildCliArgs(resolvedPath, options.location)
+
+  if (!options.location) {
+    try {
+      await deps.openExternal(getEditorProtocolUrl(resolvedPath, editor))
+      return { ok: true }
+    } catch {
+      // Fall through to CLI and install-path strategies.
+    }
   }
 
   const cli = getEditorCliCommand(editor)
-  if (deps.spawnDetached(cli, [resolvedPath])) {
+  if (deps.spawnDetached(cli, cliArgs)) {
     return { ok: true }
   }
 
@@ -110,11 +138,11 @@ export async function openInEditor(
       continue
     }
 
-    if (deps.spawnDetached(installPath, [resolvedPath])) {
+    if (deps.spawnDetached(installPath, cliArgs)) {
       return { ok: true }
     }
 
-    if (editor === 'cursor' && installPath.endsWith('Cursor.exe')) {
+    if (!options.location && editor === 'cursor' && installPath.endsWith('Cursor.exe')) {
       const folderUri = `file:///${toFileUriPath(resolvedPath)}`
       if (deps.spawnDetached(installPath, ['--folder-uri', folderUri])) {
         return { ok: true }
