@@ -16,4 +16,10 @@ public sealed class ImplementationPlanWriterStrategy(OrchiArtifactFileStore file
         string contentMarkdown,
         CancellationToken cancellationToken = default) =>
         fileStore.WriteAsync(workspacePath, BuildRelativePath(planId), contentMarkdown, cancellationToken);
+
+    public Task<bool> TryDeleteAsync(
+        string workspacePath,
+        string planId,
+        CancellationToken cancellationToken = default) =>
+        fileStore.TryDeleteAsync(workspacePath, BuildRelativePath(planId), cancellationToken);
 }

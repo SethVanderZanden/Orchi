@@ -11,4 +11,9 @@ public interface IOrchiArtifactWriterStrategy
         string planId,
         string contentMarkdown,
         CancellationToken cancellationToken = default);
+
+    Task<bool> TryDeleteAsync(
+        string workspacePath,
+        string planId,
+        CancellationToken cancellationToken = default);
 }

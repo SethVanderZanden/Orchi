@@ -42,6 +42,25 @@ public class OrchiArtifactWriterStrategyTests : IDisposable
     }
 
     [Fact]
+    public async Task PlanStrategy_TryDeleteAsync_RemovesExistingPlanFile()
+    {
+        await _planStrategy.WriteAsync(_workspacePath, "auth-refactor", "# Auth refactor\n");
+
+        bool deleted = await _planStrategy.TryDeleteAsync(_workspacePath, "auth-refactor");
+
+        Assert.True(deleted);
+        Assert.False(File.Exists(Path.Combine(_workspacePath, ".orchi", "plan-auth-refactor.md")));
+    }
+
+    [Fact]
+    public async Task PlanStrategy_TryDeleteAsync_ReturnsFalseWhenMissing()
+    {
+        bool deleted = await _planStrategy.TryDeleteAsync(_workspacePath, "missing-plan");
+
+        Assert.False(deleted);
+    }
+
+    [Fact]
     public async Task ReviewStrategy_WriteAsync_CreatesReviewFile()
     {
         const string content = "# Review brief\n\nReview the auth refactor.";

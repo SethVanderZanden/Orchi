@@ -118,16 +118,15 @@ public static class KickOffPlan
                 childWorkspacePath = worktreeResult.Value.Path;
             }
 
+            IOrchiArtifactWriterStrategy planWriter = artifactWriterFactory.GetStrategy(OrchiArtifactKind.Plan);
             string planFilePath;
             try
             {
-                planFilePath = await artifactWriterFactory
-                    .GetStrategy(OrchiArtifactKind.Plan)
-                    .WriteAsync(
-                        childWorkspacePath,
-                        command.PlanId,
-                        contentMarkdown,
-                        cancellationToken);
+                planFilePath = await planWriter.WriteAsync(
+                    childWorkspacePath,
+                    command.PlanId,
+                    contentMarkdown,
+                    cancellationToken);
             }
             catch (ArgumentException ex)
             {
@@ -152,6 +151,15 @@ public static class KickOffPlan
 
             ChatSession child = childResult.Value;
 
+            // Plan content is persisted in the DB and written into the child workspace (often a
+            // worktree). Remove the primary-workspace copy so a later orchestration chat does not
+            // rediscover leftover plan files. The child copy is deleted by the implementation agent
+            // when done, or discarded with the worktree.
+            if (!IsSameWorkspacePath(parent.WorkspacePath, childWorkspacePath))
+            {
+                await planWriter.TryDeleteAsync(parent.WorkspacePath, command.PlanId, cancellationToken);
+            }
+
             string initialPrompt = PlanImplementationTask.Build(planFilePath);
             const string kickoffMessage = "Begin implementation.";
 
@@ -160,6 +168,15 @@ public static class KickOffPlan
                 planFilePath,
                 initialPrompt,
                 kickoffMessage));
+        }
+
+        private static bool IsSameWorkspacePath(string left, string right)
+        {
+            string normalizedLeft = Path.GetFullPath(left)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            string normalizedRight = Path.GetFullPath(right)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            return string.Equals(normalizedLeft, normalizedRight, StringComparison.OrdinalIgnoreCase);
         }
 
         private async Task<Result<(Guid WorkspaceId, string Path)>> ProvisionWorktreeAsync(
