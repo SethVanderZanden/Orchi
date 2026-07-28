@@ -3,7 +3,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { NavigateOptions } from '@tanstack/react-router'
 
 import {
-  archiveChat,
   closeChat,
   updateChatApprovalPolicy,
   updateChatContextSize,
@@ -48,7 +47,6 @@ type UseChatMutationsResult = {
   updateChatApprovalPolicy: (chatId: string, approvalPolicyId: string | null) => Promise<void>
   getApprovalPolicyUpdateError: (chatId: string) => string | undefined
   updateChatWorkspace: (chatId: string, workspaceId: string) => void
-  archiveChat: (chatId: string) => Promise<void>
   updateChatProject: (chatId: string, projectId: string) => void
 }
 
@@ -643,27 +641,6 @@ export function useChatMutations({
     [queryClient]
   )
 
-  const archiveChatAction = useCallback(
-    async (chatId: string) => {
-      if (isLocalChat(chatId)) {
-        purgeChatFromClient(chatId)
-        navigateAwayIfDeleted(chatId)
-        return
-      }
-
-      purgeChatFromClient(chatId)
-      navigateAwayIfDeleted(chatId)
-
-      try {
-        await archiveChat(chatId)
-      } catch (error) {
-        await refetchChats()
-        throw error
-      }
-    },
-    [navigateAwayIfDeleted, purgeChatFromClient, refetchChats]
-  )
-
   const updateChatProjectAction = useCallback(
     (chatId: string, projectId: string) => {
       if (!isLocalChat(chatId)) {
@@ -719,7 +696,6 @@ export function useChatMutations({
     updateChatApprovalPolicy: updateChatApprovalPolicyAction,
     getApprovalPolicyUpdateError,
     updateChatWorkspace: updateChatWorkspaceAction,
-    archiveChat: archiveChatAction,
     updateChatProject: updateChatProjectAction
   }
 }

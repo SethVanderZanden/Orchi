@@ -289,7 +289,7 @@ public sealed class EfProjectStore(IDbContextFactory<AppDbContext> dbContextFact
         int activeChatCount = await db.Chats
             .IgnoreQueryFilters()
             .CountAsync(
-                chat => chat.WorkspaceId == workspaceId && !chat.IsDeleted && !chat.IsArchived,
+                chat => chat.WorkspaceId == workspaceId && !chat.IsDeleted,
                 cancellationToken);
 
         if (activeChatCount > 0)

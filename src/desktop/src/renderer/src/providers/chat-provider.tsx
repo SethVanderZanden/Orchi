@@ -133,7 +133,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
       updateChatApprovalPolicy: mutations.updateChatApprovalPolicy,
       getApprovalPolicyUpdateError: mutations.getApprovalPolicyUpdateError,
       updateChatWorkspace: mutations.updateChatWorkspace,
-      archiveChat: mutations.archiveChat,
       updateChatProject: mutations.updateChatProject,
       closeChat: mutations.closeChat,
       deleteChat: mutations.deleteChat,

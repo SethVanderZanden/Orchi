@@ -138,21 +138,6 @@ public sealed class EfChatStore(
         return true;
     }
 
-    public async Task<bool> ArchiveAsync(Guid chatId, CancellationToken cancellationToken)
-    {
-        await using AppDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-        Chat? entity = await db.Chats.FirstOrDefaultAsync(chat => chat.Id == chatId, cancellationToken);
-        if (entity is null)
-        {
-            return false;
-        }
-
-        entity.IsArchived = true;
-        entity.UpdatedAt = DateTimeOffset.UtcNow;
-        await db.SaveChangesAsync(cancellationToken);
-        return true;
-    }
-
     public async Task<int> CountActiveChatsForWorkspaceAsync(
         Guid workspaceId,
         CancellationToken cancellationToken)
@@ -161,7 +146,7 @@ public sealed class EfChatStore(
         return await db.Chats
             .IgnoreQueryFilters()
             .CountAsync(
-                chat => chat.WorkspaceId == workspaceId && !chat.IsDeleted && !chat.IsArchived,
+                chat => chat.WorkspaceId == workspaceId && !chat.IsDeleted,
                 cancellationToken);
     }
 

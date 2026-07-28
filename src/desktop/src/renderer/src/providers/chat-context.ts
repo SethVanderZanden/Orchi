@@ -38,7 +38,6 @@ export type ChatContextValue = {
   updateChatApprovalPolicy: (chatId: string, approvalPolicyId: string | null) => Promise<void>
   getApprovalPolicyUpdateError: (chatId: string) => string | undefined
   updateChatWorkspace: (chatId: string, workspaceId: string) => void
-  archiveChat: (chatId: string) => Promise<void>
   updateChatProject: (chatId: string, projectId: string) => void
   closeChat: (chatId: string) => Promise<void>
   deleteChat: (chatId: string) => Promise<void>

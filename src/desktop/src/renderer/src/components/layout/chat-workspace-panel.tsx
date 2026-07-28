@@ -13,7 +13,6 @@ import type { ChatThread } from '@/lib/chat/types'
 import type { GitHostProvider } from '@/lib/git/types'
 import type { Project, Workspace } from '@/lib/projects/types'
 import { findReviewChildForPlan } from '@/lib/projects/chat-tree'
-import { useArchiveChat } from '@/hooks/use-archive-chat'
 import { useDeleteChat } from '@/hooks/use-delete-chat'
 import { useOrchestration } from '@/hooks/use-orchestration'
 import { useOrchestrationParentEvents } from '@/hooks/use-orchestration-parent-events'
@@ -78,7 +77,6 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
     isParentKickingOffAny
   } = useChat()
   const { requestDelete, isDeletingChat } = useDeleteChat()
-  const { requestArchive, isArchivingChat } = useArchiveChat()
   const { openChat, openChatInSplit, closeTab, splitTabId } = useChatTabs()
   const { projects } = useProjects()
   const project = projects.find((entry) => entry.id === chat.projectId)
@@ -254,8 +252,6 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
         onToggleReviewPanel={toggleReviewPanel}
         onOpenParentBeside={openParentBeside}
         onClose={() => closeTab(chat.id)}
-        onArchive={() => requestArchive(chat)}
-        archiveDisabled={isChatSending(chat.id) || isArchivingChat(chat.id)}
         onDelete={() => requestDelete(chat)}
         deleteDisabled={isChatSending(chat.id) || isDeletingChat(chat.id)}
       />

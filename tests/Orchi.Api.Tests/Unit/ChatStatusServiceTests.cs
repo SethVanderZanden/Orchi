@@ -103,9 +103,6 @@ public class ChatStatusServiceTests
         public Task<bool> DeleteAsync(Guid chatId, CancellationToken cancellationToken) =>
             Task.FromResult(Sessions.Remove(chatId));
 
-        public Task<bool> ArchiveAsync(Guid chatId, CancellationToken cancellationToken) =>
-            Task.FromResult(Sessions.Remove(chatId));
-
         public Task<int> CountActiveChatsForWorkspaceAsync(
             Guid workspaceId,
             CancellationToken cancellationToken) =>

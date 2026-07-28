@@ -29,7 +29,8 @@ export function DeleteChatDialog({
         <DialogHeader>
           <DialogTitle>Delete chat?</DialogTitle>
           <DialogDescription>
-            &ldquo;{chatTitle}&rdquo; will be permanently deleted. This action cannot be undone.
+            &ldquo;{chatTitle}&rdquo; will be permanently deleted. If this is the last chat for its
+            workspace, the workspace will also be removed. This action cannot be undone.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

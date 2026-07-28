@@ -633,22 +633,6 @@ public sealed class AgentSessionManager
 
     public async Task<Result> CloseSessionAsync(Guid chatId, CancellationToken cancellationToken)
     {
-        if (_sessions.TryRemove(chatId, out ChatSession? session))
-        {
-            StopRunningProcess(session);
-        }
-
-        bool deleted = await _chatStore.DeleteAsync(chatId, cancellationToken);
-        if (!deleted)
-        {
-            return Result.Failure(Error.NotFound($"Chat '{chatId}' was not found."));
-        }
-
-        return Result.Success();
-    }
-
-    public async Task<Result> ArchiveSessionAsync(Guid chatId, CancellationToken cancellationToken)
-    {
         Guid? workspaceId = null;
         if (_sessions.TryRemove(chatId, out ChatSession? session))
         {
@@ -661,8 +645,8 @@ public sealed class AgentSessionManager
             workspaceId = stored?.WorkspaceId;
         }
 
-        bool archived = await _chatStore.ArchiveAsync(chatId, cancellationToken);
-        if (!archived)
+        bool deleted = await _chatStore.DeleteAsync(chatId, cancellationToken);
+        if (!deleted)
         {
             return Result.Failure(Error.NotFound($"Chat '{chatId}' was not found."));
         }

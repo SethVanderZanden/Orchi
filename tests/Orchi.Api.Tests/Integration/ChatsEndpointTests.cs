@@ -131,31 +131,7 @@ public class ChatsEndpointTests : IClassFixture<TestWebApplicationFactory>, IAsy
     }
 
     [Fact]
-    public async Task ArchiveChat_RemovesChatFromList()
-    {
-        string workspace = Directory.GetCurrentDirectory();
-        Guid workspaceId = await ProjectTestHelper.CreateProjectWithWorkspaceAsync(_client, workspace);
-
-        HttpResponseMessage createResponse = await _client.PostAsJsonAsync(
-            "/chats",
-            new CreateChatRequest(workspaceId, "cursor"));
-
-        CreateChatResponse? created = await createResponse.Content.ReadFromJsonAsync<CreateChatResponse>();
-        Assert.NotNull(created);
-
-        HttpResponseMessage archiveResponse = await _client.PostAsync($"/chats/{created.Id}/archive", content: null);
-        Assert.Equal(HttpStatusCode.NoContent, archiveResponse.StatusCode);
-
-        ChatSummaryResponse[]? chats =
-            await (await _client.GetAsync("/chats")).Content.ReadFromJsonAsync<ChatSummaryResponse[]>(
-                HttpResponseExtensions.JsonOptions);
-
-        Assert.NotNull(chats);
-        Assert.Empty(chats);
-    }
-
-    [Fact]
-    public async Task ArchiveChat_LastChatForWorkspace_RemovesWorkspaceFromProject()
+    public async Task CloseChat_LastChatForWorkspace_RemovesWorkspaceFromProject()
     {
         string workspace = Directory.GetCurrentDirectory();
         Guid workspaceId = await ProjectTestHelper.CreateProjectWithWorkspaceAsync(_client, workspace);
@@ -168,8 +144,8 @@ public class ChatsEndpointTests : IClassFixture<TestWebApplicationFactory>, IAsy
         Assert.NotNull(created);
         Assert.NotNull(created.ProjectId);
 
-        HttpResponseMessage archiveResponse = await _client.PostAsync($"/chats/{created.Id}/archive", content: null);
-        Assert.Equal(HttpStatusCode.NoContent, archiveResponse.StatusCode);
+        HttpResponseMessage deleteResponse = await _client.DeleteAsync($"/chats/{created.Id}");
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
 
         HttpResponseMessage projectsResponse = await _client.GetAsync("/projects");
         ProjectSummaryResponse[]? projects =

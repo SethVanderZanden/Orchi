@@ -1,4 +1,4 @@
-import { Archive, ChevronDown, Columns2, FileText, Trash2, X } from 'lucide-react'
+import { ChevronDown, Columns2, FileText, Trash2, X } from 'lucide-react'
 
 import { ShortcutHint } from '@/components/app-header/shortcut-hint'
 import { ChatGitActionsMenu } from '@/components/layout/chat-git-actions-menu'
@@ -33,8 +33,6 @@ type ChatWorkspaceHeaderProps = {
   onToggleReviewPanel: () => void
   onOpenParentBeside: () => void
   onClose: () => void
-  onArchive: () => void
-  archiveDisabled: boolean
   onDelete: () => void
   deleteDisabled: boolean
 }
@@ -57,8 +55,6 @@ export function ChatWorkspaceHeader({
   onToggleReviewPanel,
   onOpenParentBeside,
   onClose,
-  onArchive,
-  archiveDisabled,
   onDelete,
   deleteDisabled
 }: ChatWorkspaceHeaderProps): React.JSX.Element {
@@ -150,10 +146,6 @@ export function ChatWorkspaceHeader({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem disabled={archiveDisabled} onClick={onArchive}>
-                  <Archive className="size-4" />
-                  Archive Chat
-                </DropdownMenuItem>
                 <DropdownMenuItem
                   className="font-medium text-destructive focus:bg-destructive/10 focus:text-destructive dark:focus:bg-destructive/20 [&_svg]:text-destructive!"
                   disabled={deleteDisabled}

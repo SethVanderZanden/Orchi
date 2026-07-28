@@ -4,11 +4,13 @@ import { DeleteChatDialog } from '@/components/chat/delete-chat-dialog'
 import type { ChatThread } from '@/lib/chat/types'
 import { isLocalChat } from '@/lib/chat/chat-persistence'
 import { useChat } from '@/providers/chat-context'
+import { useProjects } from '@/providers/project-provider'
 
 import { DeleteChatContext } from '@/providers/delete-chat-context'
 
 export function DeleteChatProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
   const { deleteChat } = useChat()
+  const { refetchProjects } = useProjects()
   const [pendingChat, setPendingChat] = useState<ChatThread | null>(null)
   const [deletingChatId, setDeletingChatId] = useState<string | null>(null)
   const [isConfirming, setIsConfirming] = useState(false)
@@ -38,11 +40,12 @@ export function DeleteChatProvider({ children }: { children: React.ReactNode }):
     try {
       setDeletingChatId(chatId)
       await deleteChat(chatId)
+      await refetchProjects()
     } finally {
       setDeletingChatId(null)
       setIsConfirming(false)
     }
-  }, [deleteChat, isConfirming, pendingChat])
+  }, [deleteChat, isConfirming, pendingChat, refetchProjects])
 
   const isDeletingChat = useCallback(
     (chatId: string) => deletingChatId === chatId,

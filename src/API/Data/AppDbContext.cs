@@ -89,7 +89,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .WithMany()
                 .HasForeignKey(chat => chat.WorkspaceId)
                 .OnDelete(DeleteBehavior.SetNull);
-            entity.HasQueryFilter(chat => !chat.IsDeleted && !chat.IsArchived);
+            entity.HasQueryFilter(chat => !chat.IsDeleted);
         });
 
         modelBuilder.Entity<ChatMessageEntity>(entity =>
