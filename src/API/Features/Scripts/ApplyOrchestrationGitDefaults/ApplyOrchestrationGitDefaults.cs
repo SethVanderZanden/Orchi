@@ -39,13 +39,12 @@ public static class ApplyOrchestrationGitDefaults
 
             string finishStepsJson = ScriptStepsSerializer.Serialize(
             [
-                new ScriptStepDto(ScriptStepKinds.GitCommit, GenerateMessage: true),
                 new ScriptStepDto(ScriptStepKinds.GitPush, SetUpstream: true),
                 new ScriptStepDto(ScriptStepKinds.GitCreatePullRequest)
             ]);
 
             StoredScript finishFlow = await store.CreateAsync(
-                "Orchestration: commit, push, PR",
+                "Orchestration: push and PR",
                 command.ProjectId,
                 finishStepsJson,
                 [

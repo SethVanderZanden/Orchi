@@ -75,7 +75,7 @@ public class ScriptsEndpointTests : IClassFixture<TestWebApplicationFactory>, IA
         Assert.Equal(2, scripts.Length);
 
         ScriptResponse finishScript = scripts[1];
-        Assert.Contains("git.commit", finishScript.StepsJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("git.commit", finishScript.StepsJson, StringComparison.Ordinal);
         Assert.Contains("git.push", finishScript.StepsJson, StringComparison.Ordinal);
         Assert.Contains("git.createPullRequest", finishScript.StepsJson, StringComparison.Ordinal);
         Assert.Equal("agentFinish", finishScript.Bindings[0].Event);

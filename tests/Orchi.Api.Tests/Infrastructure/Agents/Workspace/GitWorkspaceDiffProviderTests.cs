@@ -140,6 +140,22 @@ public class GitWorkspaceDiffProviderTests : IDisposable
     }
 
     [Fact]
+    public void TryResolveBranchRef_ResolvesOriginRemoteWhenLocalMissing()
+    {
+        if (!IsGitAvailable())
+        {
+            return;
+        }
+
+        InitializeRepoWithCommit();
+        RunGit("update-ref", "refs/remotes/origin/staging", "HEAD");
+
+        string? resolved = GitWorkspaceDiffProvider.TryResolveBranchRef(_workspacePath, "staging");
+
+        Assert.Equal("origin/staging", resolved);
+    }
+
+    [Fact]
     public void Truncate_AppendsNoticeWhenDiffTooLarge()
     {
         string large = new string('a', GitWorkspaceDiffProvider.MaxDiffChars + 10);
