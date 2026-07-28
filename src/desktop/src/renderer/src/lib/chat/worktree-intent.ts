@@ -1,3 +1,6 @@
+import type { AgentMode } from '@/lib/chat/types'
+import type { Project } from '@/lib/projects/types'
+
 export type WorktreeIntent = {
   enabled: boolean
   branchName: string
@@ -92,4 +95,52 @@ export function migrateWorktreeIntent(fromId: string, toId: string): void {
 /** True when the composer worktree toggle should be shown (new/empty chat). */
 export function canUseWorktreeToggle(messageCount: number): boolean {
   return messageCount === 0
+}
+
+/** Review chats reuse the parent workspace and never default to a new worktree. */
+export function shouldDefaultWorktreeForMode(mode: AgentMode): boolean {
+  return mode !== 'review'
+}
+
+/**
+ * Project-level default for new chats. When enabled, the composer shows worktree on
+ * and provisions before the first message instead of relying on AgentStart scripts.
+ */
+export function resolveDefaultWorktreeIntent(
+  project: Project | null | undefined,
+  mode: AgentMode
+): WorktreeIntent | null {
+  if (!project?.useWorktreeOnKickoff || !shouldDefaultWorktreeForMode(mode)) {
+    return null
+  }
+
+  return { enabled: true, branchName: '' }
+}
+
+export function initializeWorktreeIntentForNewChat(
+  chatId: string,
+  project: Project | null | undefined,
+  mode: AgentMode
+): void {
+  const defaultIntent = resolveDefaultWorktreeIntent(project, mode)
+  if (!defaultIntent) {
+    return
+  }
+
+  setWorktreeIntent(chatId, defaultIntent)
+}
+
+/** Re-apply project defaults when mode changes on an empty chat. */
+export function syncWorktreeIntentWithMode(
+  chatId: string,
+  project: Project | null | undefined,
+  mode: AgentMode
+): void {
+  const defaultIntent = resolveDefaultWorktreeIntent(project, mode)
+  if (!defaultIntent) {
+    clearWorktreeIntent(chatId)
+    return
+  }
+
+  setWorktreeIntent(chatId, defaultIntent)
 }

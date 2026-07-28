@@ -4,13 +4,33 @@ import {
   canUseWorktreeToggle,
   clearWorktreeIntent,
   getWorktreeIntent,
+  initializeWorktreeIntentForNewChat,
   isWorktreeIntentEnabled,
   migrateWorktreeIntent,
+  resolveDefaultWorktreeIntent,
   setWorktreeIntent,
   setWorktreeIntentBranchName,
   setWorktreeIntentEnabled,
+  shouldDefaultWorktreeForMode,
+  syncWorktreeIntentWithMode,
   toggleWorktreeIntent
 } from './worktree-intent'
+import type { Project } from '@/lib/projects/types'
+
+function createProject(overrides: Partial<Project> = {}): Project {
+  return {
+    id: 'project-1',
+    name: 'Test',
+    defaultBaseBranch: 'main',
+    defaultWorktreeBranchPattern: 'orchi/{date}-{shortId}',
+    gitHostProvider: 'github',
+    useWorktreeOnKickoff: true,
+    workspaces: [],
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    ...overrides
+  }
+}
 
 describe('worktree-intent', () => {
   beforeEach(() => {
@@ -68,5 +88,41 @@ describe('worktree-intent', () => {
   it('allows the toggle only on empty chats', () => {
     expect(canUseWorktreeToggle(0)).toBe(true)
     expect(canUseWorktreeToggle(1)).toBe(false)
+  })
+
+  it('defaults worktree on when the project enables it', () => {
+    expect(resolveDefaultWorktreeIntent(createProject(), 'orchestration')).toEqual({
+      enabled: true,
+      branchName: ''
+    })
+    expect(resolveDefaultWorktreeIntent(createProject(), 'default')).toEqual({
+      enabled: true,
+      branchName: ''
+    })
+    expect(resolveDefaultWorktreeIntent(createProject({ useWorktreeOnKickoff: false }), 'default')).toBeNull()
+    expect(resolveDefaultWorktreeIntent(createProject(), 'review')).toBeNull()
+  })
+
+  it('initializes intent for new chats from project defaults', () => {
+    initializeWorktreeIntentForNewChat('a', createProject(), 'orchestration')
+    expect(getWorktreeIntent('a')).toEqual({ enabled: true, branchName: '' })
+
+    clearWorktreeIntent('a')
+    initializeWorktreeIntentForNewChat('a', createProject({ useWorktreeOnKickoff: false }), 'default')
+    expect(getWorktreeIntent('a')).toBeUndefined()
+  })
+
+  it('syncs intent when mode changes on an empty chat', () => {
+    setWorktreeIntent('a', { enabled: true, branchName: 'custom' })
+    syncWorktreeIntentWithMode('a', createProject(), 'review')
+    expect(getWorktreeIntent('a')).toBeUndefined()
+
+    syncWorktreeIntentWithMode('a', createProject(), 'orchestration')
+    expect(getWorktreeIntent('a')).toEqual({ enabled: true, branchName: '' })
+  })
+
+  it('skips review mode for default worktree', () => {
+    expect(shouldDefaultWorktreeForMode('review')).toBe(false)
+    expect(shouldDefaultWorktreeForMode('orchestration')).toBe(true)
   })
 })
