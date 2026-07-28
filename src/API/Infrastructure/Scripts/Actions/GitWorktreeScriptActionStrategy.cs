@@ -1,4 +1,5 @@
 using Orchi.Api.Entities;
+using Orchi.Api.Infrastructure.Agents.Modes;
 using Orchi.Api.Infrastructure.Git.Workspace;
 using Orchi.Api.Infrastructure.Projects;
 
@@ -15,6 +16,14 @@ public sealed class GitWorktreeScriptActionStrategy(
         CancellationToken cancellationToken)
     {
         const string label = "Creating worktree";
+
+        if (string.Equals(context.Mode, AgentModeIds.Review, StringComparison.OrdinalIgnoreCase))
+        {
+            return new ScriptActionResult(
+                true,
+                label,
+                "Review mode reuses the conducting agent's workspace.");
+        }
 
         if (context.ProjectId is null)
         {

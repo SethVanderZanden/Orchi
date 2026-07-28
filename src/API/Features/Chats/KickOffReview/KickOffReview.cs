@@ -104,11 +104,30 @@ public static class KickOffReview
                     Error.Validation("Workspace.Missing", "Implementation child chat has no workspace."));
             }
 
+            Workspace? implementationWorkspace = await projectStore.GetWorkspaceAsync(
+                implementationChild.WorkspaceId.Value,
+                cancellationToken);
+
+            if (implementationWorkspace is null)
+            {
+                return Result.Failure<KickOffReviewResponse>(
+                    Error.NotFound($"Workspace '{implementationChild.WorkspaceId}' was not found."));
+            }
+
+            if (implementationChild.ProjectId is Guid projectId
+                && implementationWorkspace.ProjectId != projectId)
+            {
+                return Result.Failure<KickOffReviewResponse>(
+                    Error.Validation(
+                        "Workspace.Invalid",
+                        "Implementation child workspace does not belong to the chat project."));
+            }
+
             string reviewFilePath;
             try
             {
                 reviewFilePath = await reviewWriter.WriteAsync(
-                    implementationChild.WorkspacePath,
+                    implementationWorkspace.Path,
                     planId,
                     reviewBrief,
                     cancellationToken);
@@ -119,7 +138,7 @@ public static class KickOffReview
             }
 
             Result<ChatSession> reviewChildResult = await sessionManager.CreateSessionAsync(
-                implementationChild.WorkspaceId.Value,
+                implementationWorkspace.Id,
                 mode: ReviewAgentModeStrategy.Mode,
                 parentChatId: parent.Id,
                 planFilePath: reviewFilePath,
