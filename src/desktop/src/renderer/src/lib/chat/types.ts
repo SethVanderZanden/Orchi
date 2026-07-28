@@ -128,14 +128,6 @@ export type CreateChatOptions = {
   projectId?: string
   /** When false, create the draft without navigating to it (e.g. open in split). */
   navigate?: boolean
-  mode?: AgentMode
-  agentId?: string
-  modelId?: string | null
-  contextSizeId?: string | null
-  reasoningEffortId?: string | null
-  approvalPolicyId?: string | null
-  /** When true, provision a new worktree on the first sent message. */
-  enableWorktree?: boolean
 }
 
 export type SendMessageOptions = {

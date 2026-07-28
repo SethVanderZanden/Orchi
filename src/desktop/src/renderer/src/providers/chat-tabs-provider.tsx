@@ -38,7 +38,6 @@ import {
   setComposerDraft
 } from '@/lib/chat/composer-drafts'
 import { migrateWorktreeIntent } from '@/lib/chat/worktree-intent'
-import { resolveChatFromSource } from '@/lib/chat/resolve-chat-from-source'
 import { isDisposableEmptyChat } from '@/lib/chat/is-disposable-empty-chat'
 import { registerChatIdMigrator } from '@/lib/chat/migrate-chat-client-state'
 import { getDefaultWorkspace } from '@/lib/projects/group-chats'
@@ -401,21 +400,15 @@ export function ChatTabsProvider({ children }: { children: ReactNode }): React.J
         return
       }
 
-      const resolved = resolveChatFromSource(sourceChat, projects)
-      if (!resolved) {
+      const plan = planNewChatTab(sourceChat, projects)
+      if (plan.kind !== 'create') {
         void navigate({ to: '/' })
         return
       }
 
       setIsCreatingTab(true)
       try {
-        const chat = await createChat({
-          workspaceId: resolved.workspace.workspaceId,
-          workspacePath: resolved.workspace.workspacePath,
-          projectId: resolved.workspace.projectId ?? undefined,
-          navigate: false,
-          ...resolved.draftOptions
-        })
+        const chat = await createChatFromWorkspace(plan.workspace, false)
 
         const sendContent = options?.sendContent?.trim()
         if (!sendContent && options?.initialDraft?.trim()) {
@@ -433,7 +426,7 @@ export function ChatTabsProvider({ children }: { children: ReactNode }): React.J
     },
     [
       createAndOpenTab,
-      createChat,
+      createChatFromWorkspace,
       getChat,
       isCreatingTab,
       navigate,

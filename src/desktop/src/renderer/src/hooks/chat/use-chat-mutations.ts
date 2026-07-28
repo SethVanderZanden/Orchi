@@ -12,7 +12,6 @@ import {
 } from '@/lib/chat/api'
 import { createLocalDraftChat } from '@/lib/chat/create-local-draft'
 import { isLocalChat } from '@/lib/chat/chat-persistence'
-import { setWorktreeIntentEnabled } from '@/lib/chat/worktree-intent'
 import { registerChatIdMigrator } from '@/lib/chat/migrate-chat-client-state'
 import {
   listModeRuntimeDefaults,
@@ -208,18 +207,8 @@ export function useChatMutations({
       const draft = createLocalDraftChat({
         workspaceId: options.workspaceId,
         workspacePath: options.workspacePath,
-        projectId: options.projectId ?? null,
-        mode: options.mode,
-        agentId: options.agentId,
-        modelId: options.modelId,
-        contextSizeId: options.contextSizeId,
-        reasoningEffortId: options.reasoningEffortId,
-        approvalPolicyId: options.approvalPolicyId
+        projectId: options.projectId ?? null
       })
-
-      if (options.mode) {
-        return draft
-      }
 
       const modeDefault = resolveModeRuntimeDefault(defaultsResponse?.defaults ?? [], draft.mode)
       if (!modeDefault) {
@@ -236,10 +225,6 @@ export function useChatMutations({
       }
     },
     onSuccess: (chat, variables) => {
-      if (variables.enableWorktree) {
-        setWorktreeIntentEnabled(chat.id, true)
-      }
-
       queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) => [chat, ...current])
       queryClient.setQueryData(chatKeys.detail(chat.id), chat)
       setSearchQuery('')
