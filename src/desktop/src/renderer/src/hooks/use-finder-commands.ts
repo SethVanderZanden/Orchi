@@ -22,7 +22,6 @@ export function useFinderCommands(onComplete: () => void): AppFinderCommand[] {
     splitTabId,
     createAndOpenTab,
     createAndOpenSplitTab,
-    createChatFromSource,
     closeTab,
     closeAllTabs,
     openChat,
@@ -57,25 +56,11 @@ export function useFinderCommands(onComplete: () => void): AppFinderCommand[] {
         onSelect: () => complete(() => createAndOpenTab())
       },
       {
-        id: 'new-chat-from-active',
-        label: 'Parallel agent in workspace',
-        keywords: ['create', 'parallel', 'agent', 'workspace', 'beside', 'split'],
-        disabled: isCreatingTab || !activeTabId,
-        onSelect: () =>
-          complete(() => {
-            if (!activeTabId) {
-              return
-            }
-
-            return createChatFromSource(activeTabId)
-          })
-      },
-      {
         id: 'open-beside',
         label: 'Open chat beside',
-        keywords: ['split', 'pane', 'beside', 'side'],
+        keywords: ['split', 'pane', 'beside', 'side', 'parallel', 'agent', 'workspace'],
         shortcut: 'Ctrl+→',
-        disabled: isCreatingTab,
+        disabled: isCreatingTab || !activeTabId,
         onSelect: () => complete(() => createAndOpenSplitTab())
       },
       {
@@ -221,7 +206,6 @@ export function useFinderCommands(onComplete: () => void): AppFinderCommand[] {
     complete,
     createAndOpenSplitTab,
     createAndOpenTab,
-    createChatFromSource,
     isCreatingTab,
     isPendingProjects,
     navigate,

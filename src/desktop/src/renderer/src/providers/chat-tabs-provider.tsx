@@ -46,6 +46,8 @@ import { useChat } from '@/providers/chat-context'
 import { useProjects } from '@/providers/project-provider'
 
 export type OpenSplitChatOptions = {
+  /** Source chat to inherit workspace and settings from. Defaults to the active tab. */
+  sourceChatId?: string
   /** Prefill the composer (user sends manually). */
   initialDraft?: string
   /** Send this message immediately after opening the split chat. */
@@ -71,10 +73,8 @@ type ChatTabsContextValue = {
   createAndOpenTab: () => Promise<void>
   /** Pick a folder, register it as a project, then open a new chat there. */
   registerProjectAndOpenTab: () => Promise<void>
-  /** Opens a new chat in the resizable split pane. Optionally prefill or auto-send. */
+  /** Opens a new chat beside the active tab in the same workspace. */
   createAndOpenSplitTab: (options?: OpenSplitChatOptions) => Promise<void>
-  /** Creates a parallel chat in the same workspace as an existing one. */
-  createChatFromSource: (sourceChatId: string) => Promise<void>
   isCreatingTab: boolean
   finderOpen: boolean
   setFinderOpen: (open: boolean) => void
@@ -390,21 +390,32 @@ export function ChatTabsProvider({ children }: { children: ReactNode }): React.J
         return
       }
 
-      // Need a primary pane to split beside.
-      if (!state.activeTabId && !routeChatId) {
+      const sourceChatId = options?.sourceChatId ?? state.activeTabId ?? routeChatId
+      if (!sourceChatId) {
         await createAndOpenTab()
         return
       }
 
-      const plan = resolveNewTabPlan()
-      if (plan.kind === 'needsProject') {
+      const sourceChat = getChat(sourceChatId)
+      if (!sourceChat) {
+        return
+      }
+
+      const resolved = resolveChatFromSource(sourceChat, projects)
+      if (!resolved) {
         void navigate({ to: '/' })
         return
       }
 
       setIsCreatingTab(true)
       try {
-        const chat = await createChatFromWorkspace(plan.workspace, false)
+        const chat = await createChat({
+          workspaceId: resolved.workspace.workspaceId,
+          workspacePath: resolved.workspace.workspacePath,
+          projectId: resolved.workspace.projectId ?? undefined,
+          navigate: false,
+          ...resolved.draftOptions
+        })
 
         const sendContent = options?.sendContent?.trim()
         if (!sendContent && options?.initialDraft?.trim()) {
@@ -422,49 +433,15 @@ export function ChatTabsProvider({ children }: { children: ReactNode }): React.J
     },
     [
       createAndOpenTab,
-      createChatFromWorkspace,
+      createChat,
+      getChat,
       isCreatingTab,
       navigate,
-      resolveNewTabPlan,
+      projects,
       routeChatId,
       sendMessage,
       state.activeTabId
     ]
-  )
-
-  const createChatFromSource = useCallback(
-    async (sourceChatId: string) => {
-      if (isCreatingTab) {
-        return
-      }
-
-      const sourceChat = getChat(sourceChatId)
-      if (!sourceChat) {
-        return
-      }
-
-      const resolved = resolveChatFromSource(sourceChat, projects)
-      if (!resolved) {
-        void navigate({ to: '/' })
-        return
-      }
-
-      setIsCreatingTab(true)
-      try {
-        const newChat = await createChat({
-          workspaceId: resolved.workspace.workspaceId,
-          workspacePath: resolved.workspace.workspacePath,
-          projectId: resolved.workspace.projectId ?? undefined,
-          navigate: false,
-          ...resolved.draftOptions
-        })
-
-        setState((current) => applyOpenChatInSplit(current, newChat.id))
-      } finally {
-        setIsCreatingTab(false)
-      }
-    },
-    [createChat, getChat, isCreatingTab, navigate, projects]
   )
 
   const value = useMemo<ChatTabsContextValue>(
@@ -486,7 +463,6 @@ export function ChatTabsProvider({ children }: { children: ReactNode }): React.J
       createAndOpenTab,
       registerProjectAndOpenTab,
       createAndOpenSplitTab,
-      createChatFromSource,
       isCreatingTab,
       finderOpen,
       setFinderOpen
@@ -499,7 +475,6 @@ export function ChatTabsProvider({ children }: { children: ReactNode }): React.J
       closeAllTabs,
       closeTab,
       createAndOpenSplitTab,
-      createChatFromSource,
       createAndOpenTab,
       finderOpen,
       isCreatingTab,
