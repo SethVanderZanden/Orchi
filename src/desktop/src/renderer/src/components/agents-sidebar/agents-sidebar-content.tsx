@@ -5,6 +5,7 @@ import { AgentsSidebarSection } from '@/components/agents-sidebar/agents-sidebar
 import { BoardFiltersBar } from '@/components/kanban/board-filters-bar'
 import { useBoardFilters } from '@/hooks/use-board-filters'
 import { useBoardGrouping } from '@/hooks/use-board-grouping'
+import { useDeleteChat } from '@/hooks/use-delete-chat'
 import { groupBoardChats } from '@/lib/agents-sidebar/group-board-chats'
 import { mapChatStatusToVariant } from '@/lib/chat/chat-status-variant'
 import type { ChatStatus, ChatThread } from '@/lib/chat/types'
@@ -16,6 +17,7 @@ import { useProjects } from '@/providers/project-provider'
 export function AgentsSidebarContent(): React.JSX.Element {
   const { chats, isLoadingChats, isChatSending, isParentKickingOffAny } = useChat()
   const { openChat, openChatInSplit, activeTabId, splitTabId } = useChatTabs()
+  const { requestDelete, isDeletingChat } = useDeleteChat()
   const { projects } = useProjects()
   const { filters, setProjectFilter, setDateRange } = useBoardFilters()
   const { grouping } = useBoardGrouping()
@@ -80,6 +82,14 @@ export function AgentsSidebarContent(): React.JSX.Element {
 
   function isChatActive(chatId: string): boolean {
     return chatId === activeTabId || chatId === splitTabId
+  }
+
+  function isDeleteDisabled(chatId: string): boolean {
+    return isChatSending(chatId) || isDeletingChat(chatId)
+  }
+
+  function handleDeleteChat(chat: ChatThread): void {
+    requestDelete(chat)
   }
 
   function isProjectExpanded(projectId: string): boolean {
@@ -151,6 +161,8 @@ export function AgentsSidebarContent(): React.JSX.Element {
                     isChatActive={isChatActive}
                     onOpenChat={openChat}
                     onOpenChatBeside={openChatInSplit}
+                    onDeleteChat={handleDeleteChat}
+                    isDeleteDisabled={isDeleteDisabled}
                   />
                 ))
               : grouped.projects.map((project) => (
@@ -164,6 +176,8 @@ export function AgentsSidebarContent(): React.JSX.Element {
                     isChatActive={isChatActive}
                     onOpenChat={openChat}
                     onOpenChatBeside={openChatInSplit}
+                    onDeleteChat={handleDeleteChat}
+                    isDeleteDisabled={isDeleteDisabled}
                   />
                 ))}
           </div>

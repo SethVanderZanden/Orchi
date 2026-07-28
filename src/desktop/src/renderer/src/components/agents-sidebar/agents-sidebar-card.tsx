@@ -1,4 +1,4 @@
-import { Columns2 } from 'lucide-react'
+import { Columns2, Trash2 } from 'lucide-react'
 
 import { ChatStatusDot } from '@/components/chat/chat-status-dot'
 import { Button } from '@/components/ui/button'
@@ -22,6 +22,8 @@ type AgentsSidebarCardProps = {
   showProjectName: boolean
   onOpen: () => void
   onOpenBeside: () => void
+  onDelete: () => void
+  deleteDisabled?: boolean
 }
 
 export function AgentsSidebarCard({
@@ -33,7 +35,9 @@ export function AgentsSidebarCard({
   isActive,
   showProjectName,
   onOpen,
-  onOpenBeside
+  onOpenBeside,
+  onDelete,
+  deleteDisabled = false
 }: AgentsSidebarCardProps): React.JSX.Element {
   return (
     <ContextMenu>
@@ -51,7 +55,7 @@ export function AgentsSidebarCard({
                 : 'text-sidebar-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground'
             )}
           >
-            <div className="flex min-w-0 items-start gap-2 pr-7">
+            <div className="flex min-w-0 items-start gap-2 pr-14">
               <ChatStatusDot variant={statusVariant} mode={mode} className="mt-1" />
               <span className="min-w-0 flex-1 truncate text-sm font-medium">{title}</span>
             </div>
@@ -77,26 +81,48 @@ export function AgentsSidebarCard({
               </span>
             ) : null}
           </button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
+          <div
             className={cn(
-              'pointer-events-none absolute top-1 right-1 z-10 size-6 text-sidebar-muted opacity-0',
+              'pointer-events-none absolute top-1 right-1 z-10 flex items-center gap-0.5 opacity-0',
               'transition-opacity duration-150 ease-out',
               'group-hover/sidebar-card:pointer-events-auto group-hover/sidebar-card:opacity-100',
-              'focus-visible:pointer-events-auto focus-visible:opacity-100',
-              'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+              'focus-within:pointer-events-auto focus-within:opacity-100'
             )}
-            aria-label={`Open ${title} beside`}
-            title="Open beside"
-            onClick={(event) => {
-              event.stopPropagation()
-              onOpenBeside()
-            }}
           >
-            <Columns2 className="size-3.5" />
-          </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className={cn(
+                'size-6 text-sidebar-muted',
+                'hover:bg-sidebar-accent hover:text-destructive',
+                'focus-visible:text-destructive'
+              )}
+              aria-label={`Delete ${title}`}
+              title="Delete chat"
+              disabled={deleteDisabled}
+              onClick={(event) => {
+                event.stopPropagation()
+                onDelete()
+              }}
+            >
+              <Trash2 className="size-3.5" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-6 text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              aria-label={`Open ${title} beside`}
+              title="Open beside"
+              onClick={(event) => {
+                event.stopPropagation()
+                onOpenBeside()
+              }}
+            >
+              <Columns2 className="size-3.5" />
+            </Button>
+          </div>
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent className="min-w-44">
