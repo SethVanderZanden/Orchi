@@ -13,6 +13,8 @@ type ChatComposerProps = {
   chatId: string
   autoFocus?: boolean
   disabled?: boolean
+  /** Agent is processing a response — composer stays editable so the user can steer. */
+  isProcessing?: boolean
   onSend: (content: string) => void
   expanded?: boolean
   /** Prefills the composer once on mount (e.g. text copied into a new split chat). */
@@ -49,6 +51,7 @@ export function OrchiChatComposer({
   chatId,
   autoFocus = false,
   disabled = false,
+  isProcessing = false,
   onSend,
   expanded = false,
   initialDraft,
@@ -125,7 +128,7 @@ export function OrchiChatComposer({
           value={draft}
           onChange={(event) => handleDraftChange(event.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Message Orchi…"
+          placeholder={isProcessing ? 'Add a follow-up to steer…' : 'Message Orchi…'}
           disabled={disabled}
           rows={expanded ? 4 : 3}
           className={cn(
@@ -168,7 +171,7 @@ export function OrchiChatComposer({
             type="submit"
             size="icon"
             disabled={disabled || !draft.trim()}
-            aria-label="Send message"
+            aria-label={isProcessing ? 'Send follow-up' : 'Send message'}
             className="size-8 shrink-0 rounded-full"
           >
             <ArrowUp className="size-4" />
