@@ -111,12 +111,10 @@ export function useAppShortcuts(): void {
   })
 
   useKeyboardShortcutCombo({ key: 'ArrowRight', ctrl: true }, createSplitTab, {
-    allowInTextarea: true,
     enabled: !isCreatingTab && Boolean(activeTabId)
   })
 
   useKeyboardShortcutCombo({ key: 'ArrowUp', ctrl: true }, openParentBeside, {
-    allowInTextarea: true,
     enabled: Boolean(activeTabId && getChat(activeTabId)?.parentChatId)
   })
 
