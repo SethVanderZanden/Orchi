@@ -300,6 +300,23 @@ public sealed class GitWorkspaceDiffProvider : IWorkspaceDiffProvider
         var entries = new List<WorkspaceDiffStatsEntry>(files.Count);
         foreach (string file in files)
         {
+            try
+            {
+                string absolutePath = Path.Combine(
+                    workspacePath,
+                    file.Replace('/', Path.DirectorySeparatorChar));
+                var info = new FileInfo(absolutePath);
+                if (info.Exists && info.Length > MaxUntrackedFileBytes)
+                {
+                    entries.Add(new WorkspaceDiffStatsEntry(file, 0, 0));
+                    continue;
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Fall through to numstat; git will report what it can.
+            }
+
             string numstat = RunGit(
                 workspacePath,
                 "diff",
