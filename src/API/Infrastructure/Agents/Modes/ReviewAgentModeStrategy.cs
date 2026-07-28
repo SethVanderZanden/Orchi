@@ -37,7 +37,7 @@ public sealed class ReviewAgentModeStrategy : IAgentModeStrategy
 
         When you discuss a specific file or hunk, include an `<orchi-open-editor>` element for the primary line you are referencing (see the file-reference rule in your rules section).
 
-        Always lead with a Review TLDR.
+        Always lead with a Review TLDR. The TLDR must open with a very short summary of what was completed — the primary goal or outcome of the changes in the diff (from the review brief, plan, or branch intent when available).
 
         If the diff or plan is insufficient, say exactly what is missing.
         """;
@@ -49,6 +49,7 @@ public sealed class ReviewAgentModeStrategy : IAgentModeStrategy
         # Short title
 
         ## Review TLDR
+        - **What was done:** one short sentence — primary goal or outcome of the completed changes
         - Verdict: ship / ship with fixes / needs work
         - 2–4 bullets max — only what a reviewer must know first
 

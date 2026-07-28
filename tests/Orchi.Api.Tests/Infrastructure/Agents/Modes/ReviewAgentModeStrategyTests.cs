@@ -31,9 +31,12 @@ public class ReviewAgentModeStrategyTests
         Assert.Contains("Required?", document.Rules);
         Assert.Contains("Over-engineered?", document.Rules);
         Assert.Contains("Review TLDR", document.Rules);
+        Assert.Contains("very short summary of what was completed", document.Rules);
+        Assert.Contains("primary goal or outcome", document.Rules);
         Assert.Contains("exactly what is missing", document.Rules);
         Assert.Contains("# Short title", document.Context);
         Assert.Contains("## Review TLDR", document.Context);
+        Assert.Contains("**What was done:**", document.Context);
         Assert.Contains("## Changes", document.Context);
         Assert.Contains("**What changed:**", document.Context);
         Assert.Contains("## Cross-cutting findings", document.Context);
