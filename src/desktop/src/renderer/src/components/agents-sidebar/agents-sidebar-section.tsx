@@ -13,6 +13,8 @@ type AgentsSidebarSectionProps = {
   isChatActive: (chatId: string) => boolean
   onOpenChat: (chatId: string) => void
   onOpenChatBeside: (chatId: string) => void
+  onDeleteChat: (chat: ChatThread) => void
+  isDeleteDisabled: (chatId: string) => boolean
   nested?: boolean
   className?: string
 }
@@ -27,6 +29,8 @@ export function AgentsSidebarSection({
   isChatActive,
   onOpenChat,
   onOpenChatBeside,
+  onDeleteChat,
+  isDeleteDisabled,
   nested = false,
   className
 }: AgentsSidebarSectionProps): React.JSX.Element {
@@ -66,6 +70,8 @@ export function AgentsSidebarSection({
               showProjectName={showProjectName}
               onOpen={() => onOpenChat(chat.id)}
               onOpenBeside={() => onOpenChatBeside(chat.id)}
+              onDelete={() => onDeleteChat(chat)}
+              deleteDisabled={isDeleteDisabled(chat.id)}
             />
           ))
         )}

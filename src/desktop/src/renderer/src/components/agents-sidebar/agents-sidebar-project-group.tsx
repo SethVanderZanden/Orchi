@@ -16,6 +16,8 @@ type AgentsSidebarProjectGroupProps = {
   isChatActive: (chatId: string) => boolean
   onOpenChat: (chatId: string) => void
   onOpenChatBeside: (chatId: string) => void
+  onDeleteChat: (chat: ChatThread) => void
+  isDeleteDisabled: (chatId: string) => boolean
 }
 
 export function AgentsSidebarProjectGroup({
@@ -26,7 +28,9 @@ export function AgentsSidebarProjectGroup({
   getParentTitle,
   isChatActive,
   onOpenChat,
-  onOpenChatBeside
+  onOpenChatBeside,
+  onDeleteChat,
+  isDeleteDisabled
 }: AgentsSidebarProjectGroupProps): React.JSX.Element {
   return (
     <Collapsible open={isExpanded} onOpenChange={onExpandedChange}>
@@ -67,6 +71,8 @@ export function AgentsSidebarProjectGroup({
                 isChatActive={isChatActive}
                 onOpenChat={onOpenChat}
                 onOpenChatBeside={onOpenChatBeside}
+                onDeleteChat={onDeleteChat}
+                isDeleteDisabled={isDeleteDisabled}
                 nested
               />
             ))}
