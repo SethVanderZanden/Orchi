@@ -20,7 +20,8 @@ import type {
   UpdateChatApprovalPolicyRequest,
   UpdateChatApprovalPolicyResponse,
   UpdateChatWorkspaceRequest,
-  UpdateChatWorkspaceResponse
+  UpdateChatWorkspaceResponse,
+  AttachmentResponse
 } from '@/lib/chat/types'
 import { getApiBaseUrl } from '@/lib/api'
 import {
@@ -383,11 +384,59 @@ export async function kickOffReview(
   return (await response.json()) as KickOffReviewResponse
 }
 
+export async function uploadChatAttachment(
+  chatId: string,
+  file: File
+): Promise<AttachmentResponse> {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  const response = await fetch(`${getApiBaseUrl()}/chats/${chatId}/attachments`, {
+    method: 'POST',
+    body: formData
+  })
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, chatErrorOptions))
+  }
+
+  return (await response.json()) as AttachmentResponse
+}
+
+export async function deleteStagedChatAttachment(
+  chatId: string,
+  attachmentId: string
+): Promise<void> {
+  const response = await fetch(
+    `${getApiBaseUrl()}/chats/${chatId}/attachments/${attachmentId}`,
+    { method: 'DELETE' }
+  )
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, chatErrorOptions))
+  }
+}
+
+export async function listChatAttachments(chatId: string): Promise<AttachmentResponse[]> {
+  const response = await fetch(`${getApiBaseUrl()}/chats/${chatId}/attachments`)
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, chatErrorOptions))
+  }
+
+  return (await response.json()) as AttachmentResponse[]
+}
+
+export function getChatAttachmentContentUrl(chatId: string, attachmentId: string): string {
+  return `${getApiBaseUrl()}/chats/${chatId}/attachments/${attachmentId}/content`
+}
+
 export async function sendMessageStream(
   chatId: string,
   content: string,
   handlers: SseHandlers,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  attachmentIds?: string[]
 ): Promise<void> {
   const response = await fetch(`${getApiBaseUrl()}/chats/${chatId}/messages`, {
     method: 'POST',
@@ -395,7 +444,10 @@ export async function sendMessageStream(
       'Content-Type': 'application/json',
       Accept: 'text/event-stream'
     },
-    body: JSON.stringify({ content }),
+    body: JSON.stringify({
+      content,
+      attachmentIds: attachmentIds?.length ? attachmentIds : undefined
+    }),
     signal
   })
 

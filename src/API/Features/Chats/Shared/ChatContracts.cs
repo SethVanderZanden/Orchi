@@ -30,7 +30,9 @@ public static partial class ChatMapper
             session.LastReadAt);
     }
 
-    public static ChatDetailResponse ToDetail(ChatSession session) =>
+    public static ChatDetailResponse ToDetail(
+        ChatSession session,
+        IReadOnlyDictionary<Guid, IReadOnlyList<AttachmentResponse>>? attachmentsByMessageId = null) =>
         new(
             session.Id,
             DeriveTitle(session),
@@ -47,10 +49,24 @@ public static partial class ChatMapper
             session.PlanFilePath,
             session.Status,
             session.LastReadAt,
-            session.Messages.Select(ToMessage).ToArray());
+            session.Messages
+                .Select(message => ToMessage(message, attachmentsByMessageId))
+                .ToArray());
 
-    public static ChatMessageResponse ToMessage(ChatMessage message) =>
-        new(message.Id, message.Role, message.Content, message.CreatedAt, message.Status);
+    public static ChatMessageResponse ToMessage(
+        ChatMessage message,
+        IReadOnlyDictionary<Guid, IReadOnlyList<AttachmentResponse>>? attachmentsByMessageId = null)
+    {
+        IReadOnlyList<AttachmentResponse>? attachments = null;
+        if (attachmentsByMessageId?.TryGetValue(message.Id, out IReadOnlyList<AttachmentResponse>? found) == true)
+        {
+            attachments = found;
+        }
+
+        return new(message.Id, message.Role, message.Content, message.CreatedAt, message.Status, attachments);
+    }
+
+    public static ChatMessageResponse ToMessage(ChatMessage message) => ToMessage(message, null);
 
     private static string DeriveTitle(ChatSession session)
     {
@@ -154,7 +170,8 @@ public sealed record ChatMessageResponse(
     string Role,
     string Content,
     DateTimeOffset CreatedAt,
-    string Status);
+    string Status,
+    IReadOnlyList<AttachmentResponse>? Attachments = null);
 
 public sealed record CreateChatRequest(
     Guid WorkspaceId,
@@ -192,7 +209,7 @@ public sealed record UpdateChatApprovalPolicyRequest(string? ApprovalPolicyId);
 
 public sealed record UpdateChatApprovalPolicyResponse(Guid Id, string? ApprovalPolicyId);
 
-public sealed record SendMessageRequest(string Content);
+public sealed record SendMessageRequest(string Content, IReadOnlyList<Guid>? AttachmentIds = null);
 
 public sealed record CreateChatResponse(
     Guid Id,

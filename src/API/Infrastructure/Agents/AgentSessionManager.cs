@@ -3,6 +3,8 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Orchi.Api.Common.Results;
 using Orchi.Api.Entities;
+using Orchi.Api.Infrastructure.Agents.Attachments;
+using Orchi.Api.Infrastructure.Agents.Attachments.Models;
 using Orchi.Api.Infrastructure.Agents.Persistence;
 using Orchi.Api.Infrastructure.Agents.Modes;
 using Orchi.Api.Infrastructure.Agents.Models;
@@ -30,6 +32,7 @@ public sealed class AgentSessionManager
     private readonly IChatStatusService _chatStatusService;
     private readonly IScriptEventDispatcher _scriptEventDispatcher;
     private readonly IWorkspaceDiffProvider _workspaceDiffProvider;
+    private readonly ChatAttachmentService _attachmentService;
     private readonly ILogger<AgentSessionManager> _logger;
 
     public AgentSessionManager(
@@ -46,6 +49,7 @@ public sealed class AgentSessionManager
         IChatStatusService chatStatusService,
         IScriptEventDispatcher scriptEventDispatcher,
         IWorkspaceDiffProvider workspaceDiffProvider,
+        ChatAttachmentService attachmentService,
         ILogger<AgentSessionManager> logger)
     {
         _chatStore = chatStore;
@@ -61,6 +65,7 @@ public sealed class AgentSessionManager
         _chatStatusService = chatStatusService;
         _scriptEventDispatcher = scriptEventDispatcher;
         _workspaceDiffProvider = workspaceDiffProvider;
+        _attachmentService = attachmentService;
         _logger = logger;
     }
 
@@ -628,6 +633,9 @@ public sealed class AgentSessionManager
         session.WorkspaceId = workspace.Id;
         session.WorkspacePath = workspace.Path;
         _sessions[chatId] = session;
+
+        await _attachmentService.OnWorkspaceChangedAsync(chatId, workspace.Path, cancellationToken);
+
         return Result.Success(session);
     }
 
@@ -692,6 +700,7 @@ public sealed class AgentSessionManager
     public async IAsyncEnumerable<AgentEvent> SendMessageAsync(
         Guid chatId,
         string content,
+        IReadOnlyList<Guid>? attachmentIds,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         ChatSession session = await GetRequiredSessionAsync(chatId, cancellationToken);
@@ -699,10 +708,25 @@ public sealed class AgentSessionManager
 
         StopRunningProcess(session);
 
-        await AppendUserMessageAsync(chatId, content, cancellationToken);
+        ChatMessage userMessage = await AppendUserMessageAsync(chatId, content, cancellationToken);
 
-        string composedPrompt = _promptComposer.Compose(session, content);
-        IReadOnlyList<string> extraCliArgs = BuildCliArgs(session);
+        IReadOnlyList<Guid> ids = attachmentIds ?? [];
+        Result<AgentAttachmentContext> attachmentResult = await _attachmentService.PrepareTurnAsync(
+            chatId,
+            userMessage.Id,
+            session.WorkspacePath,
+            ids,
+            cancellationToken);
+
+        if (attachmentResult.IsFailure)
+        {
+            yield return new AgentErrorEvent("Attachment.Invalid", attachmentResult.Error.Message);
+            yield break;
+        }
+
+        AgentAttachmentContext attachmentContext = attachmentResult.Value;
+        string composedPrompt = _promptComposer.Compose(session, content, attachmentContext);
+        IReadOnlyList<string> extraCliArgs = BuildCliArgs(session, attachmentContext);
 
         var runCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         session.RunCts = runCts;
@@ -1086,8 +1110,22 @@ public sealed class AgentSessionManager
         }
     }
 
-    private IReadOnlyList<string> BuildCliArgs(ChatSession session) =>
-        _promptComposer.GetExtraCliArgs(session.Mode);
+    private IReadOnlyList<string> BuildCliArgs(ChatSession session, AgentAttachmentContext? attachmentContext)
+    {
+        List<string> args = _promptComposer.GetExtraCliArgs(session.Mode).ToList();
+        if (attachmentContext is null)
+        {
+            return args;
+        }
+
+        foreach (string imagePath in attachmentContext.ImageAbsolutePaths)
+        {
+            args.Add("--image");
+            args.Add(imagePath);
+        }
+
+        return args;
+    }
 
     private async Task<Result> ValidateRuntimeSelectionAsync(
         string agentId,
@@ -1278,6 +1316,8 @@ public sealed class AgentSessionManager
         session.WorkspaceId = workspace.Id;
         session.WorkspacePath = workspacePath;
         _sessions[chatId] = session;
+
+        await _attachmentService.OnWorkspaceChangedAsync(chatId, workspacePath, cancellationToken);
 
         _logger.LogInformation(
             "Switched chat {ChatId} to worktree workspace {WorkspaceId} at {Path}",

@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { ChatLayout } from '@/components/chat/chat-layout'
 
-import { OrchiChatComposer } from '@/components/chat/chat-composer'
+import { OrchiChatComposer, type ComposerSendPayload } from '@/components/chat/chat-composer'
 
 import { getNextAgentMode, resolveAgentModeOptions } from '@/lib/chat/agent-mode-utils'
 
@@ -14,6 +14,8 @@ import { ChatWorkspaceContext } from '@/components/chat/chat-workspace-context'
 
 import { OrchiChatMessageList } from '@/components/chat/chat-message-list'
 
+import { AttachmentsPanel } from '@/components/chat/attachments-panel'
+import { collectChatAttachments } from '@/lib/chat/collect-chat-attachments'
 import { PlanCards } from '@/components/orchestration/plan-cards'
 
 import { PlanReviewPanel } from '@/components/orchestration/plan-review-panel'
@@ -51,7 +53,7 @@ type ChatPanelProps = {
 
   markers: ChatMarker[]
 
-  onSend: (content: string) => void
+  onSend: (payload: ComposerSendPayload) => void
 
   mode: AgentMode
 
@@ -146,6 +148,10 @@ type ChatPanelProps = {
   dispatchReview: Dispatch<ReviewAction>
 
   activeReviewTabId: string | null
+
+  attachmentsPanelOpen?: boolean
+
+  onCloseAttachmentsPanel?: () => void
 }
 
 export function ChatPanel({
@@ -247,7 +253,11 @@ export function ChatPanel({
 
   dispatchReview,
 
-  activeReviewTabId
+  activeReviewTabId,
+
+  attachmentsPanelOpen = false,
+
+  onCloseAttachmentsPanel
 }: ChatPanelProps): React.JSX.Element {
   const modesQuery = useQuery({
     queryKey: agentKeys.modes(),
@@ -352,6 +362,7 @@ export function ChatPanel({
   })
 
   const isNewRootChat = messages.length === 0 && markers.length === 0 && showModeSelector
+  const chatAttachments = useMemo(() => collectChatAttachments(messages), [messages])
 
   const composer = (
     <OrchiChatComposer
@@ -429,6 +440,7 @@ export function ChatPanel({
                     className="mx-auto w-full max-w-3xl gap-7 px-6 py-8"
                   >
                     <OrchiChatMessageList
+                      chatId={chatId}
                       messages={messages}
                       markers={markers}
                       mode={mode}
@@ -464,6 +476,15 @@ export function ChatPanel({
           </ChatLayout>
         </MessageScrollerProvider>
       </div>
+
+      {attachmentsPanelOpen && chatAttachments.length > 0 ? (
+        <AttachmentsPanel
+          containerWidth={splitContainerWidth}
+          chatId={chatId}
+          attachments={chatAttachments}
+          onClose={() => onCloseAttachmentsPanel?.()}
+        />
+      ) : null}
 
       {showPlanReview && reviewState.panelOpen && activeReviewTabId ? (
         <PlanReviewPanel
