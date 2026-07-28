@@ -142,7 +142,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
             <AssistantMessageContent
               content={displayContent}
               status={message.status}
-              className={message.status === 'error' ? 'prose-base text-destructive' : 'prose-base'}
+              className={message.status === 'error' ? 'text-destructive' : undefined}
             />
           ) : null}
         </MessageSelectionMenu>

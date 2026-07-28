@@ -23,7 +23,9 @@ export const AssistantMessageContent = memo(function AssistantMessageContent({
 
   if (isStreaming) {
     return (
-      <div className={cn('whitespace-pre-wrap break-words text-inherit', className)}>{content}</div>
+      <div className={cn('whitespace-pre-wrap break-words leading-relaxed text-inherit', className)}>
+        {content}
+      </div>
     )
   }
 

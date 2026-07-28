@@ -22,7 +22,7 @@ function Message({
       data-slot="message"
       data-align={align}
       className={cn(
-        'group/message relative flex w-full min-w-0 gap-2 text-sm data-[align=end]:flex-row-reverse',
+        'group/message relative flex w-full min-w-0 gap-3 text-base data-[align=end]:flex-row-reverse',
         className
       )}
       {...props}
@@ -48,7 +48,7 @@ function MessageContent({ className, ...props }: React.ComponentProps<'div'>): R
     <div
       data-slot="message-content"
       className={cn(
-        'flex w-full min-w-0 flex-col gap-2.5 wrap-break-word group-data-[align=end]/message:*:data-slot:self-end',
+        'flex w-full min-w-0 flex-col gap-3 wrap-break-word group-data-[align=end]/message:*:data-slot:self-end',
         className
       )}
       {...props}

@@ -126,11 +126,11 @@ export const MarkdownContent = memo(function MarkdownContent({
   return (
     <div
       className={cn(
-        'prose prose-sm prose-neutral dark:prose-invert max-w-none min-w-0 w-full break-words text-inherit',
-        'prose-headings:font-semibold prose-headings:text-inherit',
-        'prose-p:my-4 prose-p:leading-relaxed prose-p:break-words prose-p:text-inherit first:prose-p:mt-0 last:prose-p:mb-0',
+        'prose prose-base prose-neutral dark:prose-invert max-w-none min-w-0 w-full break-words text-inherit',
+        'prose-headings:font-semibold prose-headings:text-inherit prose-headings:mt-6 prose-headings:mb-2 first:prose-headings:mt-0',
+        'prose-p:my-5 prose-p:leading-relaxed prose-p:break-words prose-p:text-inherit first:prose-p:mt-0 last:prose-p:mb-0',
         'prose-li:break-words prose-li:text-inherit prose-strong:text-inherit',
-        'prose-ul:my-4 prose-ol:my-4 prose-li:my-0.5',
+        'prose-ul:my-5 prose-ol:my-5 prose-li:my-1',
         'prose-pre:bg-muted/60 prose-pre:text-inherit prose-pre:code:text-inherit',
         'prose-code:before:content-none prose-code:after:content-none',
         'prose-a:text-inherit prose-a:underline prose-a:underline-offset-2',
