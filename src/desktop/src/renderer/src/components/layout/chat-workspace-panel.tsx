@@ -4,7 +4,7 @@ import { ChatPanel } from '@/components/chat/chat-panel'
 import type { ComposerSendPayload } from '@/components/chat/chat-composer'
 import { ChatWorkspaceHeader } from '@/components/layout/chat-workspace-header'
 import { useAttachmentsPanel } from '@/hooks/use-attachments-panel'
-import { collectChatAttachments } from '@/components/chat/message-attachments'
+import { collectChatAttachments } from '@/lib/chat/collect-chat-attachments'
 import { usePlanReview } from '@/hooks/use-plan-review'
 import { mergeOrchestrationPlans } from '@/lib/orchestration/resolve-plans'
 import { parseOrchestrationPlansFromMessages } from '@/lib/orchestration/parse-plans'
@@ -91,14 +91,7 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
     workspace,
     resolvedProjectName: projectName
   } = useMemo(
-    () =>
-      resolveWorkspaceContext(
-        projects,
-        chat.projectId,
-        chat.workspaceId,
-        null,
-        null
-      ),
+    () => resolveWorkspaceContext(projects, chat.projectId, chat.workspaceId, null, null),
     [chat.projectId, chat.workspaceId, projects]
   )
 
@@ -150,8 +143,11 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
     [getChat, loadChat]
   )
 
-  const { workflowProgress, sequencePlanIds: backendSequencePlanIds, backendPlans } =
-    useOrchestration({
+  const {
+    workflowProgress,
+    sequencePlanIds: backendSequencePlanIds,
+    backendPlans
+  } = useOrchestration({
     parentChatId: needsHydration ? chat.id : undefined,
     parentChat: needsHydration ? chat : undefined,
     getChat,

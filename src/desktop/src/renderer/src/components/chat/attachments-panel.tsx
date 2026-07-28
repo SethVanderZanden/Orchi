@@ -65,11 +65,11 @@ export function AttachmentsPanel({
     isDragging.current = false
     document.body.style.cursor = ''
     document.body.style.userSelect = ''
-    window.removeEventListener('mousemove', handleMouseMove)
-    window.removeEventListener('mouseup', handleMouseUp)
-  }, [handleMouseMove])
+  }, [])
 
   useEffect(() => {
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
     return () => {
       window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('mouseup', handleMouseUp)
@@ -83,8 +83,6 @@ export function AttachmentsPanel({
     dragStartWidth.current = width
     document.body.style.cursor = 'col-resize'
     document.body.style.userSelect = 'none'
-    window.addEventListener('mousemove', handleMouseMove)
-    window.addEventListener('mouseup', handleMouseUp)
   }
 
   return (
@@ -131,11 +129,7 @@ export function AttachmentsPanel({
                     )}
                   >
                     {isImage ? (
-                      <img
-                        src={url}
-                        alt=""
-                        className="size-12 shrink-0 rounded object-cover"
-                      />
+                      <img src={url} alt="" className="size-12 shrink-0 rounded object-cover" />
                     ) : (
                       <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                     )}

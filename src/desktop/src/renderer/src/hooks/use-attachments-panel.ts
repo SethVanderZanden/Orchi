@@ -4,7 +4,8 @@ type AttachmentsPanelState = {
   panelOpen: boolean
 }
 
-type AttachmentsPanelAction = { type: 'toggle-panel' } | { type: 'close-panel' } | { type: 'open-panel' }
+type AttachmentsPanelAction =
+  { type: 'toggle-panel' } | { type: 'close-panel' } | { type: 'open-panel' }
 
 function attachmentsPanelReducer(
   state: AttachmentsPanelState,
@@ -22,7 +23,13 @@ function attachmentsPanelReducer(
   }
 }
 
-export function useAttachmentsPanel(hasAttachments: boolean) {
+type UseAttachmentsPanelResult = {
+  attachmentsPanelOpen: boolean
+  toggleAttachmentsPanel: () => void
+  closeAttachmentsPanel: () => void
+}
+
+export function useAttachmentsPanel(hasAttachments: boolean): UseAttachmentsPanelResult {
   const [state, dispatch] = useReducer(attachmentsPanelReducer, { panelOpen: false })
 
   const togglePanel = useCallback(() => {

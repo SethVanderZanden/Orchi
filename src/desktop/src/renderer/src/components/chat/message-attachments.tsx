@@ -46,11 +46,7 @@ export function MessageAttachments({
               rel="noreferrer"
               className="block max-w-xs overflow-hidden rounded-lg border border-border/70"
             >
-              <img
-                src={url}
-                alt={attachment.fileName}
-                className="max-h-48 w-full object-cover"
-              />
+              <img src={url} alt={attachment.fileName} className="max-h-48 w-full object-cover" />
             </a>
           )
         }
@@ -74,24 +70,4 @@ export function MessageAttachments({
       })}
     </div>
   )
-}
-
-export function collectChatAttachments(
-  messages: { attachments?: ChatAttachment[] }[]
-): ChatAttachment[] {
-  const seen = new Set<string>()
-  const collected: ChatAttachment[] = []
-
-  for (const message of messages) {
-    for (const attachment of message.attachments ?? []) {
-      if (seen.has(attachment.id)) {
-        continue
-      }
-
-      seen.add(attachment.id)
-      collected.push(attachment)
-    }
-  }
-
-  return collected
 }

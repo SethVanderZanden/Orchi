@@ -15,7 +15,7 @@ import { ChatWorkspaceContext } from '@/components/chat/chat-workspace-context'
 import { OrchiChatMessageList } from '@/components/chat/chat-message-list'
 
 import { AttachmentsPanel } from '@/components/chat/attachments-panel'
-import { collectChatAttachments } from '@/components/chat/message-attachments'
+import { collectChatAttachments } from '@/lib/chat/collect-chat-attachments'
 import { PlanCards } from '@/components/orchestration/plan-cards'
 
 import { PlanReviewPanel } from '@/components/orchestration/plan-review-panel'

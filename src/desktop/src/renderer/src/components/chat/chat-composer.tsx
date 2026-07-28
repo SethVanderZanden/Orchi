@@ -101,10 +101,6 @@ export function OrchiChatComposer({
   const [isUploading, setIsUploading] = useState(false)
 
   useEffect(() => {
-    setStagedItems([])
-  }, [chatId])
-
-  useEffect(() => {
     if (!autoFocus || disabled) {
       return
     }
@@ -116,8 +112,7 @@ export function OrchiChatComposer({
     return () => cancelAnimationFrame(frameId)
   }, [autoFocus, chatId, disabled])
 
-  const canSend =
-    (draft.trim().length > 0 || stagedItems.length > 0) && !disabled && !isUploading
+  const canSend = (draft.trim().length > 0 || stagedItems.length > 0) && !disabled && !isUploading
 
   function handleDraftChange(next: string): void {
     setDraft(next)
@@ -131,10 +126,15 @@ export function OrchiChatComposer({
     }
 
     const attachmentIds = stagedItems
-      .filter((item): item is Extract<ComposerStagedItem, { kind: 'uploaded' }> => item.kind === 'uploaded')
+      .filter(
+        (item): item is Extract<ComposerStagedItem, { kind: 'uploaded' }> =>
+          item.kind === 'uploaded'
+      )
       .map((item) => item.attachment.id)
     const pendingFiles = stagedItems
-      .filter((item): item is Extract<ComposerStagedItem, { kind: 'pending' }> => item.kind === 'pending')
+      .filter(
+        (item): item is Extract<ComposerStagedItem, { kind: 'pending' }> => item.kind === 'pending'
+      )
       .map((item) => item.file)
 
     onSend({

@@ -219,7 +219,7 @@ export function useChatStream({
   const sendMessage = useCallback(
     async (chatId: string, content: string, options?: SendMessageOptions) => {
       let resolvedChatId = chatId
-      let resolvedAttachmentIds = [...(options?.attachmentIds ?? [])]
+      const resolvedAttachmentIds = [...(options?.attachmentIds ?? [])]
       // Capture before promote/navigate; activeChatId in this closure stays the pre-send id.
       const wasActiveChat = chatId === activeChatId
 
