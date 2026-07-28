@@ -40,9 +40,20 @@ function migrateDraftCache(queryClient: QueryClient, localId: string, persisted:
     return [persisted, ...withoutLocal.filter((chat) => chat.id !== persisted.id)]
   })
 
-  queryClient.removeQueries({ queryKey: chatKeys.detail(localId) })
   queryClient.setQueryData(chatKeys.detail(persisted.id), persisted)
+  // Keep a bridge under the local id until the route replaces to the persisted id.
+  // Removing it immediately makes ChatPage see !chat on /chat/local:… and bounce to "/".
+  queryClient.setQueryData(chatKeys.detail(localId), { ...persisted, id: localId })
   migrateChatClientState(localId, persisted.id)
+}
+
+/** Drop the temporary local-id detail bridge after navigation to the persisted chat. */
+export function clearLocalChatDetailBridge(queryClient: QueryClient, localId: string): void {
+  if (!isLocalChat(localId)) {
+    return
+  }
+
+  queryClient.removeQueries({ queryKey: chatKeys.detail(localId) })
 }
 
 async function promoteDraftOnce(

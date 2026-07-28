@@ -2,7 +2,11 @@ import { QueryClient } from '@tanstack/react-query'
 import { describe, expect, it, beforeEach } from 'vitest'
 
 import { createLocalDraftChat } from './create-local-draft'
-import { promoteLocalChat, __resetPromotionLocksForTests } from './promote-local-chat'
+import {
+  clearLocalChatDetailBridge,
+  promoteLocalChat,
+  __resetPromotionLocksForTests
+} from './promote-local-chat'
 import { chatKeys } from '@/lib/query-keys'
 
 describe('promoteLocalChat', () => {
@@ -56,10 +60,18 @@ describe('promoteLocalChat', () => {
       const list = queryClient.getQueryData<(typeof draft)[]>(chatKeys.lists()) ?? []
       expect(list.some((chat) => chat.id === draft.id)).toBe(false)
       expect(list.some((chat) => chat.id === persistedId)).toBe(true)
-      expect(queryClient.getQueryData(chatKeys.detail(draft.id))).toBeUndefined()
+      // Local detail stays as a bridge until the route navigates away.
+      expect(queryClient.getQueryData(chatKeys.detail(draft.id))).toMatchObject({
+        id: draft.id,
+        workspaceId: draft.workspaceId
+      })
       expect(queryClient.getQueryData(chatKeys.detail(persistedId))).toMatchObject({
+        id: persistedId,
         mode: 'orchestration'
       })
+
+      clearLocalChatDetailBridge(queryClient, draft.id)
+      expect(queryClient.getQueryData(chatKeys.detail(draft.id))).toBeUndefined()
     } finally {
       globalThis.fetch = originalFetch
     }
