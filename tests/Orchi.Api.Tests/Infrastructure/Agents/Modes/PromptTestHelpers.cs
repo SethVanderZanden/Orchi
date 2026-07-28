@@ -55,6 +55,7 @@ internal static class PromptTestHelpers
             new SessionTaskContributor(CreateArtifactTaskFactory()),
             new ParentChatContributor(),
             new GlobalRulesContributor(),
+            new FileReferenceContributor(),
             new MessageContributor(),
         ]);
     }

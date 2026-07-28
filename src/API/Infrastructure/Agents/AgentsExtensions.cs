@@ -104,6 +104,7 @@ public static class AgentsExtensions
         services.AddSingleton<IPromptSectionContributor, SessionTaskContributor>();
         services.AddSingleton<IPromptSectionContributor, ParentChatContributor>();
         services.AddSingleton<IPromptSectionContributor, GlobalRulesContributor>();
+        services.AddSingleton<IPromptSectionContributor, FileReferenceContributor>();
         services.AddSingleton<IPromptSectionContributor, MessageContributor>();
         services.AddSingleton<PromptSectionPipeline>();
         services.AddSingleton<IAgentPromptComposer, AgentPromptComposer>();

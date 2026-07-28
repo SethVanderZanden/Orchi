@@ -97,6 +97,24 @@ describe('openInEditor', () => {
     expect(deps.spawnDetached).toHaveBeenCalledWith('cursor', [resolvedFolderPath])
   })
 
+  it('uses cli with -g when a location is provided', async () => {
+    const deps = createDeps({
+      spawnDetached: vi.fn().mockReturnValue(true)
+    })
+
+    const result = await openInEditor(folderPath, 'vscode', deps, {
+      location: { relativePath: 'src/file.ts', line: 42, column: 3 }
+    })
+
+    expect(result).toEqual({ ok: true })
+    expect(deps.openExternal).not.toHaveBeenCalled()
+    expect(deps.spawnDetached).toHaveBeenCalledWith('code', [
+      resolvedFolderPath,
+      '-g',
+      'src/file.ts:42:3'
+    ])
+  })
+
   it('falls back to known install path when cli fails', async () => {
     const installPath = getKnownEditorInstallPaths('vscode')[0]
     const deps = createDeps({

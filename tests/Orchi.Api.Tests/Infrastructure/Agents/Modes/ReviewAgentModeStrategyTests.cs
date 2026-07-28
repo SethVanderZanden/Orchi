@@ -40,6 +40,8 @@ public class ReviewAgentModeStrategyTests
         Assert.Contains("### Oversights", document.Context);
         Assert.Contains("### Over-engineering", document.Context);
         Assert.Contains("### Missed patterns", document.Context);
+        Assert.Contains("<orchi-open-editor>", document.Rules);
+        Assert.Contains("<orchi-open-editor>", document.Context);
         Assert.Null(document.Message);
     }
 

@@ -1,4 +1,4 @@
-import { memo, type ReactNode } from 'react'
+import { memo, useCallback, type ReactNode } from 'react'
 import type { Components } from 'react-markdown'
 import ReactMarkdown from 'react-markdown'
 import remarkBreaks from 'remark-breaks'
@@ -9,6 +9,12 @@ import {
   isWorkspaceDiffStatsMessage,
   stripWorkspaceDiffStatsMarker
 } from '@/lib/chat/workspace-diff-stats'
+import {
+  decodeOpenEditorLinkHref,
+  isOpenEditorLinkHref,
+  transformOpenEditorBlocksForDisplay
+} from '@/lib/open-editor/transform-open-editor-blocks'
+import { openEditorFromCommand } from '@/lib/preferences/open-editor-from-command'
 import { cn } from '@/lib/utils'
 
 type MarkdownContentProps = {
@@ -24,7 +30,10 @@ function isInlineCode(className: string | undefined, children: ReactNode): boole
   return !String(children).includes('\n')
 }
 
-function createMarkdownComponents(enableDiffStatsColors: boolean): Components {
+function createMarkdownComponents(
+  enableDiffStatsColors: boolean,
+  onOpenEditorLink: (command: string) => void
+): Components {
   return {
     table({ children, ...props }) {
       return (
@@ -79,6 +88,25 @@ function createMarkdownComponents(enableDiffStatsColors: boolean): Components {
           {children}
         </code>
       )
+    },
+    a({ href, children, ...props }) {
+      if (isOpenEditorLinkHref(href)) {
+        return (
+          <button
+            type="button"
+            className="inline font-medium text-primary underline underline-offset-2 hover:text-primary/80"
+            onClick={() => onOpenEditorLink(decodeOpenEditorLinkHref(href))}
+          >
+            {children}
+          </button>
+        )
+      }
+
+      return (
+        <a href={href} {...props}>
+          {children}
+        </a>
+      )
     }
   }
 }
@@ -88,7 +116,12 @@ export const MarkdownContent = memo(function MarkdownContent({
   className
 }: MarkdownContentProps): React.JSX.Element {
   const enableDiffStatsColors = isWorkspaceDiffStatsMessage(children)
-  const markdown = enableDiffStatsColors ? stripWorkspaceDiffStatsMarker(children) : children
+  const stripped = enableDiffStatsColors ? stripWorkspaceDiffStatsMarker(children) : children
+  const markdown = transformOpenEditorBlocksForDisplay(stripped)
+
+  const handleOpenEditorLink = useCallback((command: string) => {
+    void openEditorFromCommand(command)
+  }, [])
 
   return (
     <div
@@ -108,7 +141,8 @@ export const MarkdownContent = memo(function MarkdownContent({
     >
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkBreaks]}
-        components={createMarkdownComponents(enableDiffStatsColors)}
+        urlTransform={(url) => url}
+        components={createMarkdownComponents(enableDiffStatsColors, handleOpenEditorLink)}
       >
         {markdown}
       </ReactMarkdown>
