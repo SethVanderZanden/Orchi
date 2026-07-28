@@ -30,7 +30,7 @@ public static class ApplyOrchestrationGitDefaults
                 [
                     new ScriptUpsertBinding(
                         ScriptEventKind.AgentStart,
-                        ModeFilter: null,
+                        AgentModeIds.Implementation,
                         Order: 0,
                         Enabled: true,
                         ScriptOnError.Continue)

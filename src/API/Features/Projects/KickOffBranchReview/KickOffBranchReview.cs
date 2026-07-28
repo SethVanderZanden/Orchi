@@ -69,29 +69,6 @@ public static class KickOffBranchReview
                 }
 
                 string reviewId = ReviewBriefBuilder.ToBranchReviewId(headBranch);
-                string worktreeId = GitWorktreePathResolver.NewOpaqueWorktreeSegmentId();
-
-                GitWorktreeCreateResult worktree = await gitWorkspaceService.CreateWorktreeForExistingBranchAsync(
-                    primary.Path,
-                    worktreeId,
-                    headBranch,
-                    baseBranch,
-                    cancellationToken);
-
-                WorkspaceCreateResult? workspace = await projectStore.CreateWorkspaceAsync(
-                    project.Id,
-                    worktree.Path,
-                    name: $"Review {headBranch}",
-                    WorkspaceKind.Worktree,
-                    worktree.Branch,
-                    worktree.BaseBranch,
-                    cancellationToken);
-
-                if (workspace is null)
-                {
-                    return Result.Failure<KickOffBranchReviewResponse>(
-                        Error.NotFound($"Project '{project.Id}' was not found."));
-                }
 
                 string reviewBrief = ReviewBriefBuilder.BuildForBranchReview(
                     reviewId,
@@ -102,13 +79,13 @@ public static class KickOffBranchReview
                     artifactWriterFactory.GetStrategy(OrchiArtifactKind.Review);
 
                 string reviewFilePath = await reviewWriter.WriteAsync(
-                    worktree.Path,
+                    primary.Path,
                     reviewId,
                     reviewBrief,
                     cancellationToken);
 
                 Result<ChatSession> reviewChatResult = await sessionManager.CreateSessionAsync(
-                    workspace.Workspace.Id,
+                    primary.Id,
                     mode: ReviewAgentModeStrategy.Mode,
                     planFilePath: reviewFilePath,
                     cancellationToken: cancellationToken);
@@ -125,8 +102,8 @@ public static class KickOffBranchReview
                 return Result.Success(new KickOffBranchReviewResponse(
                     reviewChat.Id,
                     reviewFilePath,
-                    worktree.Branch,
-                    worktree.BaseBranch,
+                    headBranch,
+                    baseBranch,
                     initialPrompt,
                     kickoffMessage));
             }

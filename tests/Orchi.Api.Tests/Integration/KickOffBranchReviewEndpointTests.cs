@@ -109,12 +109,10 @@ public class KickOffBranchReviewEndpointTests : IClassFixture<TestWebApplication
         Assert.NotNull(reviewChat);
         Assert.Equal(ReviewAgentModeStrategy.Mode, reviewChat.Mode);
         Assert.Equal(kickedOff.ReviewFilePath, reviewChat.PlanFilePath);
-        Assert.NotEqual(_workspacePath, reviewChat.WorkspacePath);
-        Assert.Contains("Orchi", reviewChat.WorkspacePath);
-        Assert.Contains("worktrees", reviewChat.WorkspacePath);
+        Assert.Equal(_workspacePath, reviewChat.WorkspacePath);
 
         string reviewFile = Path.Combine(
-            reviewChat.WorkspacePath,
+            _workspacePath,
             kickedOff.ReviewFilePath.Replace('/', Path.DirectorySeparatorChar));
         Assert.True(File.Exists(reviewFile));
         string content = await File.ReadAllTextAsync(reviewFile);
