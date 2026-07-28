@@ -20,7 +20,7 @@ public static class KickOffBranchReview
         string HeadBranch,
         string? BaseBranch,
         bool Fetch,
-        Guid? WorkspaceId) : ICommand<KickOffBranchReviewResponse>;
+        Guid WorkspaceId) : ICommand<KickOffBranchReviewResponse>;
 
     internal sealed class Handler(
         IProjectStore projectStore,
@@ -40,26 +40,15 @@ public static class KickOffBranchReview
                     Error.NotFound($"Project '{command.ProjectId}' was not found."));
             }
 
-            Workspace? primary = project.Workspaces.FirstOrDefault(workspace => workspace.IsDefault)
-                ?? project.Workspaces.FirstOrDefault();
+            Workspace? reviewWorkspace = project.Workspaces.FirstOrDefault(
+                workspace => workspace.Id == command.WorkspaceId);
 
-            if (primary is null)
+            if (reviewWorkspace is null)
             {
                 return Result.Failure<KickOffBranchReviewResponse>(
-                    Error.Validation("Workspace.Missing", "Project has no workspace."));
-            }
-
-            Workspace? reviewWorkspace = primary;
-            if (command.WorkspaceId is Guid requestedWorkspaceId)
-            {
-                reviewWorkspace = project.Workspaces.FirstOrDefault(workspace => workspace.Id == requestedWorkspaceId);
-                if (reviewWorkspace is null)
-                {
-                    return Result.Failure<KickOffBranchReviewResponse>(
-                        Error.Validation(
-                            "Workspace.NotFound",
-                            $"Workspace '{requestedWorkspaceId}' was not found for this project."));
-                }
+                    Error.Validation(
+                        "Workspace.NotFound",
+                        $"Workspace '{command.WorkspaceId}' was not found for this project."));
             }
 
             string headBranch = command.HeadBranch.Trim();
@@ -145,6 +134,10 @@ public static class KickOffBranchReview
             RuleFor(command => command.HeadBranch)
                 .NotEmpty()
                 .WithMessage("Head branch is required.");
+
+            RuleFor(command => command.WorkspaceId)
+                .NotEmpty()
+                .WithMessage("Workspace id is required.");
         }
     }
 

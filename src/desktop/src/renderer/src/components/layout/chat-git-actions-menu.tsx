@@ -97,7 +97,7 @@ export function ChatGitActionsMenu({
   }
 
   function openBranchReviewDialog(): void {
-    if (!projectId) {
+    if (!projectId || !workspaceId) {
       return
     }
 
@@ -159,8 +159,14 @@ export function ChatGitActionsMenu({
                 Create pull request
               </DropdownMenuItem>
               <DropdownMenuItem
-                disabled={projectId == null}
-                title={projectId == null ? 'Select a project chat first.' : undefined}
+                disabled={projectId == null || workspaceId == null}
+                title={
+                  projectId == null
+                    ? 'Select a project chat first.'
+                    : workspaceId == null
+                      ? 'This chat has no workspace.'
+                      : undefined
+                }
                 onClick={openBranchReviewDialog}
               >
                 Review branch…
@@ -195,7 +201,7 @@ export function ChatGitActionsMenu({
         />
       ) : null}
 
-      {projectId ? (
+      {projectId && workspaceId ? (
         <BranchReviewDialog
           open={activeDialog === 'branchReview'}
           onOpenChange={(open) => setActiveDialog(open ? 'branchReview' : null)}

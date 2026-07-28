@@ -14,6 +14,7 @@ public class KickOffBranchReviewEndpointTests : IClassFixture<TestWebApplication
     private readonly HttpClient _client;
     private readonly string _workspacePath;
     private Guid _projectId;
+    private Guid _workspaceId;
 
     public KickOffBranchReviewEndpointTests(TestWebApplicationFactory factory)
     {
@@ -37,6 +38,7 @@ public class KickOffBranchReviewEndpointTests : IClassFixture<TestWebApplication
         CreateProjectResponse? created = await response.Content.ReadFromJsonAsync<CreateProjectResponse>();
         Assert.NotNull(created);
         _projectId = created.Id;
+        _workspaceId = created.DefaultWorkspace.Id;
 
         await _client.PatchAsJsonAsync(
             $"/projects/{_projectId}",
@@ -90,7 +92,7 @@ public class KickOffBranchReviewEndpointTests : IClassFixture<TestWebApplication
 
         HttpResponseMessage response = await _client.PostAsJsonAsync(
             $"/projects/{_projectId}/reviews/from-branches",
-            new KickOffBranchReviewRequest("feature-auth", "main", Fetch: false));
+            new KickOffBranchReviewRequest("feature-auth", _workspaceId, "main", Fetch: false));
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
@@ -144,9 +146,9 @@ public class KickOffBranchReviewEndpointTests : IClassFixture<TestWebApplication
             $"/projects/{_projectId}/reviews/from-branches",
             new KickOffBranchReviewRequest(
                 "feature-auth",
+                worktreeWorkspace.Id,
                 "main",
-                Fetch: false,
-                WorkspaceId: worktreeWorkspace.Id));
+                Fetch: false));
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
@@ -173,7 +175,7 @@ public class KickOffBranchReviewEndpointTests : IClassFixture<TestWebApplication
 
         HttpResponseMessage response = await _client.PostAsJsonAsync(
             $"/projects/{_projectId}/reviews/from-branches",
-            new KickOffBranchReviewRequest("main", "main", Fetch: false));
+            new KickOffBranchReviewRequest("main", _workspaceId, "main", Fetch: false));
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }

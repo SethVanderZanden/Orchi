@@ -23,7 +23,7 @@ type BranchReviewDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   projectId: string
-  workspaceId?: string | null
+  workspaceId: string
   defaultBaseBranch: string
   preferredHeadBranch?: string | null
   onSuccess: (message: string) => void
@@ -89,9 +89,9 @@ export function BranchReviewDialog({
     mutationFn: () =>
       kickOffBranchReview(projectId, {
         headBranch: selectedHead.trim(),
+        workspaceId,
         baseBranch: selectedBase.trim(),
-        fetch: shouldFetch,
-        workspaceId: workspaceId ?? null
+        fetch: shouldFetch
       }),
     onSuccess: async (response) => {
       openChat(response.reviewChatId)
