@@ -18,25 +18,6 @@ public static class ApplyOrchestrationGitDefaults
             Command command,
             CancellationToken cancellationToken)
         {
-            string worktreeStepsJson = ScriptStepsSerializer.Serialize(
-            [
-                new ScriptStepDto(ScriptStepKinds.GitWorktree)
-            ]);
-
-            StoredScript worktreeOnStart = await store.CreateAsync(
-                "Orchestration: worktree on agent start",
-                command.ProjectId,
-                worktreeStepsJson,
-                [
-                    new ScriptUpsertBinding(
-                        ScriptEventKind.AgentStart,
-                        AgentModeIds.Implementation,
-                        Order: 0,
-                        Enabled: true,
-                        ScriptOnError.Continue)
-                ],
-                cancellationToken);
-
             string finishStepsJson = ScriptStepsSerializer.Serialize(
             [
                 new ScriptStepDto(ScriptStepKinds.GitCommit, GenerateMessage: true),
@@ -60,7 +41,6 @@ public static class ApplyOrchestrationGitDefaults
 
             return Result.Success<IReadOnlyList<ScriptResponse>>(
             [
-                ScriptMapper.ToResponse(worktreeOnStart),
                 ScriptMapper.ToResponse(finishFlow)
             ]);
         }

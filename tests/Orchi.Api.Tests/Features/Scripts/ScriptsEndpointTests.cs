@@ -72,9 +72,9 @@ public class ScriptsEndpointTests : IClassFixture<TestWebApplicationFactory>, IA
 
         ScriptResponse[]? scripts = await response.Content.ReadFromJsonAsync<ScriptResponse[]>();
         Assert.NotNull(scripts);
-        Assert.Equal(2, scripts.Length);
+        Assert.Single(scripts);
 
-        ScriptResponse finishScript = scripts[1];
+        ScriptResponse finishScript = scripts[0];
         Assert.Contains("git.commit", finishScript.StepsJson, StringComparison.Ordinal);
         Assert.Contains("git.push", finishScript.StepsJson, StringComparison.Ordinal);
         Assert.Contains("git.createPullRequest", finishScript.StepsJson, StringComparison.Ordinal);

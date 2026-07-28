@@ -66,16 +66,17 @@ Project setting `GitHostProvider` selects the adapter. Readiness must be `ready`
 
 ## Default orchestration template
 
-`POST /scripts/templates/orchestration-git-defaults` creates two scripts:
+`POST /scripts/templates/orchestration-git-defaults` creates one script:
 
-1. **AgentStart** — `git.worktree` (any mode). Creates a worktree from the project pattern, registers a workspace, and switches the chat onto it before the CLI runs. Skips if the chat is already on a worktree.
-2. **AgentFinish** (implementation) — `git.commit` (generated message) → `git.push` → `git.createPullRequest`
+1. **AgentFinish** (implementation) — `git.commit` (generated message) → `git.push` → `git.createPullRequest`
+
+Worktrees are configured when chats are created (composer toggle defaults from project settings) and on plan kickoff when **Worktrees by default** is enabled — not via AgentStart scripts.
 
 ## Worktree branch pattern
 
 Project field `DefaultWorktreeBranchPattern` (default `orchi/{date}-{shortId}`) controls the branch name when:
 
-- An AgentStart `git.worktree` step omits `branch`
+- A new chat provisions a worktree from the composer toggle
 - Manual `POST /projects/{id}/worktrees` omits `branchName`
 - Plan kickoff provisions a worktree
 
