@@ -191,6 +191,7 @@ export function useChatStream({
       abortStream(chatId)
       markChatSending(chatId, false)
       clearMarkers(chatId)
+      turnGenerationByChatRef.current.delete(chatId)
     },
     [abortStream, clearMarkers, markChatSending]
   )

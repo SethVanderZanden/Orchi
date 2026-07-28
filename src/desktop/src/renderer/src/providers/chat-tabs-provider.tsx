@@ -96,6 +96,7 @@ export function ChatTabsProvider({ children }: { children: ReactNode }): React.J
     sendMessage,
     deleteChat,
     evictChatDetail,
+    evictDetailsExcept,
     getChildChats,
     isChatSending
   } = useChat()
@@ -144,6 +145,10 @@ export function ChatTabsProvider({ children }: { children: ReactNode }): React.J
       })
     })
   }, [navigateToTab])
+
+  useEffect(() => {
+    evictDetailsExcept(state.openTabIds)
+  }, [evictDetailsExcept, state.openTabIds])
 
   useEffect(() => {
     if (!state.splitTabId) {

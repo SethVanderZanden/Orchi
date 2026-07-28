@@ -60,13 +60,68 @@ public sealed class EfChatStore(
         await using AppDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         List<Chat> entities = await db.Chats
             .AsNoTracking()
-            .Include(chat => chat.Messages)
             .ToListAsync(cancellationToken);
+
+        if (entities.Count == 0)
+        {
+            return [];
+        }
+
+        List<Guid> chatIds = entities.Select(chat => chat.Id).ToList();
+        Dictionary<Guid, ChatMessageEntity> lastMessages =
+            await LoadLastMessagesByChatIdAsync(db, chatIds, cancellationToken);
+        Dictionary<Guid, ChatMessageEntity> firstUserMessages =
+            await LoadFirstUserMessagesByChatIdAsync(db, chatIds, cancellationToken);
 
         return entities
             .OrderByDescending(chat => chat.UpdatedAt)
-            .Select(ChatStoreMapper.ToSession)
+            .Select(entity =>
+            {
+                List<ChatMessageEntity> summaryMessages = [];
+                if (firstUserMessages.TryGetValue(entity.Id, out ChatMessageEntity? firstUser))
+                {
+                    summaryMessages.Add(firstUser);
+                }
+
+                if (lastMessages.TryGetValue(entity.Id, out ChatMessageEntity? lastMessage)
+                    && summaryMessages.All(message => message.Id != lastMessage.Id))
+                {
+                    summaryMessages.Add(lastMessage);
+                }
+
+                return ChatStoreMapper.ToSessionSummary(entity, summaryMessages);
+            })
             .ToArray();
+    }
+
+    private static async Task<Dictionary<Guid, ChatMessageEntity>> LoadLastMessagesByChatIdAsync(
+        AppDbContext db,
+        IReadOnlyList<Guid> chatIds,
+        CancellationToken cancellationToken)
+    {
+        List<ChatMessageEntity> lastMessages = await db.ChatMessages
+            .AsNoTracking()
+            .Where(message => chatIds.Contains(message.ChatId))
+            .GroupBy(message => message.ChatId)
+            .Select(group => group.OrderByDescending(message => message.Ordinal).First())
+            .ToListAsync(cancellationToken);
+
+        return lastMessages.ToDictionary(message => message.ChatId);
+    }
+
+    private static async Task<Dictionary<Guid, ChatMessageEntity>> LoadFirstUserMessagesByChatIdAsync(
+        AppDbContext db,
+        IReadOnlyList<Guid> chatIds,
+        CancellationToken cancellationToken)
+    {
+        List<ChatMessageEntity> firstUserMessages = await db.ChatMessages
+            .AsNoTracking()
+            .Where(message => chatIds.Contains(message.ChatId) && message.Role == "user")
+            .GroupBy(message => message.ChatId)
+            .Select(group => group.OrderBy(message => message.Ordinal).First())
+            .ToListAsync(cancellationToken);
+
+        return firstUserMessages.ToDictionary(message => message.ChatId);
     }
 
     public async Task<IReadOnlyList<ChatSession>> SearchAsync(

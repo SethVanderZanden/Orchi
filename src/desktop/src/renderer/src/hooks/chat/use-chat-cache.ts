@@ -21,6 +21,7 @@ type UseChatCacheResult = {
   getChildChats: (parentChatId: string) => ChatThread[]
   loadChat: (chatId: string) => Promise<ChatThread | undefined>
   evictChatDetail: (chatId: string) => void
+  evictDetailsExcept: (openTabIds: readonly string[]) => void
   purgeFromQueryClient: (chatId: string) => void
 }
 
@@ -83,6 +84,25 @@ export function useChatCache({ chats }: UseChatCacheOptions): UseChatCacheResult
     [queryClient]
   )
 
+  const evictDetailsExcept = useCallback(
+    (openTabIds: readonly string[]) => {
+      const keep = new Set(openTabIds)
+
+      for (const query of queryClient.getQueryCache().findAll({ queryKey: chatKeys.all })) {
+        const key = query.queryKey
+        if (key[1] !== 'detail' || typeof key[2] !== 'string') {
+          continue
+        }
+
+        const chatId = key[2]
+        if (!keep.has(chatId)) {
+          queryClient.removeQueries({ queryKey: chatKeys.detail(chatId) })
+        }
+      }
+    },
+    [queryClient]
+  )
+
   const purgeFromQueryClient = useCallback(
     (chatId: string) => {
       queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) =>
@@ -98,6 +118,7 @@ export function useChatCache({ chats }: UseChatCacheOptions): UseChatCacheResult
     getChildChats,
     loadChat,
     evictChatDetail,
+    evictDetailsExcept,
     purgeFromQueryClient
   }
 }

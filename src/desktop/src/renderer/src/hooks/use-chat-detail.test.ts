@@ -4,12 +4,12 @@ import { getChatDetailQueryOptions } from '@/hooks/use-chat-detail'
 import { chatKeys } from '@/lib/query-keys'
 
 describe('getChatDetailQueryOptions', () => {
-  it('always refetches on mount and does not use list summary as placeholder', () => {
+  it('uses bounded gc time and avoids always-refetch on mount', () => {
     const options = getChatDetailQueryOptions('chat-1')
 
     expect(options.queryKey).toEqual(chatKeys.detail('chat-1'))
-    expect(options.staleTime).toBe(0)
-    expect(options.refetchOnMount).toBe('always')
+    expect(options.gcTime).toBe(60_000)
+    expect(options.refetchOnMount).toBe(true)
     expect(typeof options.placeholderData).toBe('function')
     if (typeof options.placeholderData === 'function') {
       expect(options.placeholderData(undefined, undefined as never)).toBeUndefined()

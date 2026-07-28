@@ -46,7 +46,13 @@ export function MessageAttachments({
               rel="noreferrer"
               className="block max-w-xs overflow-hidden rounded-lg border border-border/70"
             >
-              <img src={url} alt={attachment.fileName} className="max-h-48 w-full object-cover" />
+              <img
+                src={url}
+                alt={attachment.fileName}
+                loading="lazy"
+                decoding="async"
+                className="max-h-48 w-full object-cover"
+              />
             </a>
           )
         }

@@ -129,7 +129,13 @@ export function AttachmentsPanel({
                     )}
                   >
                     {isImage ? (
-                      <img src={url} alt="" className="size-12 shrink-0 rounded object-cover" />
+                      <img
+                        src={url}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        className="size-12 shrink-0 rounded object-cover"
+                      />
                     ) : (
                       <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                     )}
