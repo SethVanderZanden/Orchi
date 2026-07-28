@@ -1,3 +1,4 @@
+import { mergeChatStatus } from '@/lib/chat/prefer-chat-status'
 import type { ChatThread } from '@/lib/chat/types'
 
 export function mergeChatThread(existing: ChatThread, incoming: ChatThread): ChatThread {
@@ -6,7 +7,8 @@ export function mergeChatThread(existing: ChatThread, incoming: ChatThread): Cha
   return {
     ...existing,
     ...incoming,
-    messages
+    messages,
+    status: mergeChatStatus(existing.status, incoming.status)
   }
 }
 

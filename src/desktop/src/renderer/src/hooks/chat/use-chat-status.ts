@@ -74,6 +74,12 @@ export function useChatStatus({
       return
     }
 
+    // Kickoff navigates to the child before sendMessage marks the turn in flight.
+    // Mark-read in that window would clear a new child to Done before the agent starts.
+    if (isChatSending(activeChatId)) {
+      return
+    }
+
     let cancelled = false
 
     void markChatReadApi(activeChatId)
@@ -91,7 +97,7 @@ export function useChatStatus({
     return () => {
       cancelled = true
     }
-  }, [activeChatId, activeStatus, queryClient])
+  }, [activeChatId, activeStatus, isChatSending, queryClient])
 
   useEffect(() => {
     if (!activeChatId || isLocalChat(activeChatId)) {

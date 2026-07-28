@@ -3,6 +3,7 @@ import type { QueryClient } from '@tanstack/react-query'
 import { resolveDetailCache } from '@/lib/chat/resolve-detail-cache'
 import { createTokenBatcher, type TokenBatcher } from '@/lib/chat/token-batcher'
 import type { ChatThread } from '@/lib/chat/types'
+import { mergeChatStatus } from '@/lib/chat/prefer-chat-status'
 import {
   appendParentOrchestrationMessage,
   getOrchestration,
@@ -33,8 +34,17 @@ export function mergeOrchestrationChildren(
     }
 
     queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) => {
-      if (current.some((chat) => chat.id === childChat.id)) {
-        return current
+      const existing = current.find((chat) => chat.id === childChat.id)
+      if (existing) {
+        return current.map((chat) =>
+          chat.id === childChat.id
+            ? {
+                ...chat,
+                status: mergeChatStatus(chat.status, childChat.status),
+                planFilePath: childChat.planFilePath ?? chat.planFilePath
+              }
+            : chat
+        )
       }
 
       return [childChat, ...current]
@@ -123,13 +133,96 @@ export function createOrchestrationEventHandlers(
     tokenBatchers.delete(childChatId)
   }
 
+  const patchChildChatStatus = (childChatId: string, status: ChatThread['status']): void => {
+    const updatedAt = new Date().toISOString()
+
+    queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) => {
+      let changed = false
+      const next = current.map((chat) => {
+        if (chat.id !== childChatId) {
+          return chat
+        }
+
+        const nextStatus = preferChatStatus(chat.status, status)
+        if (nextStatus === chat.status) {
+          return chat
+        }
+
+        changed = true
+        return { ...chat, status: nextStatus, updatedAt }
+      })
+
+      return changed ? next : current
+    })
+
+    queryClient.setQueryData<ChatThread>(chatKeys.detail(childChatId), (current) => {
+      if (!current) {
+        return current
+      }
+
+      const nextStatus = preferChatStatus(current.status, status)
+      if (nextStatus === current.status) {
+        return current
+      }
+
+      return { ...current, status: nextStatus, updatedAt }
+    })
+  }
+
+  const ensureProcessingAssistantMessage = (childChatId: string): void => {
+    queryClient.setQueryData<ChatThread>(chatKeys.detail(childChatId), (current) => {
+      const base = current ?? resolveChildDetailCache(queryClient, childChatId, getChat)
+      if (!base) {
+        return current
+      }
+
+      const hasActiveAssistant = base.messages.some(
+        (message) =>
+          message.role === 'assistant' &&
+          (message.status === 'processing' || message.status === 'streaming')
+      )
+
+      if (hasActiveAssistant) {
+        return base.status === 'inProgress' ? base : { ...base, status: 'inProgress' }
+      }
+
+      const now = new Date().toISOString()
+      return {
+        ...base,
+        status: 'inProgress',
+        updatedAt: now,
+        messages: [
+          ...base.messages,
+          {
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            content: '',
+            createdAt: now,
+            status: 'processing'
+          }
+        ]
+      }
+    })
+
+    patchChildChatStatus(childChatId, 'inProgress')
+  }
+
   return {
     onWorkflow: options?.onWorkflow,
     onChatCreated: (payload) => {
       const childChat = mapChatCreatedToThread(parentChat, payload)
       queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) => {
-        if (current.some((chat) => chat.id === childChat.id)) {
-          return current
+        const existing = current.find((chat) => chat.id === childChat.id)
+        if (existing) {
+          return current.map((chat) =>
+            chat.id === childChat.id
+              ? {
+                  ...chat,
+                  status: mergeChatStatus(chat.status, childChat.status),
+                  planFilePath: childChat.planFilePath ?? chat.planFilePath
+                }
+              : chat
+          )
         }
 
         return [childChat, ...current]
@@ -143,6 +236,11 @@ export function createOrchestrationEventHandlers(
         return appendParentOrchestrationMessage(base, payload)
       })
       options?.onParentMessage?.(payload)
+    },
+    onAgentStatus: ({ childChatId, phase }) => {
+      if (phase === 'processing') {
+        ensureProcessingAssistantMessage(childChatId)
+      }
     },
     onAgentToken: ({ childChatId, text }) => {
       getTokenBatcher(childChatId).push(text)
@@ -182,6 +280,8 @@ export function createOrchestrationEventHandlers(
 
         return { ...base, messages }
       })
+
+      patchChildChatStatus(childChatId, succeeded ? 'readyForReview' : 'inProgress')
       void queryClient.invalidateQueries({ queryKey: chatKeys.lists() })
       void options?.loadChat?.(childChatId)
     },
