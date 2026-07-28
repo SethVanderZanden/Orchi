@@ -22,6 +22,7 @@ import {
   MessageScroller,
   MessageScrollerButton,
   MessageScrollerContent,
+  MessageScrollerItem,
   MessageScrollerProvider,
   MessageScrollerViewport
 } from '@/components/ui/message-scroller'
@@ -398,26 +399,31 @@ export function ChatPanel({
             {!isNewRootChat ? (
               <MessageScroller className="min-h-0 flex-1">
                 <MessageScrollerViewport>
-                  <MessageScrollerContent aria-busy={isSending}>
+                  <MessageScrollerContent
+                    aria-busy={isSending}
+                    className="mx-auto w-full max-w-3xl gap-7 px-6 py-8"
+                  >
                     <OrchiChatMessageList messages={messages} markers={markers} mode={mode} />
 
                     {showPlanReview ? (
-                      <PlanCards
-                        plans={plans}
-                        openTabIds={reviewState.openTabIds}
-                        childChats={childChats}
-                        reviewPlansByPlanId={reviewPlansByPlanId}
-                        parentChatId={parentChatId!}
-                        projectId={projectId}
-                        isParentKickingOffAny={isParentKickingOffAny!}
-                        sequencePlanIds={sequencePlanIds}
-                        sequentialKickoffProgress={sequentialKickoffProgress}
-                        orchestrationError={orchestrationError}
-                        onToggleReview={(plan) =>
-                          dispatchReview({ type: 'toggle-tab', planId: plan.planId })
-                        }
-                        onKickOffAll={onKickOffAllPlans!}
-                      />
+                      <MessageScrollerItem messageId={`${chatId}-plan-cards`}>
+                        <PlanCards
+                          plans={plans}
+                          openTabIds={reviewState.openTabIds}
+                          childChats={childChats}
+                          reviewPlansByPlanId={reviewPlansByPlanId}
+                          parentChatId={parentChatId!}
+                          projectId={projectId}
+                          isParentKickingOffAny={isParentKickingOffAny!}
+                          sequencePlanIds={sequencePlanIds}
+                          sequentialKickoffProgress={sequentialKickoffProgress}
+                          orchestrationError={orchestrationError}
+                          onToggleReview={(plan) =>
+                            dispatchReview({ type: 'toggle-tab', planId: plan.planId })
+                          }
+                          onKickOffAll={onKickOffAllPlans!}
+                        />
+                      </MessageScrollerItem>
                     ) : null}
                   </MessageScrollerContent>
                 </MessageScrollerViewport>
