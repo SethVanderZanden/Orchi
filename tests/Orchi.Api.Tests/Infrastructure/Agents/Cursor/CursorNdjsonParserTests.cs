@@ -143,4 +143,30 @@ public class CursorNdjsonParserTests
         AgentToolEvent tool = Assert.IsType<AgentToolEvent>(Assert.Single(_parser.ParseLine(line)));
         Assert.Equal("Searching Program.cs", tool.Label);
     }
+
+    [Fact]
+    public void ParseLine_ThinkingDelta_ReturnsThoughtDelta()
+    {
+        const string line = """
+            {"type":"thinking","subtype":"delta","text":"The user wants"}
+            """;
+
+        AgentThoughtDeltaEvent thought =
+            Assert.IsType<AgentThoughtDeltaEvent>(Assert.Single(_parser.ParseLine(line)));
+        Assert.Equal("The user wants", thought.Text);
+    }
+
+    [Fact]
+    public void ParseLine_AssistantThinkingContentPart_ReturnsThoughtDelta()
+    {
+        const string line = """
+            {"type":"assistant","timestamp_ms":123,"message":{"content":[{"type":"thinking","text":"Hmm"},{"type":"text","text":"Hello"}]}}
+            """;
+
+        AgentEvent[] events = _parser.ParseLine(line).ToArray();
+
+        Assert.Equal(2, events.Length);
+        Assert.Equal("Hmm", Assert.IsType<AgentThoughtDeltaEvent>(events[0]).Text);
+        Assert.Equal("Hello", Assert.IsType<AgentTextDeltaEvent>(events[1]).Text);
+    }
 }

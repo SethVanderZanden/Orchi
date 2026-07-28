@@ -249,6 +249,8 @@ public sealed record SseStatusPayload(string Phase);
 
 public sealed record SseTokenPayload(string Text);
 
+public sealed record SseThoughtPayload(string Text);
+
 public sealed record SseToolPayload(string Label);
 
 public sealed record SseScriptPayload(

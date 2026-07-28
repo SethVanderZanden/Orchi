@@ -129,7 +129,7 @@ export type ChatThread = {
 export type ChatMarker = {
   id: string
   content: string
-  variant: 'status' | 'tool'
+  variant: 'status' | 'tool' | 'thought'
 }
 
 export type CreateChatOptions = {
@@ -298,6 +298,7 @@ export type KickOffReviewResponse = {
 export type SseHandlers = {
   onStatus?: (phase: string) => void
   onToken?: (text: string) => void
+  onThought?: (text: string) => void
   onTool?: (label: string) => void
   onScript?: (label: string) => void
   onDone?: (messageId: string) => void

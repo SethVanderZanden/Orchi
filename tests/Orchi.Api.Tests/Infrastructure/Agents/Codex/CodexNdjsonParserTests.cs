@@ -56,16 +56,37 @@ public class CodexNdjsonParserTests
     }
 
     [Fact]
-    public void ParseLine_ReasoningStarted_ReturnsThinkingToolEvent()
+    public void ParseLine_ReasoningCompleted_ReturnsThoughtDelta()
     {
         const string line = """
-            {"type":"item.started","item":{"id":"item_0","type":"reasoning","text":"Planning next steps"}}
+            {"type":"item.completed","item":{"id":"item_0","type":"reasoning","text":"Planning next steps"}}
             """;
 
         var parser = new CodexNdjsonParser();
-        AgentToolEvent tool =
-            Assert.IsType<AgentToolEvent>(Assert.Single(parser.ParseLine(line)));
-        Assert.Equal("Thinking…", tool.Label);
+        AgentThoughtDeltaEvent thought =
+            Assert.IsType<AgentThoughtDeltaEvent>(Assert.Single(parser.ParseLine(line)));
+        Assert.Equal("Planning next steps", thought.Text);
+    }
+
+    [Fact]
+    public void ParseLine_ReasoningUpdated_StreamsIncrementalThought()
+    {
+        var parser = new CodexNdjsonParser();
+
+        const string first = """
+            {"type":"item.updated","item":{"id":"item_0","type":"reasoning","text":"Plan"}}
+            """;
+        const string second = """
+            {"type":"item.updated","item":{"id":"item_0","type":"reasoning","text":"Planning"}}
+            """;
+
+        AgentThoughtDeltaEvent firstDelta =
+            Assert.IsType<AgentThoughtDeltaEvent>(Assert.Single(parser.ParseLine(first)));
+        AgentThoughtDeltaEvent secondDelta =
+            Assert.IsType<AgentThoughtDeltaEvent>(Assert.Single(parser.ParseLine(second)));
+
+        Assert.Equal("Plan", firstDelta.Text);
+        Assert.Equal("ning", secondDelta.Text);
     }
 
     [Fact]

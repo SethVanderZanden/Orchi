@@ -11,10 +11,11 @@ Orchi listens on that walkie-talkie, filters duplicate partial messages, and reb
 | Walkie-talkie | Orchi |
 |---------------|-------|
 | Press talk | `CursorAgentAdapter` spawns `agent` process |
-| Bursts of speech | NDJSON lines (`type: assistant`, `tool_call`, `result`) |
+| Bursts of speech | NDJSON lines (`type: assistant`, `thinking`, `tool_call`, `result`) |
+| Soft mutterings | `thinking` → muted thought rows in the UI (when the CLI emits them) |
 | Ignoring echo | Skip `assistant` events with `model_call_id` |
 | "I'm done" | `result` event → store session id for `--resume` |
-| Loudspeaker to UI | `ChatSseWriter` → `token`, `tool`, `done` SSE events |
+| Loudspeaker to UI | `ChatSseWriter` → `token`, `thought`, `tool`, `done` SSE events |
 
 ---
 
@@ -76,13 +77,20 @@ Parser: `src/API/Infrastructure/Agents/Cursor/CursorNdjsonParser.cs`
 
 | Cursor `type` | Condition | Orchi `AgentEvent` |
 |---------------|-----------|-------------------|
-| `assistant` | has `timestamp_ms`, **no** `model_call_id` | `AgentTextDeltaEvent` |
+| `assistant` | has `timestamp_ms`, **no** `model_call_id`, text content | `AgentTextDeltaEvent` |
+| `assistant` | content part `type: thinking` / `reasoning` | `AgentThoughtDeltaEvent` |
 | `assistant` | has `model_call_id` | **Skip** (buffered duplicate from partial output) |
-| `tool_call` | started | `AgentToolStartedEvent` |
-| `tool_call` | completed | `AgentToolCompletedEvent` |
+| `thinking` | has `text` | `AgentThoughtDeltaEvent` |
+| `tool_call` | started / completed | `AgentToolEvent` |
 | `system` | `subtype: init` | `AgentSessionStartedEvent` + persist `ExternalSessionId` early |
 | `result` | — | `AgentCompletedEvent` + confirm external session id |
 | parse / process error | — | `AgentErrorEvent` |
+
+### Thinking / thoughts
+
+Cursor documents a top-level `thinking` event (`subtype: delta` / `completed`). Official notes say **`thinking` events are suppressed in print mode** (`-p` / `--print`), which Orchi uses for headless runs — so many installs will never emit them. When they *are* present (or when an `assistant` content part is typed as thinking), Orchi maps them to `AgentThoughtDeltaEvent` → SSE `thought`, rendered as muted scrollable activity text (not assistant bubble content).
+
+See [Cursor CLI output format](https://cursor.com/docs/cli/reference/output-format).
 
 ### Partial output
 

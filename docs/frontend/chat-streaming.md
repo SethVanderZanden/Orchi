@@ -6,8 +6,9 @@ Sending a chat message is like ordering pizza with **live status texts**:
 
 1. "We got your order" (`status: processing`)
 2. "Dough is rolling…" (`token` chunks — the reply appearing word by word)
-3. "Adding toppings — Writing README.md" (`tool` rows)
-4. "Out for delivery" (`done`)
+3. Soft kitchen mutterings (`thought` — muted scrollable reasoning)
+4. "Adding toppings — Writing README.md" (`tool` rows)
+5. "Out for delivery" (`done`)
 
 If the oven breaks, you get an `error` text instead.
 
@@ -79,6 +80,7 @@ Stable contract between API and desktop:
 |-------|------------|-----------|
 | `status` | `{ "phase": "processing" }` | Show processing `Marker` |
 | `token` | `{ "text": "..." }` | Append to assistant bubble; `status: streaming` |
+| `thought` | `{ "text": "..." }` | Muted scrollable activity row (reasoning; not persisted in the bubble) |
 | `tool` | `{ "label": "Reading README.md" }` | Separator `Marker` row |
 | `script` | `{ "phase", "scriptName", "stepLabel", "output?", "error?" }` | Marker row (same UX as tool; e.g. “Running npm run lint”) |
 | `done` | `{ "messageId": "..." }` | `status: complete`; clear processing markers |
@@ -97,6 +99,7 @@ When viewing an orchestration chat, the desktop subscribes to `GET /chats/{paren
 | `parent_message` | `{ messageId, role, content }` | Append status row on orchestration parent |
 | `agent_status` | `{ childChatId, phase }` | Child processing indicator |
 | `agent_token` | `{ childChatId, text }` | Append to child chat cache |
+| `agent_thought` | `{ childChatId, text }` | Thought activity on child chat |
 | `agent_tool` | `{ childChatId, label }` | Tool activity on child chat |
 | `agent_done` | `{ childChatId, messageId, succeeded }` | Mark child turn complete |
 | `agent_error` | `{ childChatId, code, message }` | Child error state |
@@ -154,10 +157,11 @@ export const chatKeys = {
 
 `components/chat/chat-message-list.tsx`:
 
-During an active turn, tool and status markers attach to the **last assistant bubble** — not as separate scroll rows:
+During an active turn, tool, thought, and status markers attach to the **last assistant bubble** — not as separate scroll rows:
 
-- **Collapsed by default** — shows `"N steps"` with a wrench icon (or `"Working…"` before any tool events)
-- **Expand** — chronological tool labels from SSE
+- **Thoughts** — muted italic text from SSE `thought` (CLI reasoning / thinking), same scrollable activity list as tools
+- **Tools** — chronological labels from SSE `tool` / `script`
+- **Fallback** — `"Working…"` before any activity events
 - **Scroll anchor** stays on the assistant message bubble so streaming text stays visible
 
 Tool labels are formatted by the agent adapter (e.g. `CursorToolLabelFormatter`) before SSE; the desktop displays `label` as-is. Markers clear on `done` or `error`.

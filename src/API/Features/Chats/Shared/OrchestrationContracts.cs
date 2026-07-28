@@ -41,6 +41,8 @@ public sealed record OrchestrationAgentStatusSsePayload(Guid ChildChatId, string
 
 public sealed record OrchestrationAgentTokenSsePayload(Guid ChildChatId, string Text);
 
+public sealed record OrchestrationAgentThoughtSsePayload(Guid ChildChatId, string Text);
+
 public sealed record OrchestrationAgentToolSsePayload(Guid ChildChatId, string Label);
 
 public sealed record OrchestrationAgentDoneSsePayload(
@@ -130,6 +132,13 @@ internal static class OrchestrationSseWriter
                     stream,
                     "agent_token",
                     new OrchestrationAgentTokenSsePayload(token.ChildChatId, token.Text),
+                    cancellationToken);
+
+            case OrchestrationAgentThoughtEvent thought:
+                return ChatSseWriter.WriteEventAsync(
+                    stream,
+                    "agent_thought",
+                    new OrchestrationAgentThoughtSsePayload(thought.ChildChatId, thought.Text),
                     cancellationToken);
 
             case OrchestrationAgentToolEvent tool:

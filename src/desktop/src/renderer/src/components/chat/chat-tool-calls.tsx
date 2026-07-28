@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { FilePenLine, FileText, Globe, List, Search, Terminal, Wrench } from 'lucide-react'
+import { Brain, FilePenLine, FileText, Globe, List, Search, Terminal, Wrench } from 'lucide-react'
 
 import { Marker, MarkerContent, MarkerIcon } from '@/components/ui/marker'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -10,6 +10,7 @@ export type ToolCallItem = {
   key: string
   label: string
   status: 'running' | 'complete'
+  kind?: 'tool' | 'thought'
 }
 
 type ChatToolCallsProps = {
@@ -56,13 +57,17 @@ export function ChatToolCalls({ calls }: ChatToolCallsProps): React.JSX.Element 
     return null
   }
 
-  const height = Math.min(calls.length * ROW_HEIGHT_PX, MAX_HEIGHT_PX)
+  const hasThought = calls.some((call) => call.kind === 'thought')
+  const height = hasThought
+    ? MAX_HEIGHT_PX
+    : Math.min(calls.length * ROW_HEIGHT_PX, MAX_HEIGHT_PX)
 
   return (
     <ScrollArea ref={rootRef} className="mt-1.5 w-full max-w-2xl" style={{ height }}>
       <div className="flex flex-col gap-0.5 pr-2" role="status" aria-live="polite">
         {calls.map((call) => {
-          const Icon = iconForLabel(call.label)
+          const isThought = call.kind === 'thought'
+          const Icon = isThought ? Brain : iconForLabel(call.label)
 
           return (
             <Marker key={call.key} className="min-h-0 gap-1.5 py-0.5 text-xs">
@@ -74,7 +79,12 @@ export function ChatToolCalls({ calls }: ChatToolCallsProps): React.JSX.Element 
               >
                 <Icon />
               </MarkerIcon>
-              <MarkerContent className="truncate text-muted-foreground/80">
+              <MarkerContent
+                className={cn(
+                  'text-muted-foreground/80',
+                  isThought ? 'whitespace-pre-wrap break-words italic' : 'truncate'
+                )}
+              >
                 {call.label}
               </MarkerContent>
             </Marker>

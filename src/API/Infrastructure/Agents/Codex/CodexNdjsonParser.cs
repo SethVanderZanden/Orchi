@@ -6,6 +6,7 @@ namespace Orchi.Api.Infrastructure.Agents.Codex;
 internal sealed class CodexNdjsonParser : IAgentStreamLineParser
 {
     private readonly Dictionary<string, string> _agentMessageTextByItemId = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _reasoningTextByItemId = new(StringComparer.Ordinal);
 
     public IEnumerable<AgentEvent> ParseLine(string line)
     {
@@ -122,10 +123,9 @@ internal sealed class CodexNdjsonParser : IAgentStreamLineParser
 
         if (IsReasoning(itemType))
         {
-            if (string.Equals(eventType, "item.started", StringComparison.Ordinal)
-                || string.Equals(eventType, "item.updated", StringComparison.Ordinal))
+            foreach (AgentEvent thoughtEvent in EmitReasoningText(item))
             {
-                yield return new AgentToolEvent("Thinking…");
+                yield return thoughtEvent;
             }
 
             yield break;
@@ -169,6 +169,39 @@ internal sealed class CodexNdjsonParser : IAgentStreamLineParser
         }
 
         _agentMessageTextByItemId[key] = text;
+    }
+
+    private IEnumerable<AgentEvent> EmitReasoningText(JsonElement item)
+    {
+        string? itemId = item.TryGetProperty("id", out JsonElement idElement)
+            ? idElement.GetString()
+            : null;
+        string? text = ReadItemText(item);
+        if (string.IsNullOrEmpty(text))
+        {
+            yield break;
+        }
+
+        string key = string.IsNullOrWhiteSpace(itemId) ? string.Empty : itemId;
+        _reasoningTextByItemId.TryGetValue(key, out string? previousText);
+        previousText ??= string.Empty;
+
+        if (text.Length <= previousText.Length
+            && string.Equals(text, previousText, StringComparison.Ordinal))
+        {
+            yield break;
+        }
+
+        string delta = text.StartsWith(previousText, StringComparison.Ordinal)
+            ? text[previousText.Length..]
+            : text;
+
+        if (!string.IsNullOrEmpty(delta))
+        {
+            yield return new AgentThoughtDeltaEvent(delta);
+        }
+
+        _reasoningTextByItemId[key] = text;
     }
 
     private static string ReadItemType(JsonElement item)
