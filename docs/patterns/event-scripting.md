@@ -68,7 +68,7 @@ Project setting `GitHostProvider` selects the adapter. Readiness must be `ready`
 
 `POST /scripts/templates/orchestration-git-defaults` creates one script:
 
-1. **AgentFinish** (implementation) — `git.commit` (generated message) → `git.push` → `git.createPullRequest`
+1. **AgentFinish** (implementation) — `git.push` → `git.createPullRequest` (commits run automatically when the agent turn succeeds)
 
 Worktrees are configured when chats are created (composer toggle defaults from project settings) and on plan kickoff when **Worktrees by default** is enabled — not via AgentStart scripts.
 

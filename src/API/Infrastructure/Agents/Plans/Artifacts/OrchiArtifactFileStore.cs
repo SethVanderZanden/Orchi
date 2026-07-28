@@ -62,6 +62,25 @@ public sealed partial class OrchiArtifactFileStore
         return Task.FromResult<string?>(File.ReadAllText(fullPath));
     }
 
+    public Task<bool> TryDeleteAsync(
+        string workspacePath,
+        string relativePath,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        string normalizedRelativePath = relativePath.Replace('\\', '/');
+        string fullPath = ResolveFullPath(workspacePath, normalizedRelativePath);
+
+        if (!File.Exists(fullPath))
+        {
+            return Task.FromResult(false);
+        }
+
+        File.Delete(fullPath);
+        return Task.FromResult(true);
+    }
+
     private static string ResolveFullPath(string workspacePath, string normalizedRelativePath) =>
         Path.Combine(workspacePath, normalizedRelativePath.Replace('/', Path.DirectorySeparatorChar));
 }
