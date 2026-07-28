@@ -5,7 +5,7 @@ import { getChat } from '@/lib/chat/api'
 import { isLocalChat } from '@/lib/chat/chat-persistence'
 import type { ChatThread } from '@/lib/chat/types'
 import { mergeChatDetail } from '@/lib/chat/merge-chat-detail'
-import { mergeChatLists } from '@/lib/chat/merge-chat-lists'
+import { mergeChatLists, toListSummary } from '@/lib/chat/merge-chat-lists'
 import { chatKeys } from '@/lib/query-keys'
 
 function readChatList(queryClient: QueryClient, fallback: ChatThread[]): ChatThread[] {
@@ -21,6 +21,7 @@ type UseChatCacheResult = {
   getChildChats: (parentChatId: string) => ChatThread[]
   loadChat: (chatId: string) => Promise<ChatThread | undefined>
   evictChatDetail: (chatId: string) => void
+  evictDetailsExcept: (openTabIds: readonly string[]) => void
   purgeFromQueryClient: (chatId: string) => void
 }
 
@@ -66,7 +67,7 @@ export function useChatCache({ chats }: UseChatCacheOptions): UseChatCacheResult
       const merged = mergeChatDetail(existing, incoming)
 
       queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) =>
-        mergeChatLists(current, [merged])
+        mergeChatLists(current, [toListSummary(merged)])
       )
 
       queryClient.setQueryData(chatKeys.detail(chatId), merged)
@@ -79,6 +80,25 @@ export function useChatCache({ chats }: UseChatCacheOptions): UseChatCacheResult
   const evictChatDetail = useCallback(
     (chatId: string) => {
       queryClient.removeQueries({ queryKey: chatKeys.detail(chatId) })
+    },
+    [queryClient]
+  )
+
+  const evictDetailsExcept = useCallback(
+    (openTabIds: readonly string[]) => {
+      const keep = new Set(openTabIds)
+
+      for (const query of queryClient.getQueryCache().findAll({ queryKey: chatKeys.all })) {
+        const key = query.queryKey
+        if (key[1] !== 'detail' || typeof key[2] !== 'string') {
+          continue
+        }
+
+        const chatId = key[2]
+        if (!keep.has(chatId)) {
+          queryClient.removeQueries({ queryKey: chatKeys.detail(chatId) })
+        }
+      }
     },
     [queryClient]
   )
@@ -98,6 +118,7 @@ export function useChatCache({ chats }: UseChatCacheOptions): UseChatCacheResult
     getChildChats,
     loadChat,
     evictChatDetail,
+    evictDetailsExcept,
     purgeFromQueryClient
   }
 }

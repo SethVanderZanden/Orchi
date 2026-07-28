@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { markChatRead as markChatReadApi } from '@/lib/chat/api'
 import { isLocalChat } from '@/lib/chat/chat-persistence'
 import { getChatStatusVariant, type ChatStatusVariant } from '@/lib/chat/chat-status-variant'
-import { mergeChatThread } from '@/lib/chat/merge-chat-lists'
+import { mergeChatLists, mergeListThread } from '@/lib/chat/merge-chat-lists'
 import { preferChatStatus } from '@/lib/chat/prefer-chat-status'
 import { needsOrchestrationHydration } from '@/lib/orchestration/needs-orchestration-hydration'
 import type { ChatThread } from '@/lib/chat/types'
@@ -34,7 +34,7 @@ function applyStatusToCaches(
         return chat
       }
 
-      return mergeChatThread(chat, {
+      return mergeListThread(chat, {
         ...chat,
         status: preferChatStatus(chat.status, summary.status),
         lastReadAt: summary.lastReadAt,

@@ -11,6 +11,9 @@ import { mergeChatDetail } from '@/lib/chat/merge-chat-detail'
 import type { ChatThread } from '@/lib/chat/types'
 import { chatKeys } from '@/lib/query-keys'
 
+/** Detail queries keep full message history — evict closed tabs and GC after a short idle window. */
+const CHAT_DETAIL_GC_TIME_MS = 60_000
+
 export function getChatDetailQueryOptions(
   chatId: string
 ): UseQueryOptions<ChatThread, Error, ChatThread, ReturnType<typeof chatKeys.detail>> {
@@ -22,8 +25,8 @@ export function getChatDetailQueryOptions(
       return mergeChatDetail(existing, incoming)
     },
     enabled: Boolean(chatId) && !isLocalChat(chatId),
-    staleTime: 0,
-    refetchOnMount: 'always' as const,
+    gcTime: CHAT_DETAIL_GC_TIME_MS,
+    refetchOnMount: true,
     placeholderData: (previous: ChatThread | undefined) => previous
   }
 }

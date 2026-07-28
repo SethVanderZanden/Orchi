@@ -1035,6 +1035,26 @@ public sealed class AgentSessionManager
         }
 
         session.RunCts = null;
+        EvictIdleSession(chatId);
+    }
+
+    /// <summary>
+    /// Drops in-memory session state once a turn finishes so message history is not retained
+    /// in the process-wide cache between requests.
+    /// </summary>
+    private void EvictIdleSession(Guid chatId)
+    {
+        if (!_sessions.TryGetValue(chatId, out ChatSession? session))
+        {
+            return;
+        }
+
+        if (IsSessionActivelyRunning(session))
+        {
+            return;
+        }
+
+        _sessions.TryRemove(chatId, out _);
     }
 
     private async Task TransitionStatusAsync(

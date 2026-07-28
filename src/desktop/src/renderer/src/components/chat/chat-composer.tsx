@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { deleteStagedChatAttachment, uploadChatAttachment } from '@/lib/chat/api'
+import { validateAttachmentFiles } from '@/lib/chat/attachment-limits'
 import { isPersistedChat } from '@/lib/chat/chat-persistence'
 import { getComposerDraft, setComposerDraft } from '@/lib/chat/composer-drafts'
 import type { AgentMode } from '@/lib/chat/types'
@@ -161,11 +162,22 @@ export function OrchiChatComposer({
         return
       }
 
+      const validation = validateAttachmentFiles(
+        list,
+        stagedItems.length
+      )
+      if (!validation.ok) {
+        toast.error(validation.message)
+        return
+      }
+
+      const accepted = validation.files
+
       if (isPersistedChat(chatId)) {
         setIsUploading(true)
         try {
           const uploaded: ComposerStagedItem[] = []
-          for (const file of list) {
+          for (const file of accepted) {
             const attachment = await uploadChatAttachment(chatId, file)
             uploaded.push({ kind: 'uploaded', attachment })
           }
@@ -183,14 +195,14 @@ export function OrchiChatComposer({
 
       setStagedItems((current) => [
         ...current,
-        ...list.map((file) => ({
+        ...accepted.map((file) => ({
           kind: 'pending' as const,
           localId: crypto.randomUUID(),
           file
         }))
       ])
     },
-    [chatId, disabled]
+    [chatId, disabled, stagedItems.length]
   )
 
   const handleRemoveStaged = useCallback(

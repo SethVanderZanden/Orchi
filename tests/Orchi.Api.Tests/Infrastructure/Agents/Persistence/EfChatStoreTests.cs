@@ -21,6 +21,38 @@ public class EfChatStoreTests
     }
 
     [Fact]
+    public async Task ListAsync_ReturnsOnlySummaryMessages_NotFullHistory()
+    {
+        await using StoreFixture fixture = await StoreFixture.CreateAsync();
+        var chatId = Guid.NewGuid();
+        await fixture.Store.CreateAsync(
+            new ChatCreateModel(chatId, "cursor", Directory.GetCurrentDirectory()),
+            CancellationToken.None);
+
+        await fixture.Store.SaveUserMessageAsync(
+            chatId,
+            new ChatMessage(Guid.NewGuid(), "user", "first user message", DateTimeOffset.UtcNow),
+            CancellationToken.None);
+        await fixture.Store.SaveAssistantMessageAsync(
+            chatId,
+            new ChatMessage(Guid.NewGuid(), "assistant", "assistant reply", DateTimeOffset.UtcNow, "complete"),
+            null,
+            CancellationToken.None);
+        await fixture.Store.SaveUserMessageAsync(
+            chatId,
+            new ChatMessage(Guid.NewGuid(), "user", "follow-up question", DateTimeOffset.UtcNow),
+            CancellationToken.None);
+
+        IReadOnlyList<ChatSession> sessions = await fixture.Store.ListAsync(CancellationToken.None);
+        ChatSession? listed = sessions.SingleOrDefault(session => session.Id == chatId);
+
+        Assert.NotNull(listed);
+        Assert.Equal(2, listed.Messages.Count);
+        Assert.Equal("first user message", listed.Messages[0].Content);
+        Assert.Equal("follow-up question", listed.Messages[^1].Content);
+    }
+
+    [Fact]
     public async Task UpdateExternalSessionIdAsync_PersistsSessionId()
     {
         await using StoreFixture fixture = await StoreFixture.CreateAsync();

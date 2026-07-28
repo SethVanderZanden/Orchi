@@ -26,6 +26,7 @@ export type ChatContextValue = {
   getChildChats: (parentChatId: string) => ChatThread[]
   loadChat: (chatId: string) => Promise<ChatThread | undefined>
   evictChatDetail: (chatId: string) => void
+  evictDetailsExcept: (openTabIds: readonly string[]) => void
   createChat: (options: CreateChatOptions) => Promise<ChatThread>
   updateChatMode: (chatId: string, mode: AgentMode) => Promise<void>
   getModeUpdateError: (chatId: string) => string | undefined
