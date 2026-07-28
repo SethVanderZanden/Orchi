@@ -36,10 +36,17 @@ public sealed class GitWorkspaceDiffProvider : IWorkspaceDiffProvider
             return "No git repository detected in workspace.";
         }
 
-        string uncommitted = RunGit(workspacePath, "diff", "HEAD");
-        if (!string.IsNullOrWhiteSpace(uncommitted))
+        string tracked = RunGit(workspacePath, "diff", "HEAD");
+        string untracked = BuildUntrackedDiff(workspacePath);
+        string combined = CombineDiffSections(tracked, untracked);
+        if (!string.IsNullOrWhiteSpace(combined))
         {
-            return FormatSection("git diff HEAD", Truncate(uncommitted));
+            string source = string.IsNullOrWhiteSpace(untracked)
+                ? "git diff HEAD"
+                : string.IsNullOrWhiteSpace(tracked)
+                    ? "untracked files (vs HEAD)"
+                    : "git diff HEAD (including untracked files)";
+            return FormatSection(source, Truncate(combined));
         }
 
         string lastCommit = RunGit(workspacePath, "show", "HEAD", "--format=", "--patch", "--no-color");
@@ -63,11 +70,18 @@ public sealed class GitWorkspaceDiffProvider : IWorkspaceDiffProvider
             return null;
         }
 
-        IReadOnlyList<WorkspaceDiffStatsEntry> uncommitted = ParseNumStat(
+        IReadOnlyList<WorkspaceDiffStatsEntry> tracked = ParseNumStat(
             RunGit(workspacePath, "diff", "--numstat", "HEAD"));
+        IReadOnlyList<WorkspaceDiffStatsEntry> untracked = BuildUntrackedNumStat(workspacePath);
+        IReadOnlyList<WorkspaceDiffStatsEntry> uncommitted = [.. tracked, .. untracked];
         if (uncommitted.Count > 0)
         {
-            return BuildStats(uncommitted, "git diff --numstat HEAD");
+            string source = untracked.Count == 0
+                ? "git diff --numstat HEAD"
+                : tracked.Count == 0
+                    ? "untracked files (vs HEAD)"
+                    : "git diff --numstat HEAD (including untracked files)";
+            return BuildStats(uncommitted, source);
         }
 
         IReadOnlyList<WorkspaceDiffStatsEntry> lastCommit = ParseNumStat(
@@ -120,6 +134,101 @@ public sealed class GitWorkspaceDiffProvider : IWorkspaceDiffProvider
 
         return $"No changes detected between `{baseRef}` and `{headRef}`.";
     }
+
+    private static string BuildUntrackedDiff(string workspacePath)
+    {
+        var sections = new List<string>();
+        foreach (string relativePath in ListUntrackedFiles(workspacePath))
+        {
+            string diff = RunGit(workspacePath, "diff", "--no-color", "--no-index", NullDevicePath, relativePath);
+            if (!string.IsNullOrWhiteSpace(diff) && !LooksLikeGitError(diff))
+            {
+                sections.Add(diff.Trim());
+            }
+        }
+
+        return sections.Count == 0 ? string.Empty : string.Join("\n", sections);
+    }
+
+    private static IReadOnlyList<WorkspaceDiffStatsEntry> BuildUntrackedNumStat(string workspacePath)
+    {
+        var entries = new List<WorkspaceDiffStatsEntry>();
+        foreach (string relativePath in ListUntrackedFiles(workspacePath))
+        {
+            string output = RunGit(
+                workspacePath,
+                "diff",
+                "--no-index",
+                "--numstat",
+                NullDevicePath,
+                relativePath);
+            foreach (WorkspaceDiffStatsEntry entry in ParseNumStat(output))
+            {
+                entries.Add(new WorkspaceDiffStatsEntry(
+                    NormalizeUntrackedPath(entry.Path, relativePath),
+                    entry.Added,
+                    entry.Removed));
+            }
+        }
+
+        return entries;
+    }
+
+    private static IReadOnlyList<string> ListUntrackedFiles(string workspacePath)
+    {
+        string output = RunGit(workspacePath, "ls-files", "--others", "--exclude-standard");
+        if (string.IsNullOrWhiteSpace(output) || LooksLikeGitError(output))
+        {
+            return [];
+        }
+
+        return output
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private static string CombineDiffSections(string tracked, string untracked)
+    {
+        bool hasTracked = !string.IsNullOrWhiteSpace(tracked);
+        bool hasUntracked = !string.IsNullOrWhiteSpace(untracked);
+        if (!hasTracked && !hasUntracked)
+        {
+            return string.Empty;
+        }
+
+        if (!hasTracked)
+        {
+            return untracked.Trim();
+        }
+
+        if (!hasUntracked)
+        {
+            return tracked.Trim();
+        }
+
+        return $"{tracked.Trim()}\n{untracked.Trim()}";
+    }
+
+    private static string NormalizeUntrackedPath(string parsedPath, string fallbackPath)
+    {
+        const string nullPrefix = "/dev/null => ";
+        if (parsedPath.StartsWith(nullPrefix, StringComparison.Ordinal))
+        {
+            return parsedPath[nullPrefix.Length..];
+        }
+
+        const string windowsNullPrefix = "NUL => ";
+        if (parsedPath.StartsWith(windowsNullPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return parsedPath[windowsNullPrefix.Length..];
+        }
+
+        return string.IsNullOrWhiteSpace(parsedPath) ? fallbackPath : parsedPath;
+    }
+
+    private static string NullDevicePath => OperatingSystem.IsWindows() ? "NUL" : "/dev/null";
 
     private static bool LooksLikeGitError(string output)
     {

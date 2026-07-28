@@ -58,6 +58,44 @@ public class GitWorkspaceDiffProviderTests : IDisposable
     }
 
     [Fact]
+    public void GetDiff_WhenOnlyUntrackedFiles_ReturnsUntrackedDiff()
+    {
+        if (!IsGitAvailable())
+        {
+            return;
+        }
+
+        InitializeRepoWithCommit();
+        File.WriteAllText(Path.Combine(_workspacePath, "new-file.txt"), "brand new\n");
+
+        string diff = _provider.GetDiff(_workspacePath);
+
+        Assert.Contains("Change source: untracked files (vs HEAD)", diff);
+        Assert.Contains("new-file.txt", diff);
+        Assert.Contains("brand new", diff);
+    }
+
+    [Fact]
+    public void GetDiff_WhenTrackedAndUntrackedChanges_IncludesBoth()
+    {
+        if (!IsGitAvailable())
+        {
+            return;
+        }
+
+        InitializeRepoWithCommit();
+        File.AppendAllText(Path.Combine(_workspacePath, "tracked.txt"), "change\n");
+        File.WriteAllText(Path.Combine(_workspacePath, "new-file.txt"), "brand new\n");
+
+        string diff = _provider.GetDiff(_workspacePath);
+
+        Assert.Contains("Change source: git diff HEAD (including untracked files)", diff);
+        Assert.Contains("tracked.txt", diff);
+        Assert.Contains("new-file.txt", diff);
+        Assert.Contains("brand new", diff);
+    }
+
+    [Fact]
     public void GetBranchDiff_ReturnsThreeDotDiff()
     {
         if (!IsGitAvailable())
@@ -125,6 +163,26 @@ public class GitWorkspaceDiffProviderTests : IDisposable
         Assert.Contains(stats.Files, file => file.Path == "tracked.txt");
         Assert.True(stats.TotalAdded > 0);
         Assert.Equal("git diff --numstat HEAD", stats.Source);
+    }
+
+    [Fact]
+    public void TryGetDiffStats_WhenOnlyUntrackedFiles_ReturnsNumStat()
+    {
+        if (!IsGitAvailable())
+        {
+            return;
+        }
+
+        InitializeRepoWithCommit();
+        File.WriteAllText(Path.Combine(_workspacePath, "new-file.txt"), "brand new\n");
+
+        WorkspaceDiffStats? stats = _provider.TryGetDiffStats(_workspacePath);
+
+        Assert.NotNull(stats);
+        Assert.Contains(stats.Files, file => file.Path == "new-file.txt");
+        Assert.True(stats.TotalAdded > 0);
+        Assert.Equal(0, stats.TotalRemoved);
+        Assert.Equal("untracked files (vs HEAD)", stats.Source);
     }
 
     [Fact]

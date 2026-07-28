@@ -188,7 +188,7 @@ Scoped implementation rules and deduplicated kickoff prompts reduce context grow
 
 After an implementation child agent completes, the API automatically kicks off a **review child** in `review` mode via the orchestration step pipeline (same outcome as `POST /chats/{implementationChildChatId}/review/kickoff`). The review agent reads the git diff + original plan and outputs `<!-- orchi-review-plan:id -->` blocks as parseable markdown — TLDR first, then a per-file diff walkthrough (what changed, required, clean, goal alignment, over-engineering), then cross-cutting findings.
 
-At prompt composition time, Orchi runs **`git diff HEAD`** in the workspace (falling back to **`git show HEAD`** when there are no uncommitted changes) and appends the result to the review agent's `<context>` section. The review agent does not need to run git itself. The `IWorkspaceDiffProvider` abstraction allows swapping in snapshot-based diffs later.
+At prompt composition time, Orchi runs **`git diff HEAD`** in the workspace (including **untracked files** not yet staged or committed, falling back to **`git show HEAD`** when there are no uncommitted changes) and appends the result to the review agent's `<context>` section. The review agent does not need to run git itself. The `IWorkspaceDiffProvider` abstraction allows swapping in snapshot-based diffs later.
 
 ```
 Implementation child completes  →  auto review kickoff  →  .orchi/review-*.md + review child
