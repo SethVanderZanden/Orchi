@@ -9,6 +9,7 @@ using Orchi.Api.Infrastructure.Agents.Models;
 using Orchi.Api.Infrastructure.Agents.Orchestration;
 using Orchi.Api.Infrastructure.Agents.Workspace;
 using Orchi.Api.Infrastructure.Projects;
+using Orchi.Api.Infrastructure.Git.Workspace;
 using Orchi.Api.Infrastructure.Scripts;
 using Orchi.Api.Infrastructure.Scripts.Actions;
 
@@ -30,6 +31,8 @@ public sealed class AgentSessionManager
     private readonly IChatStatusService _chatStatusService;
     private readonly IScriptEventDispatcher _scriptEventDispatcher;
     private readonly IWorkspaceDiffProvider _workspaceDiffProvider;
+    private readonly IGitWorkspaceService _gitWorkspaceService;
+    private readonly IGitCommitMessageGenerator _commitMessageGenerator;
     private readonly ILogger<AgentSessionManager> _logger;
 
     public AgentSessionManager(
@@ -46,6 +49,8 @@ public sealed class AgentSessionManager
         IChatStatusService chatStatusService,
         IScriptEventDispatcher scriptEventDispatcher,
         IWorkspaceDiffProvider workspaceDiffProvider,
+        IGitWorkspaceService gitWorkspaceService,
+        IGitCommitMessageGenerator commitMessageGenerator,
         ILogger<AgentSessionManager> logger)
     {
         _chatStore = chatStore;
@@ -61,6 +66,8 @@ public sealed class AgentSessionManager
         _chatStatusService = chatStatusService;
         _scriptEventDispatcher = scriptEventDispatcher;
         _workspaceDiffProvider = workspaceDiffProvider;
+        _gitWorkspaceService = gitWorkspaceService;
+        _commitMessageGenerator = commitMessageGenerator;
         _logger = logger;
     }
 
@@ -893,6 +900,17 @@ public sealed class AgentSessionManager
                         cancellationToken);
 
                     turnCompleted = true;
+
+                    await AppendDiffStatsMessageIfApplicableAsync(
+                        chatId,
+                        session,
+                        succeeded: true,
+                        runCts.Token);
+
+                    await CommitWorkspaceChangesIfApplicableAsync(
+                        session,
+                        runCts.Token);
+
                     await foreach (AgentEvent finishEvent in DispatchFinishScriptsAsync(
                                        session,
                                        succeeded: true,
@@ -900,12 +918,6 @@ public sealed class AgentSessionManager
                     {
                         yield return finishEvent;
                     }
-
-                    await AppendDiffStatsMessageIfApplicableAsync(
-                        chatId,
-                        session,
-                        succeeded: true,
-                        runCts.Token);
 
                     _turnCompletionNotifier.NotifyTurnCompleted(chatId, succeeded: true);
                     yield return completed;
@@ -1424,6 +1436,44 @@ public sealed class AgentSessionManager
         }
 
         await SaveAssistantStatusMessageAsync(chatId, message, cancellationToken);
+    }
+
+    private async Task CommitWorkspaceChangesIfApplicableAsync(
+        ChatSession session,
+        CancellationToken cancellationToken)
+    {
+        if (!ShouldAppendDiffStatsMessage(session.Mode))
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(session.WorkspacePath))
+        {
+            return;
+        }
+
+        try
+        {
+            if (!await _gitWorkspaceService.IsGitRepositoryAsync(session.WorkspacePath, cancellationToken))
+            {
+                return;
+            }
+
+            string? message = await _commitMessageGenerator.GenerateAsync(session.WorkspacePath, cancellationToken);
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                return;
+            }
+
+            await _gitWorkspaceService.CommitAsync(session.WorkspacePath, message, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Failed to auto-commit workspace changes for chat {ChatId}",
+                session.Id);
+        }
     }
 
     private static bool ShouldAppendDiffStatsMessage(string mode) =>

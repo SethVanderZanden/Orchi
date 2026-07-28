@@ -152,112 +152,26 @@ public sealed class GitWorkspaceDiffProvider : IWorkspaceDiffProvider
             return $"Failed to resolve head branch ref: `{headRef}`.";
         }
 
-        string committedDiff = TryGetCommittedBranchDiff(workspacePath, resolvedBase, resolvedHead, out string committedSource, out string? committedError);
-        if (committedError is not null)
-        {
-            return committedError;
-        }
-
-        string uncommitted = RunGit(workspacePath, "diff", "HEAD");
-        string untracked = BuildUntrackedDiff(workspacePath);
-        string workingTreeDiff = CombineDiffParts(uncommitted, untracked);
-
-        bool hasCommitted = !string.IsNullOrWhiteSpace(committedDiff);
-        bool hasWorkingTree = !string.IsNullOrWhiteSpace(workingTreeDiff);
-
-        if (hasCommitted && hasWorkingTree)
-        {
-            return FormatBranchDiffSections(
-                resolvedBase,
-                resolvedHead,
-                [
-                    (committedSource, Truncate(committedDiff)),
-                    (DescribeDiffSource(uncommitted, untracked) + " (uncommitted in workspace)", Truncate(workingTreeDiff)),
-                ]);
-        }
-
-        if (hasCommitted)
-        {
-            return FormatSection(committedSource, Truncate(committedDiff));
-        }
-
-        if (hasWorkingTree)
-        {
-            return FormatBranchDiffSections(
-                resolvedBase,
-                resolvedHead,
-                [
-                    ($"No committed changes between `{resolvedBase}` and `{resolvedHead}`; " +
-                     DescribeDiffSource(uncommitted, untracked) + " (uncommitted in workspace)",
-                     Truncate(workingTreeDiff)),
-                ]);
-        }
-
-        return $"No changes detected between `{resolvedBase}` and `{resolvedHead}`.";
-    }
-
-    private static string TryGetCommittedBranchDiff(
-        string workspacePath,
-        string baseRef,
-        string headRef,
-        out string committedSource,
-        out string? error)
-    {
-        string range = $"{baseRef}...{headRef}";
+        string range = $"{resolvedBase}...{resolvedHead}";
         string threeDot = RunGit(workspacePath, "diff", "--no-color", range);
         if (!string.IsNullOrWhiteSpace(threeDot) && !LooksLikeGitError(threeDot))
         {
-            committedSource = $"git diff {range}";
-            error = null;
-            return threeDot;
+            return FormatSection($"git diff {range}", Truncate(threeDot));
         }
 
-        string twoDotRange = $"{baseRef}..{headRef}";
+        string twoDotRange = $"{resolvedBase}..{resolvedHead}";
         string twoDot = RunGit(workspacePath, "diff", "--no-color", twoDotRange);
         if (!string.IsNullOrWhiteSpace(twoDot) && !LooksLikeGitError(twoDot))
         {
-            committedSource = $"git diff {twoDotRange}";
-            error = null;
-            return twoDot;
+            return FormatSection($"git diff {twoDotRange}", Truncate(twoDot));
         }
 
         if (!string.IsNullOrWhiteSpace(threeDot) && LooksLikeGitError(threeDot))
         {
-            committedSource = string.Empty;
-            error = $"Failed to compute branch diff for {range}: {threeDot.Trim()}";
-            return string.Empty;
+            return $"Failed to compute branch diff for {range}: {threeDot.Trim()}";
         }
 
-        committedSource = string.Empty;
-        error = null;
-        return string.Empty;
-    }
-
-    private static string FormatBranchDiffSections(
-        string baseRef,
-        string headRef,
-        IReadOnlyList<(string Source, string Diff)> sections)
-    {
-        var builder = new StringBuilder();
-        builder.AppendLine($"Branch review (`{baseRef}`...`{headRef}`):");
-        builder.AppendLine();
-
-        for (int index = 0; index < sections.Count; index++)
-        {
-            (string source, string diff) = sections[index];
-            if (index > 0)
-            {
-                builder.AppendLine();
-            }
-
-            builder.AppendLine($"Change source: {source}");
-            builder.AppendLine();
-            builder.AppendLine("```diff");
-            builder.AppendLine(diff);
-            builder.AppendLine("```");
-        }
-
-        return builder.ToString().TrimEnd();
+        return $"No changes detected between `{resolvedBase}` and `{resolvedHead}`.";
     }
 
     private static bool LooksLikeGitError(string output)

@@ -69,7 +69,7 @@ Project setting `GitHostProvider` selects the adapter. Readiness must be `ready`
 `POST /scripts/templates/orchestration-git-defaults` creates two scripts:
 
 1. **AgentStart** — `git.worktree` (any mode). Creates a worktree from the project pattern, registers a workspace, and switches the chat onto it before the CLI runs. Skips if the chat is already on a worktree.
-2. **AgentFinish** (implementation) — `git.commit` (generated message) → `git.push` → `git.createPullRequest`
+2. **AgentFinish** (implementation) — `git.push` → `git.createPullRequest` (commits run automatically when the agent turn succeeds)
 
 ## Worktree branch pattern
 
