@@ -1,17 +1,12 @@
 name: Desktop Frontend
 
 on:
-  push:
-    paths:
-      - 'src/desktop/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/desktop-frontend.yml'
   pull_request:
     paths:
       - 'src/desktop/**'
       - 'package.json'
       - 'package-lock.json'
+      - '.github/workflows/desktop-frontend.yml'
 
 defaults:
   run:

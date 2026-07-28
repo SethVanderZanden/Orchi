@@ -1,17 +1,12 @@
 name: API
 
 on:
-  push:
-    paths:
-      - 'src/API/**'
-      - 'tests/Orchi.Api.Tests/**'
-      - 'Orchi.slnx'
-      - '.github/workflows/api.yml'
   pull_request:
     paths:
       - 'src/API/**'
       - 'tests/Orchi.Api.Tests/**'
       - 'Orchi.slnx'
+      - '.github/workflows/api.yml'
 
 jobs:
   verify:
