@@ -24,4 +24,16 @@ describe('AssistantMessageContent', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: 'Heading' })).toBeInTheDocument()
   })
+
+  it('renders soft-broken beats as separate paragraphs when complete', () => {
+    const { container } = render(
+      <AssistantMessageContent
+        content={'First beat.\nSecond beat.\nThird beat.'}
+        status="complete"
+        className="prose-base"
+      />
+    )
+
+    expect(container.querySelectorAll('p')).toHaveLength(3)
+  })
 })

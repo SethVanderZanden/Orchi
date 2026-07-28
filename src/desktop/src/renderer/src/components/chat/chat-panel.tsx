@@ -422,7 +422,7 @@ export function ChatPanel({
                 <MessageScrollerViewport>
                   <MessageScrollerContent
                     aria-busy={isSending}
-                    className="mx-auto w-full max-w-3xl gap-7 px-6 py-8"
+                    className="mx-auto w-full max-w-3xl gap-10 px-6 py-8"
                   >
                     <OrchiChatMessageList messages={messages} markers={markers} mode={mode} />
 

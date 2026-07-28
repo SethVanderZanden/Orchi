@@ -1,8 +1,9 @@
 import { memo } from 'react'
 
 import { MarkdownContent } from '@/components/markdown-content'
-import { cn } from '@/lib/utils'
+import { spreadAssistantMarkdown } from '@/lib/chat/spread-assistant-markdown'
 import type { ChatMessage } from '@/lib/chat/types'
+import { cn } from '@/lib/utils'
 
 type AssistantMessageContentProps = {
   content: string
@@ -23,9 +24,13 @@ export const AssistantMessageContent = memo(function AssistantMessageContent({
 
   if (isStreaming) {
     return (
-      <div className={cn('whitespace-pre-wrap break-words text-inherit', className)}>{content}</div>
+      <div className={cn('whitespace-pre-wrap break-words leading-7 text-inherit', className)}>
+        {content}
+      </div>
     )
   }
 
-  return <MarkdownContent className={className}>{content}</MarkdownContent>
+  return (
+    <MarkdownContent className={className}>{spreadAssistantMarkdown(content)}</MarkdownContent>
+  )
 })
