@@ -58,8 +58,8 @@ export function useFinderCommands(onComplete: () => void): AppFinderCommand[] {
       },
       {
         id: 'new-chat-from-active',
-        label: 'New chat from this',
-        keywords: ['create', 'fork', 'worktree', 'branch', 'copy'],
+        label: 'Parallel agent in workspace',
+        keywords: ['create', 'parallel', 'agent', 'workspace', 'beside', 'split'],
         disabled: isCreatingTab || !activeTabId,
         onSelect: () =>
           complete(() => {

@@ -73,7 +73,7 @@ type ChatTabsContextValue = {
   registerProjectAndOpenTab: () => Promise<void>
   /** Opens a new chat in the resizable split pane. Optionally prefill or auto-send. */
   createAndOpenSplitTab: (options?: OpenSplitChatOptions) => Promise<void>
-  /** Creates a new chat from an existing one, copying settings and enabling a worktree. */
+  /** Creates a parallel chat in the same workspace as an existing one. */
   createChatFromSource: (sourceChatId: string) => Promise<void>
   isCreatingTab: boolean
   finderOpen: boolean
@@ -451,13 +451,15 @@ export function ChatTabsProvider({ children }: { children: ReactNode }): React.J
 
       setIsCreatingTab(true)
       try {
-        await createChat({
+        const newChat = await createChat({
           workspaceId: resolved.workspace.workspaceId,
           workspacePath: resolved.workspace.workspacePath,
           projectId: resolved.workspace.projectId ?? undefined,
-          enableWorktree: resolved.enableWorktree,
+          navigate: false,
           ...resolved.draftOptions
         })
+
+        setState((current) => applyOpenChatInSplit(current, newChat.id))
       } finally {
         setIsCreatingTab(false)
       }

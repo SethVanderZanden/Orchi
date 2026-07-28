@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  isSourceChatOnWorktree,
-  resolveChatFromSource,
-  resolveWorkspaceForChatFromSource
-} from '@/lib/chat/resolve-chat-from-source'
+import { resolveChatFromSource } from '@/lib/chat/resolve-chat-from-source'
 import type { ChatThread } from '@/lib/chat/types'
 import type { Project } from '@/lib/projects/types'
 
@@ -70,50 +66,12 @@ function project(overrides: Partial<Project> = {}): Project {
   }
 }
 
-describe('resolveWorkspaceForChatFromSource', () => {
-  it('uses the project primary workspace instead of the source worktree', () => {
-    expect(resolveWorkspaceForChatFromSource(chat(), [project()])).toEqual({
-      workspaceId: 'ws-primary',
-      workspacePath: '/tmp/orchi',
-      projectId: 'project-1'
-    })
-  })
-
-  it('falls back to the source workspace when the project is unknown', () => {
-    expect(resolveWorkspaceForChatFromSource(chat({ projectId: null }), [])).toEqual({
-      workspaceId: 'ws-worktree',
-      workspacePath: '/tmp/worktrees/feature-a',
-      projectId: null
-    })
-  })
-
-  it('returns null when no workspace can be resolved', () => {
-    expect(
-      resolveWorkspaceForChatFromSource(
-        chat({ workspaceId: null, workspacePath: '', projectId: null }),
-        []
-      )
-    ).toBeNull()
-  })
-})
-
-describe('isSourceChatOnWorktree', () => {
-  it('detects when the source chat is on a worktree workspace', () => {
-    expect(isSourceChatOnWorktree(chat(), [project()])).toBe(true)
-    expect(
-      isSourceChatOnWorktree(chat({ workspaceId: 'ws-primary', workspacePath: '/tmp/orchi' }), [
-        project()
-      ])
-    ).toBe(false)
-  })
-})
-
 describe('resolveChatFromSource', () => {
-  it('copies runtime settings and enables worktree when a project exists', () => {
+  it('keeps the source chat workspace so parallel agents share a worktree', () => {
     expect(resolveChatFromSource(chat(), [project()])).toEqual({
       workspace: {
-        workspaceId: 'ws-primary',
-        workspacePath: '/tmp/orchi',
+        workspaceId: 'ws-worktree',
+        workspacePath: '/tmp/worktrees/feature-a',
         projectId: 'project-1'
       },
       draftOptions: {
@@ -123,27 +81,16 @@ describe('resolveChatFromSource', () => {
         contextSizeId: 'large',
         reasoningEffortId: 'high',
         approvalPolicyId: 'auto'
-      },
-      enableWorktree: true
+      }
     })
   })
 
-  it('does not enable worktree when the source chat has no project', () => {
-    expect(resolveChatFromSource(chat({ projectId: null }), [])).toEqual({
-      workspace: {
-        workspaceId: 'ws-worktree',
-        workspacePath: '/tmp/worktrees/feature-a',
-        projectId: null
-      },
-      draftOptions: {
-        mode: 'default',
-        agentId: 'cursor',
-        modelId: 'gpt-4',
-        contextSizeId: 'large',
-        reasoningEffortId: 'high',
-        approvalPolicyId: 'auto'
-      },
-      enableWorktree: false
-    })
+  it('returns null when the source chat has no workspace to inherit', () => {
+    expect(
+      resolveChatFromSource(
+        chat({ workspaceId: null, workspacePath: '', projectId: null }),
+        []
+      )
+    ).toBeNull()
   })
 })

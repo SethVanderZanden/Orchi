@@ -1,4 +1,4 @@
-import { ChevronDown, Columns2, FileText, GitBranchPlus, Trash2, X } from 'lucide-react'
+import { ChevronDown, Columns2, FileText, Trash2, Users, X } from 'lucide-react'
 
 import { ShortcutHint } from '@/components/app-header/shortcut-hint'
 import { ChatGitActionsMenu } from '@/components/layout/chat-git-actions-menu'
@@ -154,8 +154,8 @@ export function ChatWorkspaceHeader({
                   disabled={createChatFromThisDisabled}
                   onClick={onCreateChatFromThis}
                 >
-                  <GitBranchPlus className="size-4" />
-                  New chat from this
+                  <Users className="size-4" />
+                  Parallel agent in workspace
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   className="font-medium text-destructive focus:bg-destructive/10 focus:text-destructive dark:focus:bg-destructive/20 [&_svg]:text-destructive!"
