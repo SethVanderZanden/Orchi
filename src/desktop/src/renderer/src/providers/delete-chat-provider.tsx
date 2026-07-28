@@ -7,10 +7,14 @@ import { useChat } from '@/providers/chat-context'
 
 import { DeleteChatContext } from '@/providers/delete-chat-context'
 
+type PendingDelete =
+  | { kind: 'single'; chat: ChatThread }
+  | { kind: 'bulk'; chats: ChatThread[]; skippedSendingCount: number }
+
 export function DeleteChatProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
   const { deleteChat } = useChat()
-  const [pendingChat, setPendingChat] = useState<ChatThread | null>(null)
-  const [deletingChatId, setDeletingChatId] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null)
+  const [deletingChatIds, setDeletingChatIds] = useState<Set<string>>(() => new Set())
   const [isConfirming, setIsConfirming] = useState(false)
 
   const requestDelete = useCallback(
@@ -20,52 +24,110 @@ export function DeleteChatProvider({ children }: { children: React.ReactNode }):
         return
       }
 
-      setPendingChat(chat)
+      setPendingDelete({ kind: 'single', chat })
     },
     [deleteChat]
   )
 
+  const requestDeleteMany = useCallback(
+    (chats: ChatThread[], skippedSendingCount = 0) => {
+      if (chats.length === 0) {
+        return
+      }
+
+      if (chats.length === 1 && skippedSendingCount === 0) {
+        requestDelete(chats[0]!)
+        return
+      }
+
+      const localChats = chats.filter((chat) => isLocalChat(chat.id))
+      const persistedChats = chats.filter((chat) => !isLocalChat(chat.id))
+
+      for (const chat of localChats) {
+        void deleteChat(chat.id)
+      }
+
+      if (persistedChats.length === 0) {
+        return
+      }
+
+      if (persistedChats.length === 1 && skippedSendingCount === 0) {
+        setPendingDelete({ kind: 'single', chat: persistedChats[0]! })
+        return
+      }
+
+      setPendingDelete({
+        kind: 'bulk',
+        chats: persistedChats,
+        skippedSendingCount
+      })
+    },
+    [deleteChat, requestDelete]
+  )
+
   const confirmDelete = useCallback(async () => {
-    const chat = pendingChat
-    if (!chat || isConfirming) {
+    if (!pendingDelete || isConfirming) {
       return
     }
 
-    const chatId = chat.id
+    const chatsToDelete =
+      pendingDelete.kind === 'single' ? [pendingDelete.chat] : pendingDelete.chats
+
     setIsConfirming(true)
-    setPendingChat(null)
+    setPendingDelete(null)
 
     try {
-      setDeletingChatId(chatId)
-      await deleteChat(chatId)
+      for (const chat of chatsToDelete) {
+        setDeletingChatIds((current) => new Set(current).add(chat.id))
+
+        try {
+          await deleteChat(chat.id)
+        } finally {
+          setDeletingChatIds((current) => {
+            const next = new Set(current)
+            next.delete(chat.id)
+            return next
+          })
+        }
+      }
     } finally {
-      setDeletingChatId(null)
       setIsConfirming(false)
     }
-  }, [deleteChat, isConfirming, pendingChat])
+  }, [deleteChat, isConfirming, pendingDelete])
 
   const isDeletingChat = useCallback(
-    (chatId: string) => deletingChatId === chatId,
-    [deletingChatId]
+    (chatId: string) => deletingChatIds.has(chatId),
+    [deletingChatIds]
   )
+
+  const isDeleteInProgress = isConfirming || deletingChatIds.size > 0
 
   const value = useMemo(
     () => ({
       requestDelete,
-      isDeletingChat
+      requestDeleteMany,
+      isDeletingChat,
+      isDeleteInProgress
     }),
-    [isDeletingChat, requestDelete]
+    [isDeleteInProgress, isDeletingChat, requestDelete, requestDeleteMany]
   )
+
+  const dialogChatCount =
+    pendingDelete?.kind === 'bulk' ? pendingDelete.chats.length : pendingDelete ? 1 : 0
 
   return (
     <DeleteChatContext.Provider value={value}>
       {children}
       <DeleteChatDialog
-        open={pendingChat !== null}
-        chatTitle={pendingChat?.title ?? ''}
+        open={pendingDelete !== null}
+        chatCount={dialogChatCount}
+        chatTitle={pendingDelete?.kind === 'single' ? pendingDelete.chat.title : undefined}
+        skippedSendingCount={
+          pendingDelete?.kind === 'bulk' ? pendingDelete.skippedSendingCount : undefined
+        }
         onOpenChange={(open) => {
           if (!open && !isConfirming) {
-            setPendingChat(null)
+            setPendingDelete(null)
           }
         }}
         onConfirm={() => void confirmDelete()}

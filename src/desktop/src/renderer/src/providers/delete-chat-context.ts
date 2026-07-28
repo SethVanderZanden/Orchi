@@ -4,7 +4,9 @@ import type { ChatThread } from '@/lib/chat/types'
 
 export type DeleteChatContextValue = {
   requestDelete: (chat: ChatThread) => void
+  requestDeleteMany: (chats: ChatThread[], skippedSendingCount?: number) => void
   isDeletingChat: (chatId: string) => boolean
+  isDeleteInProgress: boolean
 }
 
 export const DeleteChatContext = createContext<DeleteChatContextValue | null>(null)

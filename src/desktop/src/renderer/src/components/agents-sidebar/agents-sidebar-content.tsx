@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 
+import { AgentsSidebarBulkActionsMenu } from '@/components/agents-sidebar/agents-sidebar-bulk-actions-menu'
 import { AgentsSidebarProjectGroup } from '@/components/agents-sidebar/agents-sidebar-project-group'
 import { AgentsSidebarSection } from '@/components/agents-sidebar/agents-sidebar-section'
 import { BoardFiltersBar } from '@/components/kanban/board-filters-bar'
@@ -8,6 +9,7 @@ import { useBoardGrouping } from '@/hooks/use-board-grouping'
 import { useDeleteChat } from '@/hooks/use-delete-chat'
 import { groupBoardChats } from '@/lib/agents-sidebar/group-board-chats'
 import { mapChatStatusToVariant } from '@/lib/chat/chat-status-variant'
+import { collectDeletableChats } from '@/lib/chat/collect-deletable-chats'
 import type { ChatStatus, ChatThread } from '@/lib/chat/types'
 import { filterBoardChats } from '@/lib/kanban/board-filters'
 import { useChat } from '@/providers/chat-context'
@@ -17,7 +19,7 @@ import { useProjects } from '@/providers/project-provider'
 export function AgentsSidebarContent(): React.JSX.Element {
   const { chats, isLoadingChats, isChatSending, isParentKickingOffAny } = useChat()
   const { openChat, openChatInSplit, activeTabId, splitTabId } = useChatTabs()
-  const { requestDelete, isDeletingChat } = useDeleteChat()
+  const { requestDelete, requestDeleteMany, isDeletingChat, isDeleteInProgress } = useDeleteChat()
   const { projects } = useProjects()
   const { filters, setProjectFilter, setDateRange } = useBoardFilters()
   const { grouping } = useBoardGrouping()
@@ -64,6 +66,29 @@ export function AgentsSidebarContent(): React.JSX.Element {
   }, [projects])
 
   const hasFilteredOutChats = !isLoadingChats && chats.length > 0 && filteredChats.length === 0
+
+  const visibleDeletable = useMemo(
+    () =>
+      collectDeletableChats({
+        chats: filteredChats,
+        isChatSending,
+        isParentKickingOffAny
+      }),
+    [filteredChats, isChatSending, isParentKickingOffAny]
+  )
+
+  function handleDeleteVisibleChats(): void {
+    requestDeleteMany(visibleDeletable.deletable, visibleDeletable.skippedSendingCount)
+  }
+
+  function handleDeleteProjectChats(projectChats: ChatThread[]): void {
+    const { deletable, skippedSendingCount } = collectDeletableChats({
+      chats: projectChats,
+      isChatSending,
+      isParentKickingOffAny
+    })
+    requestDeleteMany(deletable, skippedSendingCount)
+  }
 
   function getProjectName(projectId: string | null): string | null {
     if (!projectId) {
@@ -124,6 +149,12 @@ export function AgentsSidebarContent(): React.JSX.Element {
             <p className="truncate text-sm font-semibold text-sidebar-foreground">Agents</p>
             <p className="truncate text-xs text-sidebar-muted">Live status list</p>
           </div>
+          <AgentsSidebarBulkActionsMenu
+            deletableCount={visibleDeletable.deletable.length}
+            skippedSendingCount={visibleDeletable.skippedSendingCount}
+            disabled={isDeleteInProgress}
+            onDeleteVisible={handleDeleteVisibleChats}
+          />
         </div>
         <BoardFiltersBar
           projectFilter={filters.projectFilter}
@@ -178,6 +209,12 @@ export function AgentsSidebarContent(): React.JSX.Element {
                     onOpenChatBeside={openChatInSplit}
                     onDeleteChat={handleDeleteChat}
                     isDeleteDisabled={isDeleteDisabled}
+                    onDeleteAllInProject={() =>
+                      handleDeleteProjectChats(
+                        project.sections.flatMap((section) => section.chats)
+                      )
+                    }
+                    bulkDeleteDisabled={isDeleteInProgress}
                   />
                 ))}
           </div>
