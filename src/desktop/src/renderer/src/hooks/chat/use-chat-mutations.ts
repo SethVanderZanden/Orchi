@@ -19,6 +19,7 @@ import {
 } from '@/lib/chat/mode-runtime-defaults-api'
 import type { AgentMode, ChatThread, CreateChatOptions, ModeRuntimeDefault } from '@/lib/chat/types'
 import { getDefaultWorkspace } from '@/lib/projects/group-chats'
+import { findProjectForWorkspace, findWorkspaceInProjects } from '@/lib/projects/find-workspace'
 import type { Project } from '@/lib/projects/types'
 import { agentKeys, chatKeys, projectKeys } from '@/lib/query-keys'
 
@@ -46,6 +47,7 @@ type UseChatMutationsResult = {
   getReasoningEffortUpdateError: (chatId: string) => string | undefined
   updateChatApprovalPolicy: (chatId: string, approvalPolicyId: string | null) => Promise<void>
   getApprovalPolicyUpdateError: (chatId: string) => string | undefined
+  updateChatWorkspace: (chatId: string, workspaceId: string) => void
   updateChatProject: (chatId: string, projectId: string) => void
 }
 
@@ -591,6 +593,46 @@ export function useChatMutations({
     [approvalPolicyUpdateErrorByChat]
   )
 
+  const updateChatWorkspaceAction = useCallback(
+    (chatId: string, workspaceId: string) => {
+      if (!isLocalChat(chatId)) {
+        return
+      }
+
+      const currentChat =
+        queryClient.getQueryData<ChatThread>(chatKeys.detail(chatId)) ??
+        queryClient.getQueryData<ChatThread[]>(chatKeys.lists())?.find((chat) => chat.id === chatId)
+
+      if (currentChat?.workspaceId === workspaceId) {
+        return
+      }
+
+      const projects = queryClient.getQueryData<Project[]>(projectKeys.lists()) ?? []
+      const selectedProject = findProjectForWorkspace(projects, workspaceId)
+      const selectedWorkspace = findWorkspaceInProjects(projects, workspaceId)
+
+      if (!selectedProject || !selectedWorkspace) {
+        return
+      }
+
+      const applyWorkspace = (chat: ChatThread): ChatThread => ({
+        ...chat,
+        projectId: selectedProject.id,
+        workspaceId: selectedWorkspace.id,
+        workspacePath: selectedWorkspace.path
+      })
+
+      queryClient.setQueryData<ChatThread>(chatKeys.detail(chatId), (current) =>
+        current ? applyWorkspace(current) : current
+      )
+
+      queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) =>
+        current.map((chat) => (chat.id === chatId ? applyWorkspace(chat) : chat))
+      )
+    },
+    [queryClient]
+  )
+
   const updateChatProjectAction = useCallback(
     (chatId: string, projectId: string) => {
       if (!isLocalChat(chatId)) {
@@ -645,6 +687,7 @@ export function useChatMutations({
     getReasoningEffortUpdateError,
     updateChatApprovalPolicy: updateChatApprovalPolicyAction,
     getApprovalPolicyUpdateError,
+    updateChatWorkspace: updateChatWorkspaceAction,
     updateChatProject: updateChatProjectAction
   }
 }
