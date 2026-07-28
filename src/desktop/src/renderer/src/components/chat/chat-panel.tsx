@@ -103,6 +103,8 @@ type ChatPanelProps = {
 
   workspaceName: string | null
 
+  workspacePath?: string | null
+
   projectName: string | null
 
   projects: Project[]
@@ -202,6 +204,8 @@ export function ChatPanel({
   workspaceId,
 
   workspaceName,
+
+  workspacePath,
 
   projectName,
 
@@ -424,7 +428,12 @@ export function ChatPanel({
                     aria-busy={isSending}
                     className="mx-auto w-full max-w-3xl gap-7 px-6 py-8"
                   >
-                    <OrchiChatMessageList messages={messages} markers={markers} mode={mode} />
+                    <OrchiChatMessageList
+                      messages={messages}
+                      markers={markers}
+                      mode={mode}
+                      workspacePath={workspacePath}
+                    />
 
                     {showPlanReview ? (
                       <MessageScrollerItem messageId={`${chatId}-plan-cards`}>
@@ -465,6 +474,7 @@ export function ChatPanel({
           parentChatId={parentChatId!}
           childChats={childChats}
           reviewPlansByPlanId={reviewPlansByPlanId}
+          workspacePath={workspacePath}
           isPlanKickingOff={isPlanKickingOff!}
           onSelectTab={(planId) => dispatchReview({ type: 'select-tab', planId })}
           onCloseTab={(planId) => dispatchReview({ type: 'close-tab', planId })}

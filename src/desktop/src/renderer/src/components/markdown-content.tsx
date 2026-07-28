@@ -20,6 +20,8 @@ import { cn } from '@/lib/utils'
 type MarkdownContentProps = {
   children: string
   className?: string
+  /** Chat workspace — preferred over any workspace path embedded in open-editor commands. */
+  workspacePath?: string | null
 }
 
 function isInlineCode(className: string | undefined, children: ReactNode): boolean {
@@ -113,15 +115,19 @@ function createMarkdownComponents(
 
 export const MarkdownContent = memo(function MarkdownContent({
   children,
-  className
+  className,
+  workspacePath
 }: MarkdownContentProps): React.JSX.Element {
   const enableDiffStatsColors = isWorkspaceDiffStatsMessage(children)
   const stripped = enableDiffStatsColors ? stripWorkspaceDiffStatsMarker(children) : children
   const markdown = transformOpenEditorBlocksForDisplay(stripped)
 
-  const handleOpenEditorLink = useCallback((command: string) => {
-    void openEditorFromCommand(command)
-  }, [])
+  const handleOpenEditorLink = useCallback(
+    (command: string) => {
+      void openEditorFromCommand(command, workspacePath)
+    },
+    [workspacePath]
+  )
 
   return (
     <div

@@ -9,6 +9,6 @@ public sealed class FileReferenceContributor : IPromptSectionContributor
             return;
         }
 
-        document.AppendRules(FileReferencePromptRules.Rule);
+        document.AppendRules(FileReferencePromptRules.Build(context.WorkspacePath));
     }
 }

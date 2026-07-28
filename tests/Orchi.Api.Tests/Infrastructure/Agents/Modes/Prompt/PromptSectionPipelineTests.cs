@@ -52,7 +52,7 @@ public class PromptSectionPipelineTests
         OrchiPromptDocument document = _pipeline.Build(context);
 
         Assert.Contains("<orchi-open-editor>", document.Rules);
-        Assert.Contains("code {workspacePath} -g {relativePath}:{line}", document.Rules);
+        Assert.Contains("code /path/to/project -g {relativePath}:{line}", document.Rules);
     }
 
     [Fact]

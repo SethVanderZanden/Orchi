@@ -105,6 +105,12 @@ public sealed class ReviewAgentModeStrategy : IAgentModeStrategy
     {
         document.Identity = Identity;
         document.AppendRules(Rules);
-        document.AppendContext(Context);
+
+        string workspacePath = string.IsNullOrWhiteSpace(context.WorkspacePath)
+            ? "{workspacePath}"
+            : context.WorkspacePath.Trim();
+        document.AppendContext(
+            Context.Replace("{workspacePath}", workspacePath, StringComparison.Ordinal));
     }
 }
+
