@@ -111,7 +111,6 @@ export function useAppShortcuts(): void {
   })
 
   useKeyboardShortcutCombo({ key: 'ArrowRight', ctrl: true }, createSplitTab, {
-    allowInTextarea: true,
     enabled: !isCreatingTab && Boolean(activeTabId)
   })
 
