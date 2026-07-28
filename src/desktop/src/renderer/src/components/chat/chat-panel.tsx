@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 
 import type { Dispatch } from 'react'
 
@@ -384,16 +384,28 @@ export function ChatPanel({
     />
   )
 
-  const workspaceContext = isNewRootChat ? (
-    <ChatWorkspaceContext
-      workspaceId={workspaceId}
-      workspaceName={workspaceName}
-      projectName={projectName}
-      projects={projects}
-      canChangeWorkspace={canChangeWorkspace}
-      onWorkspaceChange={onWorkspaceChange}
-    />
-  ) : null
+  const workspaceContext = useMemo(
+    () =>
+      isNewRootChat ? (
+        <ChatWorkspaceContext
+          workspaceId={workspaceId}
+          workspaceName={workspaceName}
+          projectName={projectName}
+          projects={projects}
+          canChangeWorkspace={canChangeWorkspace}
+          onWorkspaceChange={onWorkspaceChange}
+        />
+      ) : null,
+    [
+      canChangeWorkspace,
+      isNewRootChat,
+      onWorkspaceChange,
+      projectName,
+      projects,
+      workspaceId,
+      workspaceName
+    ]
+  )
 
   return (
     <div ref={splitContainerRef} className="flex min-h-0 flex-1 overflow-hidden">

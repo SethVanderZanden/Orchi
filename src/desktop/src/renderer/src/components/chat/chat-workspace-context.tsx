@@ -1,3 +1,4 @@
+import { memo, useCallback, useMemo } from 'react'
 import { ChevronDown } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -10,7 +11,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
-import type { Project, Workspace } from '@/lib/projects/types'
+import { findProjectForWorkspace, findWorkspaceInProjects } from '@/lib/projects/find-workspace'
+import type { Project } from '@/lib/projects/types'
 import { cn } from '@/lib/utils'
 
 type ChatWorkspaceContextProps = {
@@ -23,22 +25,7 @@ type ChatWorkspaceContextProps = {
   className?: string
 }
 
-function findWorkspace(projects: Project[], workspaceId: string | null): Workspace | undefined {
-  if (!workspaceId) {
-    return undefined
-  }
-
-  for (const project of projects) {
-    const workspace = project.workspaces.find((entry) => entry.id === workspaceId)
-    if (workspace) {
-      return workspace
-    }
-  }
-
-  return undefined
-}
-
-export function ChatWorkspaceContext({
+export const ChatWorkspaceContext = memo(function ChatWorkspaceContext({
   workspaceId,
   workspaceName,
   projectName,
@@ -47,9 +34,30 @@ export function ChatWorkspaceContext({
   onWorkspaceChange,
   className
 }: ChatWorkspaceContextProps): React.JSX.Element {
-  const workspace = findWorkspace(projects, workspaceId)
+  const workspace = useMemo(
+    () => findWorkspaceInProjects(projects, workspaceId),
+    [projects, workspaceId]
+  )
+
   const label = workspaceName ?? workspace?.name ?? 'No workspace'
-  const subtitle = projectName ?? projects.find((project) => project.id === workspace?.projectId)?.name
+  const subtitle = useMemo(() => {
+    if (projectName) {
+      return projectName
+    }
+
+    return findProjectForWorkspace(projects, workspaceId)?.name
+  }, [projectName, projects, workspaceId])
+
+  const handleWorkspaceSelect = useCallback(
+    (selectedWorkspaceId: string) => {
+      if (!canChangeWorkspace || selectedWorkspaceId === workspaceId) {
+        return
+      }
+
+      onWorkspaceChange?.(selectedWorkspaceId)
+    },
+    [canChangeWorkspace, onWorkspaceChange, workspaceId]
+  )
 
   return (
     <div className={cn('flex items-center gap-1 text-sm text-muted-foreground', className)}>
@@ -90,13 +98,7 @@ export function ChatWorkspaceContext({
                     key={entry.id}
                     disabled={!canChangeWorkspace && entry.id !== workspaceId}
                     className={cn(entry.id === workspaceId && 'font-medium')}
-                    onSelect={() => {
-                      if (!canChangeWorkspace || entry.id === workspaceId) {
-                        return
-                      }
-
-                      onWorkspaceChange?.(entry.id)
-                    }}
+                    onSelect={() => handleWorkspaceSelect(entry.id)}
                   >
                     <span className="flex min-w-0 flex-col">
                       <span className="truncate">{entry.name}</span>
@@ -114,4 +116,4 @@ export function ChatWorkspaceContext({
       </DropdownMenu>
     </div>
   )
-}
+})

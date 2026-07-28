@@ -19,6 +19,7 @@ import {
 } from '@/lib/chat/mode-runtime-defaults-api'
 import type { AgentMode, ChatThread, CreateChatOptions, ModeRuntimeDefault } from '@/lib/chat/types'
 import { getDefaultWorkspace } from '@/lib/projects/group-chats'
+import { findProjectForWorkspace, findWorkspaceInProjects } from '@/lib/projects/find-workspace'
 import type { Project } from '@/lib/projects/types'
 import { agentKeys, chatKeys, projectKeys } from '@/lib/query-keys'
 
@@ -607,17 +608,8 @@ export function useChatMutations({
       }
 
       const projects = queryClient.getQueryData<Project[]>(projectKeys.lists()) ?? []
-      let selectedProject: Project | undefined
-      let selectedWorkspace = undefined as Project['workspaces'][number] | undefined
-
-      for (const project of projects) {
-        const workspace = project.workspaces.find((entry) => entry.id === workspaceId)
-        if (workspace) {
-          selectedProject = project
-          selectedWorkspace = workspace
-          break
-        }
-      }
+      const selectedProject = findProjectForWorkspace(projects, workspaceId)
+      const selectedWorkspace = findWorkspaceInProjects(projects, workspaceId)
 
       if (!selectedProject || !selectedWorkspace) {
         return
