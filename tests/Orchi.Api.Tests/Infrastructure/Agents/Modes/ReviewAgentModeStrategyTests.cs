@@ -45,6 +45,8 @@ public class ReviewAgentModeStrategyTests
         Assert.Contains("### Missed patterns", document.Context);
         Assert.Contains("<orchi-open-editor>", document.Rules);
         Assert.Contains("<orchi-open-editor>", document.Context);
+        Assert.Contains("code /workspace -g path/to/file:42", document.Context);
+        Assert.DoesNotContain("{workspacePath}", document.Context);
         Assert.Null(document.Message);
     }
 
