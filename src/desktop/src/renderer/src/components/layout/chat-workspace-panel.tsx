@@ -77,7 +77,8 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
     isParentKickingOffAny
   } = useChat()
   const { requestDelete, isDeletingChat } = useDeleteChat()
-  const { openChat, openChatInSplit, closeTab, splitTabId } = useChatTabs()
+  const { openChat, openChatInSplit, closeTab, splitTabId, createChatFromSource, isCreatingTab } =
+    useChatTabs()
   const { projects } = useProjects()
   const project = projects.find((entry) => entry.id === chat.projectId)
   const workspace = project?.workspaces.find((entry) => entry.id === chat.workspaceId)
@@ -251,6 +252,8 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
         hasReviewReady={hasReviewReady}
         onToggleReviewPanel={toggleReviewPanel}
         onOpenParentBeside={openParentBeside}
+        onCreateChatFromThis={() => void createChatFromSource(chat.id)}
+        createChatFromThisDisabled={isChatSending(chat.id) || isCreatingTab}
         onClose={() => closeTab(chat.id)}
         onDelete={() => requestDelete(chat)}
         deleteDisabled={isChatSending(chat.id) || isDeletingChat(chat.id)}

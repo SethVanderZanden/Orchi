@@ -22,6 +22,7 @@ export function useFinderCommands(onComplete: () => void): AppFinderCommand[] {
     splitTabId,
     createAndOpenTab,
     createAndOpenSplitTab,
+    createChatFromSource,
     closeTab,
     closeAllTabs,
     openChat,
@@ -54,6 +55,20 @@ export function useFinderCommands(onComplete: () => void): AppFinderCommand[] {
         shortcut: 'Ctrl+N',
         disabled: isCreatingTab,
         onSelect: () => complete(() => createAndOpenTab())
+      },
+      {
+        id: 'new-chat-from-active',
+        label: 'New chat from this',
+        keywords: ['create', 'fork', 'worktree', 'branch', 'copy'],
+        disabled: isCreatingTab || !activeTabId,
+        onSelect: () =>
+          complete(() => {
+            if (!activeTabId) {
+              return
+            }
+
+            return createChatFromSource(activeTabId)
+          })
       },
       {
         id: 'open-beside',
@@ -206,6 +221,7 @@ export function useFinderCommands(onComplete: () => void): AppFinderCommand[] {
     complete,
     createAndOpenSplitTab,
     createAndOpenTab,
+    createChatFromSource,
     isCreatingTab,
     isPendingProjects,
     navigate,

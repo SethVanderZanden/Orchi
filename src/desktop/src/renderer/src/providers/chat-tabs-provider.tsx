@@ -38,6 +38,7 @@ import {
   setComposerDraft
 } from '@/lib/chat/composer-drafts'
 import { migrateWorktreeIntent } from '@/lib/chat/worktree-intent'
+import { resolveChatFromSource } from '@/lib/chat/resolve-chat-from-source'
 import { isDisposableEmptyChat } from '@/lib/chat/is-disposable-empty-chat'
 import { registerChatIdMigrator } from '@/lib/chat/migrate-chat-client-state'
 import { getDefaultWorkspace } from '@/lib/projects/group-chats'
@@ -72,6 +73,8 @@ type ChatTabsContextValue = {
   registerProjectAndOpenTab: () => Promise<void>
   /** Opens a new chat in the resizable split pane. Optionally prefill or auto-send. */
   createAndOpenSplitTab: (options?: OpenSplitChatOptions) => Promise<void>
+  /** Creates a new chat from an existing one, copying settings and enabling a worktree. */
+  createChatFromSource: (sourceChatId: string) => Promise<void>
   isCreatingTab: boolean
   finderOpen: boolean
   setFinderOpen: (open: boolean) => void
@@ -429,6 +432,39 @@ export function ChatTabsProvider({ children }: { children: ReactNode }): React.J
     ]
   )
 
+  const createChatFromSource = useCallback(
+    async (sourceChatId: string) => {
+      if (isCreatingTab) {
+        return
+      }
+
+      const sourceChat = getChat(sourceChatId)
+      if (!sourceChat) {
+        return
+      }
+
+      const resolved = resolveChatFromSource(sourceChat, projects)
+      if (!resolved) {
+        void navigate({ to: '/' })
+        return
+      }
+
+      setIsCreatingTab(true)
+      try {
+        await createChat({
+          workspaceId: resolved.workspace.workspaceId,
+          workspacePath: resolved.workspace.workspacePath,
+          projectId: resolved.workspace.projectId ?? undefined,
+          enableWorktree: resolved.enableWorktree,
+          ...resolved.draftOptions
+        })
+      } finally {
+        setIsCreatingTab(false)
+      }
+    },
+    [createChat, getChat, isCreatingTab, navigate, projects]
+  )
+
   const value = useMemo<ChatTabsContextValue>(
     () => ({
       openTabIds: state.openTabIds,
@@ -448,6 +484,7 @@ export function ChatTabsProvider({ children }: { children: ReactNode }): React.J
       createAndOpenTab,
       registerProjectAndOpenTab,
       createAndOpenSplitTab,
+      createChatFromSource,
       isCreatingTab,
       finderOpen,
       setFinderOpen
@@ -460,6 +497,7 @@ export function ChatTabsProvider({ children }: { children: ReactNode }): React.J
       closeAllTabs,
       closeTab,
       createAndOpenSplitTab,
+      createChatFromSource,
       createAndOpenTab,
       finderOpen,
       isCreatingTab,

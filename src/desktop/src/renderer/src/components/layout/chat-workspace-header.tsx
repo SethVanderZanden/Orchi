@@ -1,4 +1,4 @@
-import { ChevronDown, Columns2, FileText, Trash2, X } from 'lucide-react'
+import { ChevronDown, Columns2, FileText, GitBranchPlus, Trash2, X } from 'lucide-react'
 
 import { ShortcutHint } from '@/components/app-header/shortcut-hint'
 import { ChatGitActionsMenu } from '@/components/layout/chat-git-actions-menu'
@@ -32,6 +32,8 @@ type ChatWorkspaceHeaderProps = {
   hasReviewReady: boolean
   onToggleReviewPanel: () => void
   onOpenParentBeside: () => void
+  onCreateChatFromThis: () => void
+  createChatFromThisDisabled: boolean
   onClose: () => void
   onDelete: () => void
   deleteDisabled: boolean
@@ -54,6 +56,8 @@ export function ChatWorkspaceHeader({
   hasReviewReady,
   onToggleReviewPanel,
   onOpenParentBeside,
+  onCreateChatFromThis,
+  createChatFromThisDisabled,
   onClose,
   onDelete,
   deleteDisabled
@@ -146,6 +150,13 @@ export function ChatWorkspaceHeader({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  disabled={createChatFromThisDisabled}
+                  onClick={onCreateChatFromThis}
+                >
+                  <GitBranchPlus className="size-4" />
+                  New chat from this
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   className="font-medium text-destructive focus:bg-destructive/10 focus:text-destructive dark:focus:bg-destructive/20 [&_svg]:text-destructive!"
                   disabled={deleteDisabled}
