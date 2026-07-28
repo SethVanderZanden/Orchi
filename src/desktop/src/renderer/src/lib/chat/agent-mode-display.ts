@@ -33,6 +33,8 @@ export function getAgentModeDisplay(mode: AgentMode): AgentModeDisplay {
       return AGENT
     case 'review':
       return REVIEW
+    case 'branch-review':
+      return { ...REVIEW, label: 'Branch review' }
     default:
       return AGENT
   }

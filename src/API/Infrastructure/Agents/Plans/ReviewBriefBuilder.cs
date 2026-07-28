@@ -41,10 +41,6 @@ public static partial class ReviewBriefBuilder
             ## Instructions
 
             {diffInstructions}
-            Walk through every changed file in the diff with a short explanation and judgment (required, clean, goal alignment, over-engineering).
-            Also call out cross-cutting oversights, over-engineering, and missed patterns.
-            Lead with a Review TLDR. Keep each file section scannable.
-            Write the full structured review in your response.
             """;
     }
 
@@ -66,12 +62,8 @@ public static partial class ReviewBriefBuilder
 
             ## Instructions
 
-            This is a pull-request style review. There is no orchestration implementation plan.
             Review the three-dot git diff (`{baseBranch}...{headBranch}`) in your context.
-            Walk through every changed file in the diff with a short explanation and judgment (required, clean, goal alignment, over-engineering).
-            Also call out cross-cutting oversights, over-engineering, and missed patterns.
-            Lead with a Review TLDR. Keep each file section scannable.
-            Write the full structured review in your response.
+            There is no orchestration implementation plan.
             """;
     }
 

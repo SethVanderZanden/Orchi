@@ -1,3 +1,4 @@
+import { isReviewFamilyMode } from '@/lib/chat/is-review-mode'
 import type { ChatThread } from '@/lib/chat/types'
 
 export type ChatTreeNode = {
@@ -66,7 +67,7 @@ export function isReviewChildChat(chat: ChatThread): boolean {
     return false
   }
 
-  return chat.mode === 'review' || reviewPlanIdFromPlanFilePath(chat.planFilePath) !== null
+  return isReviewFamilyMode(chat.mode) || reviewPlanIdFromPlanFilePath(chat.planFilePath) !== null
 }
 
 function sortChatsByUpdatedAtDesc(chats: ChatThread[]): ChatThread[] {

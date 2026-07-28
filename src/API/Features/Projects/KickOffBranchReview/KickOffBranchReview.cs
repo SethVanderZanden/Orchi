@@ -109,7 +109,7 @@ public static class KickOffBranchReview
 
                 Result<ChatSession> reviewChatResult = await sessionManager.CreateSessionAsync(
                     workspace.Workspace.Id,
-                    mode: ReviewAgentModeStrategy.Mode,
+                    mode: BranchReviewAgentModeStrategy.Mode,
                     planFilePath: reviewFilePath,
                     cancellationToken: cancellationToken);
 

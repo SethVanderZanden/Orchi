@@ -91,7 +91,7 @@ Contributors run in DI registration order in `AgentsExtensions.cs`:
 |-------------|------------|------|
 | `ModeSectionContributor` | identity, rules, context, tools | Delegates to `IAgentModeStrategy` for the chat mode |
 | `SessionContextContributor` | context | Every turn — workspace path |
-| `ReviewDiffContributor` | context | Review mode with a review plan file — git diff |
+| `ReviewDiffContributor` | context | `review` / `branch-review` with a review plan file — git diff |
 | `SessionTaskContributor` | task | When `PlanFilePath` is set |
 | `ParentChatContributor` | context | When `ParentChatId` is set |
 | `GlobalRulesContributor` | rules | Every turn — meta-rule about `<message>` |
@@ -162,7 +162,7 @@ Yes. Contributors run sequentially. Context appended by `SessionContextContribut
 
 ### Can a contributor skip work?
 
-Yes — use guard clauses and return early. `ReviewDiffContributor` only runs in review mode with a review plan path; `ParentChatContributor` only runs when `ParentChatId` is set.
+Yes — use guard clauses and return early. `ReviewDiffContributor` only runs in `review` / `branch-review` with a review plan path; `ParentChatContributor` only runs when `ParentChatId` is set.
 
 ### Is this the same as CQRS behaviours?
 

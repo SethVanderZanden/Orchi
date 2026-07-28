@@ -107,7 +107,7 @@ public class KickOffBranchReviewEndpointTests : IClassFixture<TestWebApplication
         ChatDetailResponse? reviewChat = await chatResponse.Content.ReadFromJsonAsync<ChatDetailResponse>(
             HttpResponseExtensions.JsonOptions);
         Assert.NotNull(reviewChat);
-        Assert.Equal(ReviewAgentModeStrategy.Mode, reviewChat.Mode);
+        Assert.Equal(BranchReviewAgentModeStrategy.Mode, reviewChat.Mode);
         Assert.Equal(kickedOff.ReviewFilePath, reviewChat.PlanFilePath);
         Assert.NotEqual(_workspacePath, reviewChat.WorkspacePath);
         Assert.Contains("Orchi", reviewChat.WorkspacePath);

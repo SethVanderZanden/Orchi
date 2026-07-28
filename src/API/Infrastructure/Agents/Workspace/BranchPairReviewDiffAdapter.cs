@@ -4,7 +4,8 @@ using Orchi.Api.Infrastructure.Agents.Plans;
 namespace Orchi.Api.Infrastructure.Agents.Workspace;
 
 /// <summary>
-/// PR-style review: three-dot diff from the <c>orchi-branch-review</c> brief marker.
+/// Three-dot diff from the <c>orchi-branch-review</c> brief marker.
+/// Used by both review modes when the marker is present.
 /// </summary>
 public sealed class BranchPairReviewDiffAdapter(IWorkspaceDiffProvider diffProvider) : IReviewDiffAdapter
 {
@@ -32,7 +33,7 @@ public sealed class BranchPairReviewDiffAdapter(IWorkspaceDiffProvider diffProvi
             refs.HeadBranch);
 
         return new ReviewDiffPayload(
-            $"Pull request changes (`{refs.BaseBranch}...{refs.HeadBranch}`):",
+            $"Changes (`{refs.BaseBranch}...{refs.HeadBranch}`):",
             diff);
     }
 

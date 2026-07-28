@@ -1,3 +1,4 @@
+import { isReviewFamilyMode } from '@/lib/chat/is-review-mode'
 import type { AgentMode, ChatMarker, ChatMessage } from '@/lib/chat/types'
 import { parseReviewPlans } from '@/lib/orchestration/parse-review-plans'
 import {
@@ -61,7 +62,7 @@ function resolveDisplayContent(message: ChatMessage, mode: AgentMode): string {
     const stripped =
       mode === 'orchestration'
         ? stripPlanBlocksForChatDisplay(message.content)
-        : mode === 'review'
+        : isReviewFamilyMode(mode)
           ? resolveReviewModeDisplayContent(message.content)
           : message.content
 
@@ -72,7 +73,7 @@ function resolveDisplayContent(message: ChatMessage, mode: AgentMode): string {
     return stripPlanBlocksForChatDisplay(message.content)
   }
 
-  if (mode === 'review') {
+  if (isReviewFamilyMode(mode)) {
     return resolveReviewModeDisplayContent(message.content)
   }
 

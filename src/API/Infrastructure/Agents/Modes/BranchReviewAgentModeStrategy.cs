@@ -3,32 +3,32 @@ using Orchi.Api.Infrastructure.Agents.Modes.Prompt;
 namespace Orchi.Api.Infrastructure.Agents.Modes;
 
 /// <summary>
-/// Work-conducted review: judge completed implementation against its orchestration plan.
-/// Shares review pipeline plumbing with <see cref="BranchReviewAgentModeStrategy"/>.
+/// Branch / PR review: judge a head branch against a base branch.
+/// Kickoff-only — same review pipeline as <see cref="ReviewAgentModeStrategy"/>; only identity/intent differ.
 /// </summary>
-public sealed class ReviewAgentModeStrategy : IAgentModeStrategy
+public sealed class BranchReviewAgentModeStrategy : IAgentModeStrategy
 {
-    public const string Mode = AgentModeIds.Review;
+    public const string Mode = AgentModeIds.BranchReview;
 
     internal const string Identity = """
-        You are in Review Mode.
+        You are in Branch Review Mode.
 
-        Produce a structured git-diff review of the completed implementation work.
-        Judge the diff against the original orchestration plan in the review brief.
+        Produce a structured pull-request style review of the head branch against the base branch.
+        There is no orchestration implementation plan — judge merge readiness, correctness, and design quality from the branch diff and brief.
         Walk through each changed file with a short explanation and judgment (required, clean, goal alignment, over-engineering).
         Output the review as markdown in your response — not a plan to review later.
         """;
 
     internal const string IntentRules = """
-        The brief includes the original implementation plan — treat that plan as the source of truth for intent and scope.
+        Treat this like a PR review: what lands if head merges into base.
+        Prefer the three-dot branch diff when present in context.
         """;
 
     public string ModeId => Mode;
 
-    public string DisplayLabel => "Review";
+    public string DisplayLabel => "Branch review";
 
-    public string Description =>
-        "Reviews completed implementation work against its plan, with per-change judgment and cross-cutting findings.";
+    public string? Description => null;
 
     public IReadOnlyList<string> ExtraCliArgs => [];
 

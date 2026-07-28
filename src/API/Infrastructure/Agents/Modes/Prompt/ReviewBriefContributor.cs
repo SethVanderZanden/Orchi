@@ -10,7 +10,7 @@ public sealed class ReviewBriefContributor : IPromptSectionContributor
 {
     public void Contribute(PromptBuildContext context, OrchiPromptDocument document)
     {
-        if (!string.Equals(context.ModeId, ReviewAgentModeStrategy.Mode, StringComparison.OrdinalIgnoreCase))
+        if (!AgentModeIds.IsReviewFamily(context.ModeId))
         {
             return;
         }

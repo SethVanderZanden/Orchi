@@ -94,6 +94,7 @@ public static class AgentsExtensions
         services.AddSingleton<IAgentModeStrategy, DefaultAgentModeStrategy>();
         services.AddSingleton<IAgentModeStrategy, OrchestrationAgentModeStrategy>();
         services.AddSingleton<IAgentModeStrategy, ReviewAgentModeStrategy>();
+        services.AddSingleton<IAgentModeStrategy, BranchReviewAgentModeStrategy>();
         services.AddSingleton<IAgentModeStrategy, ImplementationAgentModeStrategy>();
         services.AddSingleton<IAgentModeStrategyFactory, AgentModeStrategyFactory>();
         services.AddSingleton<OrchiPromptRenderer>();

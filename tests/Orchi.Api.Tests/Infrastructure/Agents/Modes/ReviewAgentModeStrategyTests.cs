@@ -8,7 +8,7 @@ public class ReviewAgentModeStrategyTests
     private readonly ReviewAgentModeStrategy _strategy = new();
 
     [Fact]
-    public void ContributeSections_SetsIdentityRulesAndContext()
+    public void ContributeSections_SetsWorkConductedIdentityAndSharedReviewPlumbing()
     {
         var document = new OrchiPromptDocument();
         var context = new PromptBuildContext
@@ -21,25 +21,19 @@ public class ReviewAgentModeStrategyTests
         _strategy.ContributeSections(context, document);
 
         Assert.Contains("You are in Review Mode.", document.Identity);
-        Assert.Contains("structured git-diff review", document.Identity);
+        Assert.Contains("completed implementation work", document.Identity);
+        Assert.Contains("original orchestration plan", document.Identity);
         Assert.Contains("not a plan to review later", document.Identity);
         Assert.DoesNotContain("orchi-review-plan:id", document.Identity);
+        Assert.DoesNotContain("pull-request", document.Identity, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("original implementation plan", document.Rules);
         Assert.Contains("Do not modify code unless the user explicitly asks", document.Rules);
         Assert.Contains("Complete the entire review in your first response", document.Rules);
-        Assert.Contains("Do not stop after acknowledging", document.Rules);
         Assert.Contains("Walk through every changed file in the git diff", document.Rules);
-        Assert.Contains("Required?", document.Rules);
-        Assert.Contains("Over-engineered?", document.Rules);
         Assert.Contains("Review TLDR", document.Rules);
-        Assert.Contains("exactly what is missing", document.Rules);
         Assert.Contains("# Short title", document.Context);
         Assert.Contains("## Review TLDR", document.Context);
         Assert.Contains("## Changes", document.Context);
-        Assert.Contains("**What changed:**", document.Context);
-        Assert.Contains("## Cross-cutting findings", document.Context);
-        Assert.Contains("### Oversights", document.Context);
-        Assert.Contains("### Over-engineering", document.Context);
-        Assert.Contains("### Missed patterns", document.Context);
         Assert.Null(document.Message);
     }
 
@@ -47,5 +41,6 @@ public class ReviewAgentModeStrategyTests
     public void ModeId_IsReview()
     {
         Assert.Equal("review", _strategy.ModeId);
+        Assert.Contains("plan", _strategy.Description, StringComparison.OrdinalIgnoreCase);
     }
 }

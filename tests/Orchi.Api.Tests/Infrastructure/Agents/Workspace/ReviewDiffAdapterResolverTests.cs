@@ -63,6 +63,7 @@ public class ReviewDiffAdapterResolverTests : IDisposable
         });
 
         Assert.NotNull(payload);
+        Assert.Contains("Changes", payload.Intro);
         Assert.Contains("main...feature", payload.Intro);
         Assert.Contains("branch-pair-diff", payload.Diff);
         Assert.DoesNotContain("workspace-head-diff", payload.Diff);

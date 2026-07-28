@@ -31,9 +31,17 @@ describe('getAgentModeDisplay', () => {
     expect(display.badgeClassName).toContain('violet')
   })
 
+  it('uses the same review badge for branch-review with its own label', () => {
+    const display = getAgentModeDisplay('branch-review')
+    expect(display.Icon).toBe(Shield)
+    expect(display.label).toBe('Branch review')
+    expect(display.badgeClassName).toContain('violet')
+  })
+
   it('matches modes case-insensitively', () => {
     expect(getAgentModeDisplay('Orchestration').Icon).toBe(Network)
     expect(getAgentModeDisplay('REVIEW').Icon).toBe(Shield)
+    expect(getAgentModeDisplay('BRANCH-REVIEW').label).toBe('Branch review')
   })
 
   it('falls back to Bot for unknown modes', () => {

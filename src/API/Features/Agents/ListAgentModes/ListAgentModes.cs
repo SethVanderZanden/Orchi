@@ -19,10 +19,7 @@ public static class ListAgentModes
             CancellationToken cancellationToken)
         {
             IReadOnlyList<ModeResponse> modes = strategies
-                .Where(strategy => !string.Equals(
-                    strategy.ModeId,
-                    ImplementationAgentModeStrategy.Mode,
-                    StringComparison.OrdinalIgnoreCase))
+                .Where(strategy => !AgentModeIds.IsKickoffOnly(strategy.ModeId))
                 .Select(strategy => new ModeResponse(
                     strategy.ModeId,
                     strategy.DisplayLabel,
