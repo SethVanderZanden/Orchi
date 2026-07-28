@@ -233,8 +233,9 @@ export function useChatMutations({
     onSuccess: (chat, variables) => {
       const projects = queryClient.getQueryData<Project[]>(projectKeys.lists()) ?? []
       const project =
-        projects.find((entry) => entry.id === chat.projectId) ??
-        (chat.projectId ? findProjectForWorkspace(projects, chat.workspaceId) : undefined)
+        (chat.projectId
+          ? projects.find((entry) => entry.id === chat.projectId)
+          : undefined) ?? findProjectForWorkspace(projects, chat.workspaceId)
 
       initializeWorktreeIntentForNewChat(chat.id, project ?? null, chat.mode)
 
@@ -354,10 +355,9 @@ export function useChatMutations({
       if (currentChat && currentChat.messages.length === 0) {
         const projects = queryClient.getQueryData<Project[]>(projectKeys.lists()) ?? []
         const project =
-          projects.find((entry) => entry.id === currentChat.projectId) ??
           (currentChat.projectId
-            ? findProjectForWorkspace(projects, currentChat.workspaceId)
-            : undefined)
+            ? projects.find((entry) => entry.id === currentChat.projectId)
+            : undefined) ?? findProjectForWorkspace(projects, currentChat.workspaceId)
         syncWorktreeIntentWithMode(chatId, project ?? null, mode)
       }
 

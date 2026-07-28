@@ -82,4 +82,4 @@ Project field `DefaultWorktreeBranchPattern` (default `orchi/{date}-{shortId}`) 
 
 Tokens: `{date}`, `{time}`, `{shortId}`, `{chatId}`, `{mode}`.
 
-Plan kickoff with `UseWorktreeOnKickoff` provisions `WorkspaceKind.Worktree` under `.orchi/worktrees/{planId}` from `DefaultBaseBranch`.
+Plan kickoff with project **Worktrees by default** (`UseWorktreeOnKickoff`) provisions `WorkspaceKind.Worktree` under `.orchi/worktrees/{planId}` from `DefaultBaseBranch`. The same setting turns the composer worktree toggle on for new non-review chats.

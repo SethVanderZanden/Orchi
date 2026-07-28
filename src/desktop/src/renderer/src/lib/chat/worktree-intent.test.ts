@@ -117,8 +117,9 @@ describe('worktree-intent', () => {
     syncWorktreeIntentWithMode('a', createProject(), 'review')
     expect(getWorktreeIntent('a')).toBeUndefined()
 
+    setWorktreeIntent('a', { enabled: true, branchName: 'custom' })
     syncWorktreeIntentWithMode('a', createProject(), 'orchestration')
-    expect(getWorktreeIntent('a')).toEqual({ enabled: true, branchName: '' })
+    expect(getWorktreeIntent('a')).toEqual({ enabled: true, branchName: 'custom' })
   })
 
   it('skips review mode for default worktree', () => {

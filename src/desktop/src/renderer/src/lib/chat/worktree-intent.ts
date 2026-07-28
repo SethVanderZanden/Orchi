@@ -142,5 +142,10 @@ export function syncWorktreeIntentWithMode(
     return
   }
 
-  setWorktreeIntent(chatId, defaultIntent)
+  const current = getWorktreeIntent(chatId)
+  setWorktreeIntent(chatId, {
+    enabled: true,
+    // Keep a custom branch name the user already typed on this empty chat.
+    branchName: current?.branchName ?? ''
+  })
 }
