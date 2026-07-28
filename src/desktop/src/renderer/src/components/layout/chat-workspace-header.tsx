@@ -1,4 +1,4 @@
-import { ChevronDown, Columns2, FileText, Trash2, Users, X } from 'lucide-react'
+import { ChevronDown, Columns2, FileText, Paperclip, Trash2, Users, X } from 'lucide-react'
 
 import { ShortcutHint } from '@/components/app-header/shortcut-hint'
 import { ChatGitActionsMenu } from '@/components/layout/chat-git-actions-menu'
@@ -31,6 +31,10 @@ type ChatWorkspaceHeaderProps = {
   reviewPanelOpen: boolean
   hasReviewReady: boolean
   onToggleReviewPanel: () => void
+  hasAttachments: boolean
+  attachmentsPanelOpen: boolean
+  attachmentCount: number
+  onToggleAttachmentsPanel: () => void
   onOpenParentBeside: () => void
   onCreateChatFromThis: () => void
   createChatFromThisDisabled: boolean
@@ -55,6 +59,10 @@ export function ChatWorkspaceHeader({
   reviewPanelOpen,
   hasReviewReady,
   onToggleReviewPanel,
+  hasAttachments,
+  attachmentsPanelOpen,
+  attachmentCount,
+  onToggleAttachmentsPanel,
   onOpenParentBeside,
   onCreateChatFromThis,
   createChatFromThisDisabled,
@@ -110,6 +118,19 @@ export function ChatWorkspaceHeader({
             gitHostProvider={gitHostProvider}
             workspaceBranch={workspaceBranch}
           />
+          {hasAttachments ? (
+            <Button
+              type="button"
+              variant={attachmentsPanelOpen ? 'default' : 'outline'}
+              size="sm"
+              className="h-8 gap-1.5 px-3 text-sm font-normal"
+              onClick={onToggleAttachmentsPanel}
+            >
+              <Paperclip className="size-3.5" />
+              Files
+              <span className="text-muted-foreground">({attachmentCount})</span>
+            </Button>
+          ) : null}
           {showPlanReview ? (
             <Button
               variant={reviewPanelOpen ? 'default' : 'outline'}

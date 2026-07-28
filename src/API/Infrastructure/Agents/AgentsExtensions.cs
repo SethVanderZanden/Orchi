@@ -8,6 +8,8 @@ using Orchi.Api.Infrastructure.Agents.Modes.Prompt;
 using Orchi.Api.Infrastructure.Agents.Modes.Prompt.Behaviours;
 using Orchi.Api.Infrastructure.Agents.Persistence;
 using Orchi.Api.Infrastructure.Agents.Search;
+using Orchi.Api.Infrastructure.Agents.Attachments;
+using Orchi.Api.Infrastructure.Agents.Attachments.Persistence;
 using Orchi.Api.Infrastructure.Agents.Plans.Artifacts;
 using Orchi.Api.Infrastructure.Agents.Plans.Persistence;
 using Orchi.Api.Infrastructure.Agents.Orchestration;
@@ -29,10 +31,13 @@ public static class AgentsExtensions
 {
     public static IServiceCollection AddOrchiAgents(this IServiceCollection services, IConfiguration configuration)
     {
+        services.Configure<AttachmentOptions>(configuration.GetSection(AttachmentOptions.SectionName));
         services.Configure<CursorAgentOptions>(configuration.GetSection(CursorAgentOptions.SectionName));
         services.Configure<CodexAgentOptions>(configuration.GetSection(CodexAgentOptions.SectionName));
         services.Configure<AgentModelCatalogOptions>(configuration.GetSection(AgentModelCatalogOptions.SectionName));
 
+        services.AddSingleton<IChatAttachmentStore, EfChatAttachmentStore>();
+        services.AddSingleton<ChatAttachmentService>();
         services.AddSingleton<IChatSearchClause, TextMatchChatSearchClause>();
         services.AddSingleton<ChatSearchComposer>();
         services.AddSingleton<IChatStore, EfChatStore>();
@@ -107,6 +112,7 @@ public static class AgentsExtensions
         services.AddSingleton<IPromptSectionContributor, ParentChatContributor>();
         services.AddSingleton<IPromptSectionContributor, GlobalRulesContributor>();
         services.AddSingleton<IPromptSectionContributor, FileReferenceContributor>();
+        services.AddSingleton<IPromptSectionContributor, AttachmentContributor>();
         services.AddSingleton<IPromptSectionContributor, MessageContributor>();
         services.AddSingleton<PromptSectionPipeline>();
         services.AddSingleton<IAgentPromptComposer, AgentPromptComposer>();

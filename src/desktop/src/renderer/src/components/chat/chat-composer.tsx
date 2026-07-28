@@ -1,19 +1,34 @@
-import { useEffect, useRef, useState } from 'react'
-import { ArrowUp } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { ArrowUp, Paperclip } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { ChatComposerToolbar } from '@/components/chat/chat-composer-toolbar'
+import {
+  ComposerStagedAttachments,
+  type ComposerStagedItem
+} from '@/components/chat/composer-staged-attachments'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { deleteStagedChatAttachment, uploadChatAttachment } from '@/lib/chat/api'
+import { isPersistedChat } from '@/lib/chat/chat-persistence'
 import { getComposerDraft, setComposerDraft } from '@/lib/chat/composer-drafts'
 import type { AgentMode } from '@/lib/chat/types'
 import type { Project } from '@/lib/projects/types'
 import { cn } from '@/lib/utils'
 
+export type ComposerSendPayload = {
+  content: string
+  attachmentIds: string[]
+  pendingFiles: File[]
+}
+
 type ChatComposerProps = {
   chatId: string
   autoFocus?: boolean
   disabled?: boolean
-  onSend: (content: string) => void
+  /** Agent is processing a response — composer stays editable so the user can steer. */
+  isProcessing?: boolean
+  onSend: (payload: ComposerSendPayload) => void
   expanded?: boolean
   /** Prefills the composer once on mount (e.g. text copied into a new split chat). */
   initialDraft?: string
@@ -49,6 +64,7 @@ export function OrchiChatComposer({
   chatId,
   autoFocus = false,
   disabled = false,
+  isProcessing = false,
   onSend,
   expanded = false,
   initialDraft,
@@ -79,7 +95,10 @@ export function OrchiChatComposer({
   messageCount = 0
 }: ChatComposerProps): React.JSX.Element {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [draft, setDraft] = useState(() => initialDraft ?? getComposerDraft(chatId) ?? '')
+  const [stagedItems, setStagedItems] = useState<ComposerStagedItem[]>([])
+  const [isUploading, setIsUploading] = useState(false)
 
   useEffect(() => {
     if (!autoFocus || disabled) {
@@ -93,6 +112,8 @@ export function OrchiChatComposer({
     return () => cancelAnimationFrame(frameId)
   }, [autoFocus, chatId, disabled])
 
+  const canSend = (draft.trim().length > 0 || stagedItems.length > 0) && !disabled && !isUploading
+
   function handleDraftChange(next: string): void {
     setDraft(next)
     setComposerDraft(chatId, next)
@@ -100,14 +121,30 @@ export function OrchiChatComposer({
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>): void {
     event.preventDefault()
-    const content = draft.trim()
-    if (!content || disabled) {
+    if (!canSend) {
       return
     }
 
-    onSend(content)
+    const attachmentIds = stagedItems
+      .filter(
+        (item): item is Extract<ComposerStagedItem, { kind: 'uploaded' }> =>
+          item.kind === 'uploaded'
+      )
+      .map((item) => item.attachment.id)
+    const pendingFiles = stagedItems
+      .filter(
+        (item): item is Extract<ComposerStagedItem, { kind: 'pending' }> => item.kind === 'pending'
+      )
+      .map((item) => item.file)
+
+    onSend({
+      content: draft.trim(),
+      attachmentIds,
+      pendingFiles
+    })
     setDraft('')
     setComposerDraft(chatId, '')
+    setStagedItems([])
   }
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>): void {
@@ -117,16 +154,119 @@ export function OrchiChatComposer({
     }
   }
 
+  const addFiles = useCallback(
+    async (files: FileList | File[]) => {
+      const list = Array.from(files)
+      if (list.length === 0 || disabled) {
+        return
+      }
+
+      if (isPersistedChat(chatId)) {
+        setIsUploading(true)
+        try {
+          const uploaded: ComposerStagedItem[] = []
+          for (const file of list) {
+            const attachment = await uploadChatAttachment(chatId, file)
+            uploaded.push({ kind: 'uploaded', attachment })
+          }
+
+          setStagedItems((current) => [...current, ...uploaded])
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Failed to upload attachment.'
+          toast.error(message)
+        } finally {
+          setIsUploading(false)
+        }
+
+        return
+      }
+
+      setStagedItems((current) => [
+        ...current,
+        ...list.map((file) => ({
+          kind: 'pending' as const,
+          localId: crypto.randomUUID(),
+          file
+        }))
+      ])
+    },
+    [chatId, disabled]
+  )
+
+  const handleRemoveStaged = useCallback(
+    async (item: ComposerStagedItem) => {
+      setStagedItems((current) =>
+        current.filter((candidate) => {
+          if (item.kind === 'uploaded' && candidate.kind === 'uploaded') {
+            return candidate.attachment.id !== item.attachment.id
+          }
+
+          if (item.kind === 'pending' && candidate.kind === 'pending') {
+            return candidate.localId !== item.localId
+          }
+
+          return true
+        })
+      )
+
+      if (item.kind === 'uploaded' && isPersistedChat(chatId)) {
+        try {
+          await deleteStagedChatAttachment(chatId, item.attachment.id)
+        } catch {
+          // Staged item already removed from UI; server cleanup is best-effort.
+        }
+      }
+    },
+    [chatId]
+  )
+
+  function handleFileInputChange(event: React.ChangeEvent<HTMLInputElement>): void {
+    if (event.target.files) {
+      void addFiles(event.target.files)
+      event.target.value = ''
+    }
+  }
+
+  function handlePaste(event: React.ClipboardEvent<HTMLTextAreaElement>): void {
+    const files = event.clipboardData.files
+    if (files.length === 0) {
+      return
+    }
+
+    event.preventDefault()
+    void addFiles(files)
+  }
+
+  function handleDrop(event: React.DragEvent<HTMLFormElement>): void {
+    if (!event.dataTransfer.files.length) {
+      return
+    }
+
+    event.preventDefault()
+    void addFiles(event.dataTransfer.files)
+  }
+
   return (
-    <form onSubmit={handleSubmit} className="w-full">
+    <form
+      onSubmit={handleSubmit}
+      className="w-full"
+      onDragOver={(event) => event.preventDefault()}
+      onDrop={handleDrop}
+    >
       <div className="rounded-xl border bg-muted/40 shadow-sm">
+        <ComposerStagedAttachments
+          items={stagedItems}
+          disabled={disabled || isUploading}
+          onRemove={(item) => void handleRemoveStaged(item)}
+        />
         <Textarea
           ref={textareaRef}
           value={draft}
           onChange={(event) => handleDraftChange(event.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Message Orchi…"
-          disabled={disabled}
+          onPaste={handlePaste}
+          placeholder={isProcessing ? 'Add a follow-up to steer…' : 'Message Orchi…'}
+          disabled={disabled || isUploading}
           rows={expanded ? 4 : 3}
           className={cn(
             'min-h-[96px] max-h-52 resize-none border-0 bg-transparent px-4 py-3.5 text-sm leading-relaxed shadow-none',
@@ -135,40 +275,61 @@ export function OrchiChatComposer({
           )}
         />
         <div className="flex items-center justify-between gap-2 px-3.5 pb-3.5 pt-1">
-          <ChatComposerToolbar
-            chatId={chatId}
-            disabled={disabled}
-            mode={mode}
-            showModeControls={showModeControls}
-            canChangeMode={canChangeMode}
-            modeUpdateError={modeUpdateError}
-            onModeChange={onModeChange}
-            agentId={agentId}
-            modelId={modelId}
-            canChangeModel={canChangeModel}
-            modelUpdateError={modelUpdateError}
-            onModelChange={onModelChange}
-            contextSizeId={contextSizeId}
-            canChangeContextSize={canChangeContextSize}
-            contextSizeUpdateError={contextSizeUpdateError}
-            onContextSizeChange={onContextSizeChange}
-            reasoningEffortId={reasoningEffortId}
-            canChangeReasoningEffort={canChangeReasoningEffort}
-            reasoningEffortUpdateError={reasoningEffortUpdateError}
-            onReasoningEffortChange={onReasoningEffortChange}
-            approvalPolicyId={approvalPolicyId}
-            canChangeApprovalPolicy={canChangeApprovalPolicy}
-            approvalPolicyUpdateError={approvalPolicyUpdateError}
-            onApprovalPolicyChange={onApprovalPolicyChange}
-            projectId={projectId}
-            projects={projects}
-            messageCount={messageCount}
-          />
+          <div className="flex min-w-0 items-center gap-1">
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="sr-only"
+              onChange={handleFileInputChange}
+              disabled={disabled || isUploading}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-8 shrink-0"
+              disabled={disabled || isUploading}
+              aria-label="Attach files"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Paperclip className="size-4" />
+            </Button>
+            <ChatComposerToolbar
+              chatId={chatId}
+              disabled={disabled || isUploading}
+              mode={mode}
+              showModeControls={showModeControls}
+              canChangeMode={canChangeMode}
+              modeUpdateError={modeUpdateError}
+              onModeChange={onModeChange}
+              agentId={agentId}
+              modelId={modelId}
+              canChangeModel={canChangeModel}
+              modelUpdateError={modelUpdateError}
+              onModelChange={onModelChange}
+              contextSizeId={contextSizeId}
+              canChangeContextSize={canChangeContextSize}
+              contextSizeUpdateError={contextSizeUpdateError}
+              onContextSizeChange={onContextSizeChange}
+              reasoningEffortId={reasoningEffortId}
+              canChangeReasoningEffort={canChangeReasoningEffort}
+              reasoningEffortUpdateError={reasoningEffortUpdateError}
+              onReasoningEffortChange={onReasoningEffortChange}
+              approvalPolicyId={approvalPolicyId}
+              canChangeApprovalPolicy={canChangeApprovalPolicy}
+              approvalPolicyUpdateError={approvalPolicyUpdateError}
+              onApprovalPolicyChange={onApprovalPolicyChange}
+              projectId={projectId}
+              projects={projects}
+              messageCount={messageCount}
+            />
+          </div>
           <Button
             type="submit"
             size="icon"
-            disabled={disabled || !draft.trim()}
-            aria-label="Send message"
+            disabled={!canSend}
+            aria-label={isProcessing ? 'Send follow-up' : 'Send message'}
             className="size-8 shrink-0 rounded-full"
           >
             <ArrowUp className="size-4" />

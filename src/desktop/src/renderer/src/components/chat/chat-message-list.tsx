@@ -7,6 +7,7 @@ import { ChatToolCalls } from '@/components/chat/chat-tool-calls'
 import { EmptyState } from '@/components/empty-state'
 import { AssistantMessageContent } from '@/components/chat/assistant-message-content'
 import { MarkdownContent } from '@/components/markdown-content'
+import { MessageAttachments } from '@/components/chat/message-attachments'
 import { Bubble, BubbleContent } from '@/components/ui/bubble'
 import { Marker, MarkerContent } from '@/components/ui/marker'
 import { Message, MessageAvatar, MessageContent } from '@/components/ui/message'
@@ -17,6 +18,7 @@ import type { AgentMode, ChatMarker, ChatMessage as OrchiChatMessage } from '@/l
 const EMPTY_MARKERS: ChatMarker[] = []
 
 type ChatMessageListProps = {
+  chatId: string
   messages: OrchiChatMessage[]
   markers: ChatMarker[]
   mode: AgentMode
@@ -25,6 +27,7 @@ type ChatMessageListProps = {
 }
 
 export function OrchiChatMessageList({
+  chatId,
   messages,
   markers,
   mode,
@@ -70,6 +73,7 @@ export function OrchiChatMessageList({
             scrollAnchor={message.role === 'user'}
           >
             <ChatMessageRow
+              chatId={chatId}
               message={message}
               displayContent={display.displayContent}
               showPlaceholder={display.showPlaceholder}
@@ -87,6 +91,7 @@ export function OrchiChatMessageList({
 }
 
 type ChatMessageRowProps = {
+  chatId: string
   message: OrchiChatMessage
   displayContent: string
   showPlaceholder: boolean
@@ -98,6 +103,7 @@ type ChatMessageRowProps = {
 }
 
 const ChatMessageRow = memo(function ChatMessageRow({
+  chatId,
   message,
   displayContent,
   showPlaceholder,
@@ -114,7 +120,12 @@ const ChatMessageRow = memo(function ChatMessageRow({
           <MessageSelectionMenu>
             <Bubble>
               <BubbleContent className="overflow-x-auto">
-                <MarkdownContent workspacePath={workspacePath}>{message.content}</MarkdownContent>
+                {message.content ? (
+                  <MarkdownContent workspacePath={workspacePath}>{message.content}</MarkdownContent>
+                ) : null}
+                {message.attachments?.length ? (
+                  <MessageAttachments chatId={chatId} attachments={message.attachments} />
+                ) : null}
               </BubbleContent>
             </Bubble>
           </MessageSelectionMenu>

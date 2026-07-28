@@ -20,6 +20,7 @@ public sealed class OrchestrationAgentRunner(
             await foreach (AgentEvent agentEvent in sessionManager.SendMessageAsync(
                                childChatId,
                                content,
+                               attachmentIds: null,
                                cancellationToken))
             {
                 if (assistantMessageId == Guid.Empty)

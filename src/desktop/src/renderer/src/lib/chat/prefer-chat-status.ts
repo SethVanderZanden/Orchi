@@ -15,3 +15,12 @@ export function preferChatStatus(
 
   return incoming
 }
+
+/** Merge list summaries without dropping optimistic inProgress before the server catches up. */
+export function mergeChatStatus(existing: ChatStatus, incoming: ChatStatus): ChatStatus {
+  if (existing === 'inProgress' && incoming === 'read') {
+    return 'inProgress'
+  }
+
+  return preferChatStatus(existing, incoming)
+}

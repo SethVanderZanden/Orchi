@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import type { NavigateOptions } from '@tanstack/react-router'
 import { toast } from 'sonner'
 
-import { sendMessageStream } from '@/lib/chat/api'
+import { sendMessageStream, uploadChatAttachment } from '@/lib/chat/api'
 import { isLocalChat } from '@/lib/chat/chat-persistence'
 import {
   appendUserAndAssistantMessages,
@@ -219,6 +219,7 @@ export function useChatStream({
   const sendMessage = useCallback(
     async (chatId: string, content: string, options?: SendMessageOptions) => {
       let resolvedChatId = chatId
+      const resolvedAttachmentIds = [...(options?.attachmentIds ?? [])]
       // Capture before promote/navigate; activeChatId in this closure stays the pre-send id.
       const wasActiveChat = chatId === activeChatId
 
@@ -315,6 +316,11 @@ export function useChatStream({
         }
 
         await provisionWorktreeForSendIfNeeded(queryClient, resolvedChatId)
+
+        for (const file of options?.pendingAttachmentFiles ?? []) {
+          const uploaded = await uploadChatAttachment(resolvedChatId, file)
+          resolvedAttachmentIds.push(uploaded.id)
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to prepare chat.'
         updateAssistantMessage(resolvedChatId, assistantMessageId, (currentMessage) => ({
@@ -348,7 +354,8 @@ export function useChatStream({
             clearMarkers,
             notifyAgentActivity
           }),
-          controller.signal
+          controller.signal,
+          resolvedAttachmentIds.length > 0 ? resolvedAttachmentIds : undefined
         )
 
         if (!isActiveTurn()) {
