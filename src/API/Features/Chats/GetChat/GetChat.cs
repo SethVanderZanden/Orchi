@@ -3,6 +3,8 @@ using Orchi.Api.Common.Http;
 using Orchi.Api.Common.Results;
 using Orchi.Api.Features.Chats.Shared;
 using Orchi.Api.Infrastructure.Agents;
+using Orchi.Api.Infrastructure.Agents.Attachments;
+using Orchi.Api.Infrastructure.Agents.Attachments.Models;
 
 namespace Orchi.Api.Features.Chats.GetChat;
 
@@ -10,7 +12,9 @@ public static class GetChat
 {
     public sealed record Query(Guid ChatId) : IQuery<ChatDetailResponse>;
 
-    internal sealed class Handler(AgentSessionManager sessionManager)
+    internal sealed class Handler(
+        AgentSessionManager sessionManager,
+        ChatAttachmentService attachmentService)
         : IQueryHandler<Query, ChatDetailResponse>
     {
         public async Task<Result<ChatDetailResponse>> Handle(Query query, CancellationToken cancellationToken)
@@ -23,7 +27,22 @@ public static class GetChat
                     Error.NotFound($"Chat '{query.ChatId}' was not found."));
             }
 
-            return Result.Success(ChatMapper.ToDetail(session));
+            IReadOnlyList<StoredAttachment> attachments =
+                await attachmentService.ListByChatAsync(query.ChatId, cancellationToken);
+
+            Dictionary<Guid, List<AttachmentResponse>> byMessage = attachments
+                .Where(attachment => attachment.MessageId is Guid messageId)
+                .GroupBy(attachment => attachment.MessageId!.Value)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.Select(ChatAttachmentMapper.ToResponse).ToList());
+
+            IReadOnlyDictionary<Guid, IReadOnlyList<AttachmentResponse>> attachmentsByMessage =
+                byMessage.ToDictionary(
+                    pair => pair.Key,
+                    pair => (IReadOnlyList<AttachmentResponse>)pair.Value);
+
+            return Result.Success(ChatMapper.ToDetail(session, attachmentsByMessage));
         }
     }
 

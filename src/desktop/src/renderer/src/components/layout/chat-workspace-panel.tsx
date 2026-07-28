@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo } from 'react'
 
 import { ChatPanel } from '@/components/chat/chat-panel'
+import type { ComposerSendPayload } from '@/components/chat/chat-composer'
 import { ChatWorkspaceHeader } from '@/components/layout/chat-workspace-header'
+import { useAttachmentsPanel } from '@/hooks/use-attachments-panel'
+import { collectChatAttachments } from '@/components/chat/message-attachments'
 import { usePlanReview } from '@/hooks/use-plan-review'
 import { mergeOrchestrationPlans } from '@/lib/orchestration/resolve-plans'
 import { parseOrchestrationPlansFromMessages } from '@/lib/orchestration/parse-plans'
@@ -235,6 +238,11 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
   const canChangeWorkspace = isLocalChat(chat.id) && showModeSelector
   const canChangeModel = !isAgentRunning
   const showPlanReview = chat.mode === 'orchestration' && plans.length > 0
+  const chatAttachments = useMemo(() => collectChatAttachments(chat.messages), [chat.messages])
+  const hasAttachments = chatAttachments.length > 0
+
+  const { attachmentsPanelOpen, toggleAttachmentsPanel, closeAttachmentsPanel } =
+    useAttachmentsPanel(hasAttachments)
 
   const { reviewState, dispatchReview, toggleReviewPanel, activeReviewTabId, hasReviewReady } =
     usePlanReview({
@@ -259,8 +267,11 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
   }, [chat.id, chat.parentChatId, openChat, openChatInSplit, splitTabId])
 
   const handleSend = useCallback(
-    (content: string) => {
-      void sendMessage(chat.id, content)
+    (payload: ComposerSendPayload) => {
+      void sendMessage(chat.id, payload.content, {
+        attachmentIds: payload.attachmentIds,
+        pendingAttachmentFiles: payload.pendingFiles
+      })
     },
     [chat.id, sendMessage]
   )
@@ -302,6 +313,10 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
         reviewPanelOpen={reviewState.panelOpen}
         hasReviewReady={hasReviewReady}
         onToggleReviewPanel={toggleReviewPanel}
+        hasAttachments={hasAttachments}
+        attachmentsPanelOpen={attachmentsPanelOpen}
+        attachmentCount={chatAttachments.length}
+        onToggleAttachmentsPanel={toggleAttachmentsPanel}
         onOpenParentBeside={openParentBeside}
         onCreateChatFromThis={handleCreateChatFromThis}
         createChatFromThisDisabled={isChatSending(chat.id) || isCreatingTab}
@@ -370,6 +385,8 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
         reviewState={reviewState}
         dispatchReview={dispatchReview}
         activeReviewTabId={activeReviewTabId}
+        attachmentsPanelOpen={attachmentsPanelOpen}
+        onCloseAttachmentsPanel={closeAttachmentsPanel}
       />
     </div>
   )

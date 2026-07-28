@@ -93,6 +93,16 @@ export type ChatMessage = {
   content: string
   createdAt: string
   status: ChatMessageStatus
+  attachments?: ChatAttachment[]
+}
+
+export type ChatAttachment = {
+  id: string
+  messageId: string | null
+  fileName: string
+  contentType: string
+  sizeBytes: number
+  createdAt: string
 }
 
 export type ChatThread = {
@@ -133,7 +143,11 @@ export type CreateChatOptions = {
 export type SendMessageOptions = {
   /** When true, skip the user's post-message navigation preference. */
   skipPostMessageBehavior?: boolean
+  attachmentIds?: string[]
+  pendingAttachmentFiles?: File[]
 }
+
+export type AttachmentResponse = ChatAttachment
 
 export type CreateChatRequest = {
   workspaceId: string

@@ -9,6 +9,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<ChatMessageEntity> ChatMessages => Set<ChatMessageEntity>();
 
+    public DbSet<ChatMessageAttachment> ChatMessageAttachments => Set<ChatMessageAttachment>();
+
     public DbSet<Plan> Plans => Set<Plan>();
 
     public DbSet<Project> Projects => Set<Project>();
@@ -102,6 +104,24 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .WithMany(chat => chat.Messages)
                 .HasForeignKey(message => message.ChatId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ChatMessageAttachment>(entity =>
+        {
+            entity.HasKey(attachment => attachment.Id);
+            entity.Property(attachment => attachment.FileName).HasMaxLength(512);
+            entity.Property(attachment => attachment.ContentType).HasMaxLength(128);
+            entity.Property(attachment => attachment.WorkspaceRelativePath).HasMaxLength(1024);
+            entity.HasIndex(attachment => attachment.ChatId);
+            entity.HasIndex(attachment => attachment.MessageId);
+            entity.HasOne(attachment => attachment.Chat)
+                .WithMany()
+                .HasForeignKey(attachment => attachment.ChatId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(attachment => attachment.Message)
+                .WithMany()
+                .HasForeignKey(attachment => attachment.MessageId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<Plan>(entity =>

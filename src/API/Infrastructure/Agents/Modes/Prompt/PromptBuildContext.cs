@@ -1,3 +1,5 @@
+using Orchi.Api.Infrastructure.Agents.Attachments.Models;
+
 namespace Orchi.Api.Infrastructure.Agents.Modes.Prompt;
 
 public sealed class PromptBuildContext
@@ -13,4 +15,6 @@ public sealed class PromptBuildContext
     public Guid? ParentChatId { get; init; }
 
     public bool IsFirstUserTurn { get; init; }
+
+    public AgentAttachmentContext? AttachmentContext { get; init; }
 }

@@ -3,14 +3,19 @@ using Orchi.Api.Common.Http;
 using Orchi.Api.Common.Results;
 using Orchi.Api.Features.Chats.Shared;
 using Orchi.Api.Infrastructure.Agents;
+using Orchi.Api.Infrastructure.Agents.Attachments;
 
 namespace Orchi.Api.Features.Chats.SendMessage;
 
 public static class SendMessage
 {
-    public sealed record SendMessageContext(Guid ChatId, string Content);
+    public sealed record SendMessageContext(
+        Guid ChatId,
+        string Content,
+        IReadOnlyList<Guid>? AttachmentIds);
 
-    public sealed record Command(Guid ChatId, string Content) : ICommand<SendMessageContext>;
+    public sealed record Command(Guid ChatId, string Content, IReadOnlyList<Guid>? AttachmentIds)
+        : ICommand<SendMessageContext>;
 
     internal sealed class Handler(AgentSessionManager sessionManager)
         : ICommandHandler<Command, SendMessageContext>
@@ -19,10 +24,13 @@ public static class SendMessage
             Command command,
             CancellationToken cancellationToken)
         {
-            if (string.IsNullOrWhiteSpace(command.Content))
+            bool hasContent = !string.IsNullOrWhiteSpace(command.Content);
+            bool hasAttachments = command.AttachmentIds is { Count: > 0 };
+
+            if (!hasContent && !hasAttachments)
             {
                 return Result.Failure<SendMessageContext>(
-                    Error.Validation("Message.Required", "Message content is required."));
+                    Error.Validation("Message.Required", "Message content or attachments are required."));
             }
 
             if (await sessionManager.GetOrLoadSessionAsync(command.ChatId, cancellationToken) is null)
@@ -31,7 +39,10 @@ public static class SendMessage
                     Error.NotFound($"Chat '{command.ChatId}' was not found."));
             }
 
-            return Result.Success(new SendMessageContext(command.ChatId, command.Content.Trim()));
+            return Result.Success(new SendMessageContext(
+                command.ChatId,
+                command.Content.Trim(),
+                command.AttachmentIds));
         }
     }
 
@@ -53,7 +64,7 @@ public static class SendMessage
             CancellationToken cancellationToken)
         {
             Result<SendMessageContext> result = await handler.Handle(
-                new Command(chatId, request.Content),
+                new Command(chatId, request.Content, request.AttachmentIds),
                 cancellationToken);
 
             if (result.IsFailure)
@@ -73,6 +84,7 @@ public static class SendMessage
             await foreach (AgentEvent agentEvent in sessionManager.SendMessageAsync(
                                context.ChatId,
                                context.Content,
+                               context.AttachmentIds,
                                cancellationToken))
             {
                 if (assistantMessageId == Guid.Empty)
