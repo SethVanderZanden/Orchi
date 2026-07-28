@@ -45,6 +45,7 @@ Orchi follows **Vertical Slice Architecture** with a custom CQRS pipeline — co
 | [CQRS Pipeline](cqrs-pipeline.md#dummy-section-start-here) | Commands, queries, and behaviour decorators |
 | [Software Patterns](../patterns/README.md) | Design patterns used in Orchi (decorator, result object, DI, etc.) |
 | [Adding a Feature](adding-a-feature.md#dummy-section-start-here) | Step-by-step checklist for new slices |
+| [Chat attachments](chat-attachments.md#dummy-section-start-here) | Plan: upload files to chats, persist metadata, Files sidebar |
 | [Unit Testing](../testing/unit-testing.md#dummy-section-start-here) | Handler and integration test patterns |
 | [Frontend](../frontend/README.md) | TanStack Router and Query (desktop app) |
 | [Agent adapters](../agents/README.md) | Chat persistence, Cursor CLI integration, and agent lifecycle |

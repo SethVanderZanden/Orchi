@@ -284,3 +284,4 @@ Configure under `Cache` in `appsettings.json`. `Cache:Distributed:Enabled` is `f
 - [Contributor pattern](../patterns/contributor.md) — `IPromptSectionContributor` and the shared-document pipeline
 - [Prompt pipeline](../patterns/prompt-pipeline.md) — `<orchi>` XML envelope and end-to-end compose flow
 - [Frontend chat streaming](../frontend/chat-streaming.md) — SSE contract and Marker UI
+- [Chat attachments](../architecture/chat-attachments.md#dummy-section-start-here) — planned file uploads into the prompt path model

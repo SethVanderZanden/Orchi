@@ -195,3 +195,4 @@ Projects are a **desktop-only** registry (`localStorage` + folder picker IPC). T
 - [HTTP & SSE infrastructure](plans/02-http-sse-infrastructure.md) — shared SSE parser
 - [Agent adapters](../agents/README.md) — backend streaming source
 - [Cursor CLI](../agents/cursor-cli.md) — NDJSON → AgentEvent mapping
+- [Chat attachments](../architecture/chat-attachments.md#dummy-section-start-here) — planned upload + Files sidebar (does not change SSE)
