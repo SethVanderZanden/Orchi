@@ -111,7 +111,8 @@ export function useAppShortcuts(): void {
   })
 
   useKeyboardShortcutCombo({ key: 'ArrowRight', ctrl: true }, createSplitTab, {
-    enabled: !isCreatingTab
+    allowInTextarea: true,
+    enabled: !isCreatingTab && Boolean(activeTabId)
   })
 
   useKeyboardShortcutCombo({ key: 'ArrowUp', ctrl: true }, openParentBeside, {
