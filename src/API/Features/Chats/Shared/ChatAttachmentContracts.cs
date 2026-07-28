@@ -1,3 +1,4 @@
+using Orchi.Api.Infrastructure.Agents.Attachments;
 using Orchi.Api.Infrastructure.Agents.Attachments.Models;
 
 namespace Orchi.Api.Features.Chats.Shared;
@@ -10,6 +11,7 @@ public static class ChatAttachmentMapper
             attachment.MessageId,
             attachment.FileName,
             attachment.ContentType,
+            AttachmentPaths.ResolveKind(attachment.FileName, attachment.ContentType),
             attachment.SizeBytes,
             attachment.CreatedAt);
 }
@@ -19,5 +21,6 @@ public sealed record AttachmentResponse(
     Guid? MessageId,
     string FileName,
     string ContentType,
+    AttachmentKind Kind,
     long SizeBytes,
     DateTimeOffset CreatedAt);

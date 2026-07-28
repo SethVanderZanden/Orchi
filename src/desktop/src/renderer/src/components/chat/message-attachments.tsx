@@ -1,6 +1,8 @@
-import { FileIcon } from 'lucide-react'
-
 import { getChatAttachmentContentUrl } from '@/lib/chat/api'
+import {
+  attachmentKindFromAttachment,
+  attachmentKindIcon
+} from '@/lib/chat/attachment-icons'
 import type { ChatAttachment } from '@/lib/chat/types'
 import { cn } from '@/lib/utils'
 
@@ -35,9 +37,9 @@ export function MessageAttachments({
     <div className={cn('mt-2 flex flex-col gap-2', className)}>
       {attachments.map((attachment) => {
         const url = getChatAttachmentContentUrl(chatId, attachment.id)
-        const isImage = attachment.contentType.startsWith('image/')
+        const kind = attachmentKindFromAttachment(attachment)
 
-        if (isImage) {
+        if (kind === 'image') {
           return (
             <a
               key={attachment.id}
@@ -51,7 +53,7 @@ export function MessageAttachments({
           )
         }
 
-        const Icon = FileIcon
+        const Icon = attachmentKindIcon(kind)
         return (
           <a
             key={attachment.id}

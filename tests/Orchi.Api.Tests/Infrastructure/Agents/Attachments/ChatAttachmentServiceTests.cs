@@ -40,6 +40,78 @@ public sealed class ChatAttachmentServiceTests : IDisposable
         Assert.Equal(".orchi/attachments/11111111-1111-1111-1111-111111111111/report.csv", relative);
     }
 
+    [Theory]
+    [InlineData("spec.pdf", "application/octet-stream", "application/pdf", AttachmentKind.Pdf)]
+    [InlineData("budget.xlsx", "", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", AttachmentKind.Spreadsheet)]
+    [InlineData("legacy.xls", "application/octet-stream", "application/vnd.ms-excel", AttachmentKind.Spreadsheet)]
+    [InlineData("macro.xlsm", null, "application/vnd.ms-excel.sheet.macroEnabled.12", AttachmentKind.Spreadsheet)]
+    [InlineData("data.csv", "text/csv", "text/csv", AttachmentKind.Csv)]
+    [InlineData("photo.png", "image/png", "image/png", AttachmentKind.Image)]
+    public void NormalizeContentType_and_ResolveKind_recognize_pdf_and_excel(
+        string fileName,
+        string? uploadedContentType,
+        string expectedContentType,
+        AttachmentKind expectedKind)
+    {
+        string normalized = AttachmentPaths.NormalizeContentType(fileName, uploadedContentType);
+        Assert.Equal(expectedContentType, normalized);
+        Assert.Equal(expectedKind, AttachmentPaths.ResolveKind(fileName, normalized));
+    }
+
+    [Fact]
+    public async Task StageUploadAsync_infers_pdf_content_type_and_keeps_extension_on_file_name()
+    {
+        var store = new InMemoryChatAttachmentStore();
+        ChatAttachmentService service = CreateService(store);
+        Guid chatId = Guid.NewGuid();
+
+        // Minimal PDF header bytes — content is stored as a staged .bin blob, not a SQLite byte[].
+        byte[] pdfBytes = "%PDF-1.4 fake"u8.ToArray();
+        await using var stream = new MemoryStream(pdfBytes);
+        Result<StoredAttachment> staged = await service.StageUploadAsync(
+            chatId,
+            "design.pdf",
+            "application/octet-stream",
+            stream.Length,
+            stream,
+            CancellationToken.None);
+
+        Assert.True(staged.IsSuccess);
+        Assert.Equal("design.pdf", staged.Value.FileName);
+        Assert.Equal("application/pdf", staged.Value.ContentType);
+        Assert.Equal(AttachmentKind.Pdf, AttachmentPaths.ResolveKind(staged.Value.FileName, staged.Value.ContentType));
+
+        string blobPath = AttachmentPaths.StagedBlobPath(_blobRoot, chatId, staged.Value.Id);
+        Assert.True(File.Exists(blobPath));
+        Assert.Equal(pdfBytes, await File.ReadAllBytesAsync(blobPath));
+    }
+
+    [Fact]
+    public async Task StageUploadAsync_infers_xlsx_content_type()
+    {
+        var store = new InMemoryChatAttachmentStore();
+        ChatAttachmentService service = CreateService(store);
+        Guid chatId = Guid.NewGuid();
+
+        await using var stream = new MemoryStream([0x50, 0x4B, 0x03, 0x04]);
+        Result<StoredAttachment> staged = await service.StageUploadAsync(
+            chatId,
+            "numbers.xlsx",
+            "",
+            stream.Length,
+            stream,
+            CancellationToken.None);
+
+        Assert.True(staged.IsSuccess);
+        Assert.Equal("numbers.xlsx", staged.Value.FileName);
+        Assert.Equal(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            staged.Value.ContentType);
+        Assert.Equal(
+            AttachmentKind.Spreadsheet,
+            AttachmentPaths.ResolveKind(staged.Value.FileName, staged.Value.ContentType));
+    }
+
     [Fact]
     public async Task PrepareTurnAsync_materializes_files_into_workspace()
     {

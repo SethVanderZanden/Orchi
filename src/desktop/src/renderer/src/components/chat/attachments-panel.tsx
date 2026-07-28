@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { FileIcon, ImageIcon, X } from 'lucide-react'
+import { X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useLiveRef } from '@/hooks/use-live-ref'
 import { getChatAttachmentContentUrl } from '@/lib/chat/api'
+import {
+  attachmentKindFromAttachment,
+  attachmentKindIcon
+} from '@/lib/chat/attachment-icons'
 import type { ChatAttachment } from '@/lib/chat/types'
 import {
   ATTACHMENTS_PANEL_DEFAULT_WIDTH,
@@ -115,8 +119,8 @@ export function AttachmentsPanel({
           <ul className="space-y-2 p-4">
             {attachments.map((attachment) => {
               const url = getChatAttachmentContentUrl(chatId, attachment.id)
-              const isImage = attachment.contentType.startsWith('image/')
-              const Icon = isImage ? ImageIcon : FileIcon
+              const kind = attachmentKindFromAttachment(attachment)
+              const Icon = attachmentKindIcon(kind)
 
               return (
                 <li key={attachment.id}>
@@ -128,7 +132,7 @@ export function AttachmentsPanel({
                       'flex items-start gap-3 rounded-lg border border-border/70 p-3 hover:bg-muted/30'
                     )}
                   >
-                    {isImage ? (
+                    {kind === 'image' ? (
                       <img src={url} alt="" className="size-12 shrink-0 rounded object-cover" />
                     ) : (
                       <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />

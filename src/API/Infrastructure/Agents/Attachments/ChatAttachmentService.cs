@@ -32,9 +32,8 @@ public sealed class ChatAttachmentService(
         Guid attachmentId = Guid.NewGuid();
         string sanitizedFileName = AttachmentPaths.SanitizeFileName(fileName);
         string relativePath = AttachmentPaths.WorkspaceRelative(attachmentId, sanitizedFileName);
-        string normalizedContentType = string.IsNullOrWhiteSpace(contentType)
-            ? "application/octet-stream"
-            : contentType.Trim();
+        // Extension lives on FileName; raw bytes are written to the staged blob (.bin), not SQLite.
+        string normalizedContentType = AttachmentPaths.NormalizeContentType(sanitizedFileName, contentType);
 
         string blobPath = AttachmentPaths.StagedBlobPath(GetBlobRoot(), chatId, attachmentId);
         Directory.CreateDirectory(Path.GetDirectoryName(blobPath)!);

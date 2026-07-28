@@ -96,11 +96,15 @@ export type ChatMessage = {
   attachments?: ChatAttachment[]
 }
 
+export type AttachmentKind = 'image' | 'pdf' | 'spreadsheet' | 'csv' | 'text' | 'other'
+
 export type ChatAttachment = {
   id: string
   messageId: string | null
   fileName: string
   contentType: string
+  /** Derived from name/MIME; older API responses may omit it. */
+  kind?: AttachmentKind
   sizeBytes: number
   createdAt: string
 }

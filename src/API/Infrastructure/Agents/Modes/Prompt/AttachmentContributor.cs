@@ -35,6 +35,11 @@ public sealed class AttachmentContributor : IPromptSectionContributor
                 lines.Add(item.ExtractedTextPreview);
                 lines.Add("  ```");
             }
+            else
+            {
+                // PDF, Excel, and other binaries: bytes are on disk at the path above — open with tools.
+                lines.Add("  (binary attachment — open this workspace path with your tools)");
+            }
         }
 
         document.AppendContext(string.Join('\n', lines));

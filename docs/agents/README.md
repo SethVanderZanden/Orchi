@@ -76,12 +76,12 @@ Child chats created via plan/review kickoff inherit the parent's `ModelId`.
 
 Each turn is intentionally simple:
 
-1. Persist the user message
+1. Persist the user message (optionally linking staged [attachments](../architecture/chat-attachments.md#dummy-section-start-here) — PDF, Excel, images, … — and mirroring bytes into the workspace)
 2. Pass the raw user text to `IAgentAdapter.SendMessageAsync`
 3. Stream `AgentEvent` results back to the client
 4. Persist the assistant message and `ExternalSessionId` when the turn completes
 
-Multi-turn continuity uses Cursor `--resume` with the stored `ExternalSessionId`. **Agent modes** wrap prompts in an `<orchi>` XML envelope at the CLI boundary (see below).
+Multi-turn continuity uses Cursor `--resume` with the stored `ExternalSessionId`. **Agent modes** wrap prompts in an `<orchi>` XML envelope at the CLI boundary (see below). Attachment **extension** lives on `FileName`; **bytes** stay on disk (not a SQLite `byte[]`). The prompt lists workspace paths so agents open PDF/Excel with tools.
 
 Sessions and messages persist to **SQLite** via EF Core (`orchi.db`). User messages are saved immediately; assistant messages are saved once when a turn completes or errors (streaming tokens stay in-memory only). Active chats are cached in memory for streaming and process handles; `GET /chats` and `GET /chats/{id}` hydrate from the database when needed.
 

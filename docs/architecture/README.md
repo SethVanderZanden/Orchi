@@ -43,6 +43,7 @@ Orchi follows **Vertical Slice Architecture** with a custom CQRS pipeline — co
 | [Vertical Slice Architecture](vertical-slice-architecture.md#dummy-section-start-here) | What VSA is and how Orchi applies it |
 | [Screaming Architecture](screaming-architecture.md#dummy-section-start-here) | Domain-first folder structure |
 | [CQRS Pipeline](cqrs-pipeline.md#dummy-section-start-here) | Commands, queries, and behaviour decorators |
+| [Chat attachments](chat-attachments.md#dummy-section-start-here) | PDF/Excel/file uploads — bytes on disk, metadata in SQLite |
 | [Software Patterns](../patterns/README.md) | Design patterns used in Orchi (decorator, result object, DI, etc.) |
 | [Adding a Feature](adding-a-feature.md#dummy-section-start-here) | Step-by-step checklist for new slices |
 | [Unit Testing](../testing/unit-testing.md#dummy-section-start-here) | Handler and integration test patterns |

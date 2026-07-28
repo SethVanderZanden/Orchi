@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { deleteStagedChatAttachment, uploadChatAttachment } from '@/lib/chat/api'
+import { CHAT_ATTACHMENT_ACCEPT } from '@/lib/chat/attachment-kind'
 import { isPersistedChat } from '@/lib/chat/chat-persistence'
 import { getComposerDraft, setComposerDraft } from '@/lib/chat/composer-drafts'
 import type { AgentMode } from '@/lib/chat/types'
@@ -280,6 +281,7 @@ export function OrchiChatComposer({
               ref={fileInputRef}
               type="file"
               multiple
+              accept={CHAT_ATTACHMENT_ACCEPT}
               className="sr-only"
               onChange={handleFileInputChange}
               disabled={disabled || isUploading}

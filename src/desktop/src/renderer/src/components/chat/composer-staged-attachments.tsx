@@ -1,6 +1,7 @@
-import { FileIcon, ImageIcon, X } from 'lucide-react'
+import { X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { attachmentKindIcon, getAttachmentKind } from '@/lib/chat/attachment-icons'
 import type { ChatAttachment } from '@/lib/chat/types'
 import { cn } from '@/lib/utils'
 
@@ -34,9 +35,16 @@ function itemSize(item: ComposerStagedItem): number {
   return item.kind === 'uploaded' ? item.attachment.sizeBytes : item.file.size
 }
 
-function itemIsImage(item: ComposerStagedItem): boolean {
-  const type = item.kind === 'uploaded' ? item.attachment.contentType : item.file.type
-  return type.startsWith('image/')
+function itemKind(item: ComposerStagedItem) {
+  if (item.kind === 'uploaded') {
+    return getAttachmentKind(
+      item.attachment.fileName,
+      item.attachment.contentType,
+      item.attachment.kind
+    )
+  }
+
+  return getAttachmentKind(item.file.name, item.file.type || 'application/octet-stream')
 }
 
 export function ComposerStagedAttachments({
@@ -52,7 +60,7 @@ export function ComposerStagedAttachments({
     <div className="flex flex-wrap gap-2 border-b border-border/60 px-3.5 py-2.5">
       {items.map((item) => {
         const key = item.kind === 'uploaded' ? item.attachment.id : item.localId
-        const Icon = itemIsImage(item) ? ImageIcon : FileIcon
+        const Icon = attachmentKindIcon(itemKind(item))
 
         return (
           <div
