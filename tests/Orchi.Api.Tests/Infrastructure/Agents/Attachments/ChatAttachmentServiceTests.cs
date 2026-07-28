@@ -1,3 +1,4 @@
+using System.Text;
 using Orchi.Api.Common.Results;
 using Orchi.Api.Infrastructure.Agents.Attachments;
 using Orchi.Api.Infrastructure.Agents.Attachments.Models;
@@ -113,10 +114,67 @@ public sealed class ChatAttachmentServiceTests : IDisposable
         }
     }
 
+    [Fact]
+    public async Task StageUploadAsync_RejectsOversizedStreamEvenWhenDeclaredSizeIsSmall()
+    {
+        var store = new InMemoryChatAttachmentStore();
+        ChatAttachmentService service = CreateService(
+            store,
+            new AttachmentOptions { BlobRoot = _blobRoot, MaxFileSizeBytes = 64 });
+
+        byte[] payload = new byte[128];
+        await using var stream = new MemoryStream(payload);
+
+        Result<StoredAttachment> staged = await service.StageUploadAsync(
+            Guid.NewGuid(),
+            "big.bin",
+            "application/octet-stream",
+            sizeBytes: 32,
+            stream,
+            CancellationToken.None);
+
+        Assert.True(staged.IsFailure);
+        Assert.Equal("Attachment.TooLarge", staged.Error.Code);
+        Assert.Empty(Directory.EnumerateFiles(_blobRoot, "*", SearchOption.AllDirectories));
+    }
+
+    [Fact]
+    public async Task StageUploadAsync_TruncatesExtractedTextWithoutReadingWholeFileIntoResult()
+    {
+        var store = new InMemoryChatAttachmentStore();
+        ChatAttachmentService service = CreateService(
+            store,
+            new AttachmentOptions
+            {
+                BlobRoot = _blobRoot,
+                MaxExtractedTextChars = 20
+            });
+
+        string body = new string('a', 200);
+        await using var stream = new MemoryStream(Encoding.UTF8.GetBytes(body));
+
+        Result<StoredAttachment> staged = await service.StageUploadAsync(
+            Guid.NewGuid(),
+            "notes.txt",
+            "text/plain",
+            stream.Length,
+            stream,
+            CancellationToken.None);
+
+        Assert.True(staged.IsSuccess);
+        Assert.NotNull(staged.Value.ExtractedText);
+        Assert.StartsWith(new string('a', 20), staged.Value.ExtractedText);
+        Assert.Contains("truncated", staged.Value.ExtractedText);
+        Assert.True(staged.Value.ExtractedText!.Length < body.Length);
+    }
+
     private ChatAttachmentService CreateService(IChatAttachmentStore store) =>
+        CreateService(store, new AttachmentOptions { BlobRoot = _blobRoot });
+
+    private ChatAttachmentService CreateService(IChatAttachmentStore store, AttachmentOptions options) =>
         new(
             store,
-            Options.Create(new AttachmentOptions { BlobRoot = _blobRoot }),
+            Options.Create(options),
             NullLogger<ChatAttachmentService>.Instance);
 
     private sealed class InMemoryChatAttachmentStore : IChatAttachmentStore

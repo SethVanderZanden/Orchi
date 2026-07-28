@@ -349,7 +349,13 @@ export function useChatStream({
 
         await provisionWorktreeForSendIfNeeded(queryClient, resolvedChatId)
 
-        for (const file of options?.pendingAttachmentFiles ?? []) {
+        // Take ownership of pending File refs and drop them after upload so the
+        // renderer does not retain multi-MB blobs for the entire agent turn.
+        const pendingFiles = options?.pendingAttachmentFiles ?? []
+        if (options) {
+          options.pendingAttachmentFiles = undefined
+        }
+        for (const file of pendingFiles) {
           const uploaded = await uploadChatAttachment(resolvedChatId, file)
           resolvedAttachmentIds.push(uploaded.id)
         }

@@ -39,9 +39,25 @@ public sealed class ChatAttachmentService(
         string blobPath = AttachmentPaths.StagedBlobPath(GetBlobRoot(), chatId, attachmentId);
         Directory.CreateDirectory(Path.GetDirectoryName(blobPath)!);
 
-        await using (FileStream blobStream = File.Create(blobPath))
+        long writtenBytes;
+        try
         {
-            await content.CopyToAsync(blobStream, cancellationToken);
+            writtenBytes = await CopyToBlobWithLimitAsync(content, blobPath, cancellationToken);
+        }
+        catch (AttachmentTooLargeException)
+        {
+            TryDeleteBlob(blobPath);
+            return Result.Failure<StoredAttachment>(
+                Error.Validation(
+                    "Attachment.TooLarge",
+                    $"File exceeds the {_options.MaxFileSizeBytes / (1024 * 1024)} MB limit."));
+        }
+
+        if (writtenBytes == 0)
+        {
+            TryDeleteBlob(blobPath);
+            return Result.Failure<StoredAttachment>(
+                Error.Validation("Attachment.Empty", "File is empty."));
         }
 
         string? extractedText = await TryExtractTextAsync(
@@ -56,13 +72,38 @@ public sealed class ChatAttachmentService(
                 chatId,
                 sanitizedFileName,
                 normalizedContentType,
-                sizeBytes,
+                writtenBytes,
                 relativePath,
                 extractedText),
             cancellationToken);
 
         return Result.Success(stored);
     }
+
+    private async Task<long> CopyToBlobWithLimitAsync(
+        Stream content,
+        string blobPath,
+        CancellationToken cancellationToken)
+    {
+        await using FileStream blobStream = File.Create(blobPath);
+        var buffer = new byte[81920];
+        long total = 0;
+        int read;
+        while ((read = await content.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken)) > 0)
+        {
+            total += read;
+            if (total > _options.MaxFileSizeBytes)
+            {
+                throw new AttachmentTooLargeException();
+            }
+
+            await blobStream.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+        }
+
+        return total;
+    }
+
+    private sealed class AttachmentTooLargeException : Exception;
 
     public async Task<Result> DeleteStagedAsync(Guid chatId, Guid attachmentId, CancellationToken cancellationToken)
     {
@@ -287,19 +328,56 @@ public sealed class ChatAttachmentService(
 
         await using FileStream stream = File.OpenRead(blobPath);
         using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
-        string text = await reader.ReadToEndAsync(cancellationToken);
+        (string? text, bool truncated) = await ReadBoundedTextAsync(
+            reader,
+            _options.MaxExtractedTextChars,
+            cancellationToken);
         if (string.IsNullOrWhiteSpace(text))
         {
             return null;
         }
 
-        return TruncateExtractedText(text.Trim());
+        string trimmed = text.Trim();
+        return truncated ? trimmed + "\n…(truncated)" : trimmed;
     }
 
-    private string TruncateExtractedText(string text) =>
-        text.Length <= _options.MaxExtractedTextChars
-            ? text
-            : text[.._options.MaxExtractedTextChars] + "\n…(truncated)";
+    private static async Task<(string? Text, bool Truncated)> ReadBoundedTextAsync(
+        StreamReader reader,
+        int maxChars,
+        CancellationToken cancellationToken)
+    {
+        if (maxChars <= 0)
+        {
+            return (null, false);
+        }
+
+        var builder = new StringBuilder(Math.Min(maxChars, 4096));
+        var buffer = new char[4096];
+        while (builder.Length < maxChars)
+        {
+            int toRead = Math.Min(buffer.Length, maxChars - builder.Length);
+            int read = await reader.ReadAsync(buffer.AsMemory(0, toRead), cancellationToken);
+            if (read <= 0)
+            {
+                break;
+            }
+
+            builder.Append(buffer, 0, read);
+        }
+
+        if (builder.Length == 0)
+        {
+            return (null, false);
+        }
+
+        if (builder.Length < maxChars)
+        {
+            return (builder.ToString(), false);
+        }
+
+        int peek = await reader.ReadAsync(buffer.AsMemory(0, 1), cancellationToken);
+        return (builder.ToString(), peek > 0);
+    }
 
     private string GetBlobRoot()
     {

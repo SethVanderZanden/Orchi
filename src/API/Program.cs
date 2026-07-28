@@ -1,6 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Http.Features;
 using Orchi.Api.Infrastructure.Agents;
+using Orchi.Api.Infrastructure.Agents.Attachments;
 using Orchi.Api.Infrastructure.Caching;
 using Orchi.Api.Infrastructure.Database;
 using Orchi.Api.Infrastructure.Endpoints;
@@ -19,6 +21,25 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 builder.Host.ConfigureHostOptions(options =>
 {
     options.ShutdownTimeout = TimeSpan.FromSeconds(10);
+});
+
+// Cap multipart / request body to attachment limits (+ small overhead) so oversized
+// uploads cannot be buffered unboundedly before ChatAttachmentService rejects them.
+long maxAttachmentBytes = builder.Configuration
+    .GetSection(AttachmentOptions.SectionName)
+    .GetValue("MaxFileSizeBytes", new AttachmentOptions().MaxFileSizeBytes);
+long maxRequestBodyBytes = maxAttachmentBytes + (1024 * 1024);
+
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = maxRequestBodyBytes;
+});
+
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = maxRequestBodyBytes;
+    options.ValueLengthLimit = int.MaxValue;
+    options.MultipartHeadersLengthLimit = 16_384;
 });
 
 builder.Services

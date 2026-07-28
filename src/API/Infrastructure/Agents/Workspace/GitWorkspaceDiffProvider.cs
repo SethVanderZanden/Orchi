@@ -9,6 +9,18 @@ public sealed class GitWorkspaceDiffProvider : IWorkspaceDiffProvider
     internal const int MaxDiffChars = 512_000;
 
     /// <summary>
+    /// Safety cap for non-diff git output (rev-parse, ls-files, numstat). Prevents
+    /// pathological repos from allocating multi-GB strings via <c>ReadToEnd</c>.
+    /// </summary>
+    internal const int MaxGitMetaOutputChars = 8_000_000;
+
+    /// <summary>
+    /// Skip untracked files larger than this when building review diffs. Diffing them
+    /// is useless once we truncate to <see cref="MaxDiffChars"/> and risks huge peaks.
+    /// </summary>
+    internal const long MaxUntrackedFileBytes = 256_000;
+
+    /// <summary>
     /// Git accepts <c>/dev/null</c> as the empty-tree side of <c>git diff --no-index</c>
     /// on both Unix and Windows (Git for Windows).
     /// </summary>
@@ -42,7 +54,7 @@ public sealed class GitWorkspaceDiffProvider : IWorkspaceDiffProvider
             return "No git repository detected in workspace.";
         }
 
-        string uncommitted = RunGit(workspacePath, "diff", "HEAD");
+        string uncommitted = RunGitDiff(workspacePath, "diff", "HEAD");
         string untracked = BuildUntrackedDiff(workspacePath);
         string combined = CombineDiffParts(uncommitted, untracked);
         if (!string.IsNullOrWhiteSpace(combined))
@@ -50,7 +62,7 @@ public sealed class GitWorkspaceDiffProvider : IWorkspaceDiffProvider
             return FormatSection(DescribeDiffSource(uncommitted, untracked), Truncate(combined));
         }
 
-        string lastCommit = RunGit(workspacePath, "show", "HEAD", "--format=", "--patch", "--no-color");
+        string lastCommit = RunGitDiff(workspacePath, "show", "HEAD", "--format=", "--patch", "--no-color");
         if (!string.IsNullOrWhiteSpace(lastCommit))
         {
             return FormatSection("git show HEAD", Truncate(lastCommit));
@@ -153,14 +165,14 @@ public sealed class GitWorkspaceDiffProvider : IWorkspaceDiffProvider
         }
 
         string range = $"{resolvedBase}...{resolvedHead}";
-        string threeDot = RunGit(workspacePath, "diff", "--no-color", range);
+        string threeDot = RunGitDiff(workspacePath, "diff", "--no-color", range);
         if (!string.IsNullOrWhiteSpace(threeDot) && !LooksLikeGitError(threeDot))
         {
             return FormatSection($"git diff {range}", Truncate(threeDot));
         }
 
         string twoDotRange = $"{resolvedBase}..{resolvedHead}";
-        string twoDot = RunGit(workspacePath, "diff", "--no-color", twoDotRange);
+        string twoDot = RunGitDiff(workspacePath, "diff", "--no-color", twoDotRange);
         if (!string.IsNullOrWhiteSpace(twoDot) && !LooksLikeGitError(twoDot))
         {
             return FormatSection($"git diff {twoDotRange}", Truncate(twoDot));
@@ -194,9 +206,28 @@ public sealed class GitWorkspaceDiffProvider : IWorkspaceDiffProvider
         var builder = new StringBuilder();
         foreach (string file in files)
         {
+            if (builder.Length >= MaxDiffChars)
+            {
+                break;
+            }
+
+            if (TryDescribeOmittedUntrackedFile(workspacePath, file, out string omittedNotice))
+            {
+                if (builder.Length > 0)
+                {
+                    builder.Append('\n');
+                }
+
+                builder.Append(omittedNotice);
+                builder.Append('\n');
+                continue;
+            }
+
+            int remaining = MaxDiffChars - builder.Length;
             // Exit code 1 with stdout is expected when the file differs from /dev/null.
-            string fileDiff = RunGit(
+            string fileDiff = RunGitBounded(
                 workspacePath,
+                remaining,
                 "diff",
                 "--no-color",
                 "--no-index",
@@ -216,14 +247,46 @@ public sealed class GitWorkspaceDiffProvider : IWorkspaceDiffProvider
 
             builder.Append(fileDiff.TrimEnd());
             builder.Append('\n');
-
-            if (builder.Length >= MaxDiffChars)
-            {
-                break;
-            }
         }
 
         return builder.ToString();
+    }
+
+    internal static bool IsOrchiInternalPath(string relativePath)
+    {
+        string normalized = relativePath.Replace('\\', '/').Trim();
+        return normalized.Equals(".orchi", StringComparison.OrdinalIgnoreCase)
+               || normalized.StartsWith(".orchi/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool TryDescribeOmittedUntrackedFile(
+        string workspacePath,
+        string relativePath,
+        out string notice)
+    {
+        notice = string.Empty;
+        try
+        {
+            string absolutePath = Path.Combine(
+                workspacePath,
+                relativePath.Replace('/', Path.DirectorySeparatorChar));
+            var info = new FileInfo(absolutePath);
+            if (!info.Exists || info.Length <= MaxUntrackedFileBytes)
+            {
+                return false;
+            }
+
+            notice =
+                $"diff --git a/{relativePath} b/{relativePath}\n" +
+                "new file mode 100644\n" +
+                $"--- /dev/null\n+++ b/{relativePath}\n" +
+                $"[file omitted from review diff: {info.Length:N0} bytes exceeds {MaxUntrackedFileBytes:N0}-byte limit]";
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     private static IReadOnlyList<WorkspaceDiffStatsEntry> BuildUntrackedDiffStats(string workspacePath)
@@ -274,7 +337,7 @@ public sealed class GitWorkspaceDiffProvider : IWorkspaceDiffProvider
         return output
             .Split('\0', StringSplitOptions.RemoveEmptyEntries)
             .Select(path => path.Trim())
-            .Where(path => path.Length > 0)
+            .Where(path => path.Length > 0 && !IsOrchiInternalPath(path))
             .ToArray();
     }
 
@@ -389,7 +452,13 @@ public sealed class GitWorkspaceDiffProvider : IWorkspaceDiffProvider
         }
     }
 
-    private static string RunGit(string workspacePath, params string[] args)
+    private static string RunGit(string workspacePath, params string[] args) =>
+        RunGitBounded(workspacePath, MaxGitMetaOutputChars, args);
+
+    private static string RunGitDiff(string workspacePath, params string[] args) =>
+        RunGitBounded(workspacePath, MaxDiffChars, args);
+
+    private static string RunGitBounded(string workspacePath, int maxOutputChars, params string[] args)
     {
         try
         {
@@ -413,8 +482,10 @@ public sealed class GitWorkspaceDiffProvider : IWorkspaceDiffProvider
 
             process.Start();
 
-            string stdout = process.StandardOutput.ReadToEnd();
-            string stderr = process.StandardError.ReadToEnd();
+            // Drain stderr concurrently so a full stderr pipe cannot deadlock stdout reads.
+            Task<string> stderrTask = process.StandardError.ReadToEndAsync();
+            string stdout = ReadStreamBounded(process.StandardOutput, process, maxOutputChars);
+            string stderr = stderrTask.GetAwaiter().GetResult();
             process.WaitForExit();
 
             if (process.ExitCode != 0 && string.IsNullOrWhiteSpace(stdout))
@@ -428,6 +499,46 @@ public sealed class GitWorkspaceDiffProvider : IWorkspaceDiffProvider
         {
             return $"Failed to run git: {ex.Message}";
         }
+    }
+
+    /// <summary>
+    /// Reads at most <paramref name="maxChars"/> from git stdout. If the cap is hit, the
+    /// process is killed so git cannot keep writing multi-GB output into the pipe.
+    /// </summary>
+    internal static string ReadStreamBounded(StreamReader reader, Process process, int maxChars)
+    {
+        if (maxChars <= 0)
+        {
+            return string.Empty;
+        }
+
+        var builder = new StringBuilder(Math.Min(maxChars, 64_000));
+        var buffer = new char[16_384];
+        while (builder.Length < maxChars)
+        {
+            int toRead = Math.Min(buffer.Length, maxChars - builder.Length);
+            int read = reader.Read(buffer, 0, toRead);
+            if (read <= 0)
+            {
+                break;
+            }
+
+            builder.Append(buffer, 0, read);
+        }
+
+        if (builder.Length >= maxChars && !process.HasExited)
+        {
+            try
+            {
+                process.Kill(entireProcessTree: true);
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or Win32Exception or NotSupportedException)
+            {
+                // Best-effort: process may have exited between HasExited and Kill.
+            }
+        }
+
+        return builder.ToString();
     }
 
     internal static string Truncate(string diff)

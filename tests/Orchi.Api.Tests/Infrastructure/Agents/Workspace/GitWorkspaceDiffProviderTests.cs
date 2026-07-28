@@ -1,3 +1,4 @@
+using System.Text;
 using Orchi.Api.Infrastructure.Agents.Workspace;
 
 namespace Orchi.Api.Tests.Infrastructure.Agents.Workspace;
@@ -115,6 +116,76 @@ public class GitWorkspaceDiffProviderTests : IDisposable
         Assert.Contains("ok", diff);
         Assert.DoesNotContain("secret", diff);
         Assert.DoesNotContain("+++ b/ignored.txt", diff);
+    }
+
+    [Fact]
+    public void GetDiff_ExcludesOrchiInternalUntrackedPaths()
+    {
+        if (!IsGitAvailable())
+        {
+            return;
+        }
+
+        InitializeRepoWithCommit();
+        string orchiAttachment = Path.Combine(_workspacePath, ".orchi", "attachments", "id", "dump.bin");
+        Directory.CreateDirectory(Path.GetDirectoryName(orchiAttachment)!);
+        File.WriteAllText(orchiAttachment, "should-not-appear-in-diff\n");
+        File.WriteAllText(Path.Combine(_workspacePath, "visible.txt"), "ok\n");
+
+        string diff = _provider.GetDiff(_workspacePath);
+
+        Assert.Contains("visible.txt", diff);
+        Assert.DoesNotContain("should-not-appear-in-diff", diff);
+        Assert.DoesNotContain(".orchi/attachments", diff);
+    }
+
+    [Fact]
+    public void GetDiff_OmitsOversizedUntrackedFilesInsteadOfLoadingThem()
+    {
+        if (!IsGitAvailable())
+        {
+            return;
+        }
+
+        InitializeRepoWithCommit();
+        string largePath = Path.Combine(_workspacePath, "large-new.txt");
+        File.WriteAllText(largePath, new string('x', (int)GitWorkspaceDiffProvider.MaxUntrackedFileBytes + 64));
+
+        string diff = _provider.GetDiff(_workspacePath);
+
+        Assert.Contains("large-new.txt", diff);
+        Assert.Contains("file omitted from review diff", diff);
+        Assert.DoesNotContain(new string('x', 80), diff);
+    }
+
+    [Fact]
+    public void IsOrchiInternalPath_DetectsAttachmentMirrorPaths()
+    {
+        Assert.True(GitWorkspaceDiffProvider.IsOrchiInternalPath(".orchi/attachments/id/file.txt"));
+        Assert.True(GitWorkspaceDiffProvider.IsOrchiInternalPath(".orchi\\plan-1.md"));
+        Assert.False(GitWorkspaceDiffProvider.IsOrchiInternalPath("src/.orchi-not-really.txt"));
+        Assert.False(GitWorkspaceDiffProvider.IsOrchiInternalPath("README.md"));
+    }
+
+    [Fact]
+    public void ReadStreamBounded_StopsAtMaxChars()
+    {
+        using var process = new System.Diagnostics.Process();
+        // Process is unused for HasExited when the stream ends before the cap; pass a
+        // not-started sentinel by using a finished echo process.
+        process.StartInfo.FileName = "git";
+        process.StartInfo.ArgumentList.Add("--version");
+        process.StartInfo.RedirectStandardOutput = true;
+        process.StartInfo.UseShellExecute = false;
+        process.StartInfo.CreateNoWindow = true;
+        process.Start();
+        process.WaitForExit();
+
+        using var reader = new StreamReader(new MemoryStream(Encoding.UTF8.GetBytes(new string('a', 1000))));
+        string bounded = GitWorkspaceDiffProvider.ReadStreamBounded(reader, process, maxChars: 50);
+
+        Assert.Equal(50, bounded.Length);
+        Assert.Equal(new string('a', 50), bounded);
     }
 
     [Fact]
