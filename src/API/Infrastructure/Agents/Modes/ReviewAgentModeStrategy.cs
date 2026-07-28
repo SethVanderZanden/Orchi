@@ -35,7 +35,9 @@ public sealed class ReviewAgentModeStrategy : IAgentModeStrategy
 
         Keep each file section scannable — short bullets, not paragraphs. Skip purely mechanical changes (formatting, lockfiles) with a one-line note.
 
-        Always lead with a Review TLDR.
+        When you discuss a specific file or hunk, include an `<orchi-open-editor>` element for the primary line you are referencing (see the file-reference rule in your rules section).
+
+        Always lead with a Review TLDR. The TLDR must open with a very short summary of what was completed — the primary goal or outcome of the changes in the diff (from the review brief, plan, or branch intent when available).
 
         If the diff or plan is insufficient, say exactly what is missing.
         """;
@@ -47,6 +49,7 @@ public sealed class ReviewAgentModeStrategy : IAgentModeStrategy
         # Short title
 
         ## Review TLDR
+        - **What was done:** one short sentence — primary goal or outcome of the completed changes
         - Verdict: ship / ship with fixes / needs work
         - 2–4 bullets max — only what a reviewer must know first
 
@@ -55,6 +58,8 @@ public sealed class ReviewAgentModeStrategy : IAgentModeStrategy
         Walk through every changed file in the git diff, in diff order.
 
         ### `path/to/file`
+
+        <orchi-open-editor>code {workspacePath} -g path/to/file:42</orchi-open-editor>
 
         For each meaningful hunk or logical change in that file:
 
