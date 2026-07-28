@@ -5,7 +5,7 @@ import { getChat } from '@/lib/chat/api'
 import { isLocalChat } from '@/lib/chat/chat-persistence'
 import type { ChatThread } from '@/lib/chat/types'
 import { mergeChatDetail } from '@/lib/chat/merge-chat-detail'
-import { mergeChatLists } from '@/lib/chat/merge-chat-lists'
+import { mergeChatLists, toListSummary } from '@/lib/chat/merge-chat-lists'
 import { chatKeys } from '@/lib/query-keys'
 
 function readChatList(queryClient: QueryClient, fallback: ChatThread[]): ChatThread[] {
@@ -67,7 +67,7 @@ export function useChatCache({ chats }: UseChatCacheOptions): UseChatCacheResult
       const merged = mergeChatDetail(existing, incoming)
 
       queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) =>
-        mergeChatLists(current, [merged])
+        mergeChatLists(current, [toListSummary(merged)])
       )
 
       queryClient.setQueryData(chatKeys.detail(chatId), merged)

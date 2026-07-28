@@ -32,7 +32,12 @@ describe('mergeChatLists', () => {
     const cached = [makeChat({ id: 'optimistic-child', title: 'Kickoff child' })]
     const incoming: ChatThread[] = []
 
-    expect(mergeChatLists(cached, incoming)).toEqual(cached)
+    const merged = mergeChatLists(cached, incoming)
+
+    expect(merged).toHaveLength(1)
+    expect(merged[0].id).toBe('optimistic-child')
+    expect(merged[0].title).toBe('Kickoff child')
+    expect(merged[0].messages).toEqual([])
   })
 
   it('lets incoming entries overwrite cached entries with the same id', () => {
@@ -50,7 +55,7 @@ describe('mergeChatLists', () => {
     expect(merged[0].updatedAt).toBe('2026-01-02T00:00:00.000Z')
   })
 
-  it('preserves cached messages when incoming summaries have empty messages', () => {
+  it('drops cached messages when merging list summaries', () => {
     const cached = [
       makeChat({
         id: 'a',
@@ -79,8 +84,8 @@ describe('mergeChatLists', () => {
     const merged = mergeChatLists(cached, incoming)
 
     expect(merged[0].title).toBe('Fresh title')
-    expect(merged[0].messages).toHaveLength(1)
-    expect(merged[0].messages[0]?.content).toBe('Hello')
+    expect(merged[0].messages).toEqual([])
+    expect(merged[0].preview).toBe('Hello')
   })
 
   it('sorts merged results by updatedAt descending', () => {
