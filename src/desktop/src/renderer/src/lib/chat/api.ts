@@ -329,6 +329,20 @@ export async function updateChatWorkspace(
   return (await response.json()) as UpdateChatWorkspaceResponse
 }
 
+export async function archiveChat(chatId: string): Promise<void> {
+  const response = await fetch(`${getApiBaseUrl()}/chats/${chatId}/archive`, {
+    method: 'POST'
+  })
+
+  if (response.status === 404) {
+    return
+  }
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, chatErrorOptions))
+  }
+}
+
 export async function closeChat(chatId: string): Promise<void> {
   const response = await fetch(`${getApiBaseUrl()}/chats/${chatId}`, {
     method: 'DELETE'

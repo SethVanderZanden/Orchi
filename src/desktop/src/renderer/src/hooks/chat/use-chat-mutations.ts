@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { NavigateOptions } from '@tanstack/react-router'
 
 import {
+  archiveChat,
   closeChat,
   updateChatApprovalPolicy,
   updateChatContextSize,
@@ -46,6 +47,8 @@ type UseChatMutationsResult = {
   getReasoningEffortUpdateError: (chatId: string) => string | undefined
   updateChatApprovalPolicy: (chatId: string, approvalPolicyId: string | null) => Promise<void>
   getApprovalPolicyUpdateError: (chatId: string) => string | undefined
+  updateChatWorkspace: (chatId: string, workspaceId: string) => void
+  archiveChat: (chatId: string) => Promise<void>
   updateChatProject: (chatId: string, projectId: string) => void
 }
 
@@ -591,6 +594,76 @@ export function useChatMutations({
     [approvalPolicyUpdateErrorByChat]
   )
 
+  const updateChatWorkspaceAction = useCallback(
+    (chatId: string, workspaceId: string) => {
+      if (!isLocalChat(chatId)) {
+        return
+      }
+
+      const currentChat =
+        queryClient.getQueryData<ChatThread>(chatKeys.detail(chatId)) ??
+        queryClient.getQueryData<ChatThread[]>(chatKeys.lists())?.find((chat) => chat.id === chatId)
+
+      if (currentChat?.workspaceId === workspaceId) {
+        return
+      }
+
+      const projects = queryClient.getQueryData<Project[]>(projectKeys.lists()) ?? []
+      let selectedProject: Project | undefined
+      let selectedWorkspace = undefined as Project['workspaces'][number] | undefined
+
+      for (const project of projects) {
+        const workspace = project.workspaces.find((entry) => entry.id === workspaceId)
+        if (workspace) {
+          selectedProject = project
+          selectedWorkspace = workspace
+          break
+        }
+      }
+
+      if (!selectedProject || !selectedWorkspace) {
+        return
+      }
+
+      const applyWorkspace = (chat: ChatThread): ChatThread => ({
+        ...chat,
+        projectId: selectedProject.id,
+        workspaceId: selectedWorkspace.id,
+        workspacePath: selectedWorkspace.path
+      })
+
+      queryClient.setQueryData<ChatThread>(chatKeys.detail(chatId), (current) =>
+        current ? applyWorkspace(current) : current
+      )
+
+      queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) =>
+        current.map((chat) => (chat.id === chatId ? applyWorkspace(chat) : chat))
+      )
+    },
+    [queryClient]
+  )
+
+  const archiveChatAction = useCallback(
+    async (chatId: string) => {
+      if (isLocalChat(chatId)) {
+        purgeChatFromClient(chatId)
+        navigateAwayIfDeleted(chatId)
+        return
+      }
+
+      purgeChatFromClient(chatId)
+      navigateAwayIfDeleted(chatId)
+
+      try {
+        await archiveChat(chatId)
+      } catch (error) {
+        await refetchChats()
+        throw error
+      }
+    },
+    [navigateAwayIfDeleted, purgeChatFromClient, refetchChats]
+  )
+
   const updateChatProjectAction = useCallback(
     (chatId: string, projectId: string) => {
       if (!isLocalChat(chatId)) {
@@ -645,6 +718,8 @@ export function useChatMutations({
     getReasoningEffortUpdateError,
     updateChatApprovalPolicy: updateChatApprovalPolicyAction,
     getApprovalPolicyUpdateError,
+    updateChatWorkspace: updateChatWorkspaceAction,
+    archiveChat: archiveChatAction,
     updateChatProject: updateChatProjectAction
   }
 }

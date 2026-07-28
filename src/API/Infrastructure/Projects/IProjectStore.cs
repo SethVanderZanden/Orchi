@@ -8,6 +8,11 @@ public sealed record WorkspaceCreateResult(Workspace Workspace);
 
 public sealed record ProjectDeleteResult(IReadOnlyList<Guid> OrphanedChatIds);
 
+public sealed record WorkspaceCleanupResult(
+    Guid? DeletedProjectId,
+    Guid? DeletedWorkspaceId,
+    IReadOnlyList<Guid> OrphanedChatIds);
+
 public interface IProjectStore
 {
     Task<Project?> GetProjectAsync(Guid projectId, CancellationToken cancellationToken);
@@ -48,4 +53,8 @@ public interface IProjectStore
         CancellationToken cancellationToken);
 
     Task<bool> DeleteWorkspaceAsync(Guid workspaceId, CancellationToken cancellationToken);
+
+    Task<WorkspaceCleanupResult?> TryCleanupWorkspaceIfEmptyAsync(
+        Guid workspaceId,
+        CancellationToken cancellationToken);
 }

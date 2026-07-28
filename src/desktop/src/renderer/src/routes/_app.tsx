@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 
 import { AppLayout } from '@/components/layout/app-layout'
 import { AgentSetupGate } from '@/components/settings/agent-setup-gate'
+import { ArchiveChatProvider } from '@/providers/archive-chat-provider'
 import { DeleteChatProvider } from '@/providers/delete-chat-provider'
 import { ChatProvider } from '@/providers/chat-provider'
 import { ChatTabsProvider } from '@/providers/chat-tabs-provider'
@@ -16,11 +17,13 @@ function AppLayoutRoute(): React.JSX.Element {
     <ProjectProvider>
       <ChatProvider>
         <DeleteChatProvider>
-          <ChatTabsProvider>
-            <AgentSetupGate>
-              <AppLayout />
-            </AgentSetupGate>
-          </ChatTabsProvider>
+          <ArchiveChatProvider>
+            <ChatTabsProvider>
+              <AgentSetupGate>
+                <AppLayout />
+              </AgentSetupGate>
+            </ChatTabsProvider>
+          </ArchiveChatProvider>
         </DeleteChatProvider>
       </ChatProvider>
     </ProjectProvider>

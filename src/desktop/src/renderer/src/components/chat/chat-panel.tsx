@@ -10,7 +10,7 @@ import { OrchiChatComposer } from '@/components/chat/chat-composer'
 
 import { getNextAgentMode, resolveAgentModeOptions } from '@/lib/chat/agent-mode-utils'
 
-import { ChatProjectContext } from '@/components/chat/chat-project-context'
+import { ChatWorkspaceContext } from '@/components/chat/chat-workspace-context'
 
 import { OrchiChatMessageList } from '@/components/chat/chat-message-list'
 
@@ -98,13 +98,17 @@ type ChatPanelProps = {
 
   projectId: string | null
 
+  workspaceId: string | null
+
+  workspaceName: string | null
+
   projectName: string | null
 
   projects: Project[]
 
-  canChangeProject?: boolean
+  canChangeWorkspace?: boolean
 
-  onProjectChange?: (projectId: string) => void
+  onWorkspaceChange?: (workspaceId: string) => void
 
   chatId: string
 
@@ -194,13 +198,17 @@ export function ChatPanel({
 
   projectId,
 
+  workspaceId,
+
+  workspaceName,
+
   projectName,
 
   projects,
 
-  canChangeProject = false,
+  canChangeWorkspace = false,
 
-  onProjectChange,
+  onWorkspaceChange,
 
   chatId,
 
@@ -376,13 +384,14 @@ export function ChatPanel({
     />
   )
 
-  const projectContext = isNewRootChat ? (
-    <ChatProjectContext
-      projectId={projectId}
+  const workspaceContext = isNewRootChat ? (
+    <ChatWorkspaceContext
+      workspaceId={workspaceId}
+      workspaceName={workspaceName}
       projectName={projectName}
       projects={projects}
-      canChangeProject={canChangeProject}
-      onProjectChange={onProjectChange}
+      canChangeWorkspace={canChangeWorkspace}
+      onWorkspaceChange={onWorkspaceChange}
     />
   ) : null
 
@@ -392,7 +401,7 @@ export function ChatPanel({
         <MessageScrollerProvider autoScroll>
           <ChatLayout
             variant={isNewRootChat ? 'centered' : 'default'}
-            projectContext={projectContext}
+            projectContext={workspaceContext}
             composer={composer}
           >
             {!isNewRootChat ? (

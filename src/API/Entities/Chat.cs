@@ -38,6 +38,8 @@ public class Chat
 
     public bool IsDeleted { get; set; }
 
+    public bool IsArchived { get; set; }
+
     public List<ChatMessageEntity> Messages { get; set; } = [];
 
     public Project? Project { get; set; }

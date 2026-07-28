@@ -13,6 +13,7 @@ import type { ChatThread } from '@/lib/chat/types'
 import type { GitHostProvider } from '@/lib/git/types'
 import type { Project, Workspace } from '@/lib/projects/types'
 import { findReviewChildForPlan } from '@/lib/projects/chat-tree'
+import { useArchiveChat } from '@/hooks/use-archive-chat'
 import { useDeleteChat } from '@/hooks/use-delete-chat'
 import { useOrchestration } from '@/hooks/use-orchestration'
 import { useOrchestrationParentEvents } from '@/hooks/use-orchestration-parent-events'
@@ -71,12 +72,13 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
     getReasoningEffortUpdateError,
     updateChatApprovalPolicy,
     getApprovalPolicyUpdateError,
-    updateChatProject,
+    updateChatWorkspace,
     isChatSending,
     isPlanKickingOff,
     isParentKickingOffAny
   } = useChat()
   const { requestDelete, isDeletingChat } = useDeleteChat()
+  const { requestArchive, isArchivingChat } = useArchiveChat()
   const { openChat, openChatInSplit, closeTab, splitTabId } = useChatTabs()
   const { projects } = useProjects()
   const project = projects.find((entry) => entry.id === chat.projectId)
@@ -206,7 +208,7 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
   )
   const showModeSelector = chat.messages.length === 0 && chat.parentChatId === null
   const canChangeMode = showModeSelector && !isAgentRunning
-  const canChangeProject = isLocalChat(chat.id) && showModeSelector
+  const canChangeWorkspace = isLocalChat(chat.id) && showModeSelector
   const canChangeModel = !isAgentRunning
   const showPlanReview = chat.mode === 'orchestration' && plans.length > 0
 
@@ -252,6 +254,8 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
         onToggleReviewPanel={toggleReviewPanel}
         onOpenParentBeside={openParentBeside}
         onClose={() => closeTab(chat.id)}
+        onArchive={() => requestArchive(chat)}
+        archiveDisabled={isChatSending(chat.id) || isArchivingChat(chat.id)}
         onDelete={() => requestDelete(chat)}
         deleteDisabled={isChatSending(chat.id) || isDeletingChat(chat.id)}
       />
@@ -287,10 +291,12 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
           void updateChatApprovalPolicy(chat.id, approvalPolicyId)
         }
         projectId={chat.projectId}
+        workspaceId={chat.workspaceId}
+        workspaceName={workspace?.name ?? null}
         projectName={projectName}
         projects={projects}
-        canChangeProject={canChangeProject}
-        onProjectChange={(projectId) => updateChatProject(chat.id, projectId)}
+        canChangeWorkspace={canChangeWorkspace}
+        onWorkspaceChange={(workspaceId) => updateChatWorkspace(chat.id, workspaceId)}
         chatId={chat.id}
         plans={plans}
         parentChatId={chat.id}

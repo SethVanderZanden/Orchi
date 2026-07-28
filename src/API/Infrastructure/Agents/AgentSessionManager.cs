@@ -647,6 +647,41 @@ public sealed class AgentSessionManager
         return Result.Success();
     }
 
+    public async Task<Result> ArchiveSessionAsync(Guid chatId, CancellationToken cancellationToken)
+    {
+        Guid? workspaceId = null;
+        if (_sessions.TryRemove(chatId, out ChatSession? session))
+        {
+            workspaceId = session.WorkspaceId;
+            StopRunningProcess(session);
+        }
+        else
+        {
+            ChatSession? stored = await _chatStore.GetAsync(chatId, cancellationToken);
+            workspaceId = stored?.WorkspaceId;
+        }
+
+        bool archived = await _chatStore.ArchiveAsync(chatId, cancellationToken);
+        if (!archived)
+        {
+            return Result.Failure(Error.NotFound($"Chat '{chatId}' was not found."));
+        }
+
+        if (workspaceId is not null)
+        {
+            WorkspaceCleanupResult? cleanup = await _projectStore.TryCleanupWorkspaceIfEmptyAsync(
+                workspaceId.Value,
+                cancellationToken);
+
+            if (cleanup is not null)
+            {
+                DetachProjectLinks(cleanup.OrphanedChatIds);
+            }
+        }
+
+        return Result.Success();
+    }
+
     public async Task CloseAllSessionsAsync(CancellationToken cancellationToken)
     {
         foreach (Guid chatId in _sessions.Keys.ToList())
