@@ -214,7 +214,13 @@ public sealed partial class GitWorkspaceService(IProcessRunner processRunner) : 
 
         ProcessRunResult commit = await RunGitAsync(
             workspacePath,
-            ["commit", "-m", message],
+            [
+                "-c", "user.email=orchi@local",
+                "-c", "user.name=Orchi",
+                "commit",
+                "-m",
+                message,
+            ],
             cancellationToken);
         EnsureSuccess(commit, "git commit");
     }
