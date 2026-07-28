@@ -3,7 +3,8 @@ using Orchi.Api.Infrastructure.Agents.Modes.Prompt;
 namespace Orchi.Api.Infrastructure.Agents.Workspace;
 
 /// <summary>
-/// Default review diff: live workspace <c>git diff HEAD</c> / <c>git show HEAD</c>.
+/// Default review diff: live workspace <c>git diff HEAD</c> plus untracked files
+/// (via <c>git diff --no-index</c>), falling back to <c>git show HEAD</c>.
 /// </summary>
 public sealed class WorkspaceHeadReviewDiffAdapter(IWorkspaceDiffProvider diffProvider) : IReviewDiffAdapter
 {

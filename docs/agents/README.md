@@ -188,7 +188,7 @@ Scoped implementation rules and deduplicated kickoff prompts reduce context grow
 
 After an implementation child agent completes, the API automatically kicks off a **review child** in `review` mode via the orchestration step pipeline (same outcome as `POST /chats/{implementationChildChatId}/review/kickoff`). The review agent reads the git diff + original plan and outputs `<!-- orchi-review-plan:id -->` blocks as parseable markdown — TLDR first, then a per-file diff walkthrough (what changed, required, clean, goal alignment, over-engineering), then cross-cutting findings.
 
-At prompt composition time, Orchi runs **`git diff HEAD`** in the workspace (falling back to **`git show HEAD`** when there are no uncommitted changes) and appends the result to the review agent's `<context>` section. The review agent does not need to run git itself. The `IWorkspaceDiffProvider` abstraction allows swapping in snapshot-based diffs later.
+At prompt composition time, Orchi runs **`git diff HEAD`** in the workspace and also appends diffs for **untracked** files (via `git ls-files --others --exclude-standard` + `git diff --no-index` against `/dev/null`, so new files that would become tracked on commit are included). It falls back to **`git show HEAD`** only when both tracked and untracked working-tree changes are empty. The result is appended to the review agent's `<context>` section. The review agent does not need to run git itself. The `IWorkspaceDiffProvider` abstraction allows swapping in snapshot-based diffs later.
 
 ```
 Implementation child completes  →  auto review kickoff  →  .orchi/review-*.md + review child
@@ -205,7 +205,7 @@ You can also shoot off a review for any branch against another branch (pull-requ
 2. API: `POST /projects/{projectId}/reviews/from-branches` with `{ headBranch, baseBranch?, fetch? }`
 3. Orchi optionally runs `git fetch --prune --all`, lists branches via `GET /projects/{id}/branches?fetch=true`, creates a worktree on the head branch, writes `.orchi/review-branch-*.md`, opens a `review` chat, and the desktop auto-sends `Begin review.`
 
-The review brief embeds `<!-- orchi-branch-review head: … base: … -->`. Diff capture uses **review diff adapters** (`IReviewDiffAdapter`): `BranchPairReviewDiffAdapter` wins when that marker is present and injects **`git diff base...head`**; otherwise `WorkspaceHeadReviewDiffAdapter` keeps the existing workspace `git diff HEAD` path. `ReviewDiffContributor` stays thin and only appends whatever the resolver returns. `IWorkspaceDiffProvider` remains the low-level git helper (including caching).
+The review brief embeds `<!-- orchi-branch-review head: … base: … -->`. Diff capture uses **review diff adapters** (`IReviewDiffAdapter`): `BranchPairReviewDiffAdapter` wins when that marker is present and injects **`git diff base...head`**; otherwise `WorkspaceHeadReviewDiffAdapter` keeps the existing workspace `git diff HEAD` (+ untracked) path. `ReviewDiffContributor` stays thin and only appends whatever the resolver returns. `IWorkspaceDiffProvider` remains the low-level git helper (including caching).
 
 ```
 Pick head + base  →  fetch/list branches  →  worktree on head  →  review chat + auto-send
