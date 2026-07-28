@@ -208,7 +208,6 @@ export async function listProjectBranches(
 
 export type KickOffBranchReviewRequest = {
   headBranch: string
-  workspaceId: string
   baseBranch?: string | null
   fetch?: boolean
 }
@@ -231,7 +230,6 @@ export async function kickOffBranchReview(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       headBranch: request.headBranch,
-      workspaceId: request.workspaceId,
       baseBranch: request.baseBranch ?? null,
       fetch: request.fetch ?? true
     })

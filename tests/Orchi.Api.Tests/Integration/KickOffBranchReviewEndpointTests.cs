@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
 using Orchi.Api.Features.Chats.Shared;
-using Orchi.Api.Features.Projects.CreateWorktree;
 using Orchi.Api.Features.Projects.Shared;
 using Orchi.Api.Infrastructure.Agents.Modes;
 using Orchi.Api.Tests.Common;
@@ -14,7 +13,6 @@ public class KickOffBranchReviewEndpointTests : IClassFixture<TestWebApplication
     private readonly HttpClient _client;
     private readonly string _workspacePath;
     private Guid _projectId;
-    private Guid _workspaceId;
 
     public KickOffBranchReviewEndpointTests(TestWebApplicationFactory factory)
     {
@@ -38,7 +36,6 @@ public class KickOffBranchReviewEndpointTests : IClassFixture<TestWebApplication
         CreateProjectResponse? created = await response.Content.ReadFromJsonAsync<CreateProjectResponse>();
         Assert.NotNull(created);
         _projectId = created.Id;
-        _workspaceId = created.DefaultWorkspace.Id;
 
         await _client.PatchAsJsonAsync(
             $"/projects/{_projectId}",
@@ -92,7 +89,7 @@ public class KickOffBranchReviewEndpointTests : IClassFixture<TestWebApplication
 
         HttpResponseMessage response = await _client.PostAsJsonAsync(
             $"/projects/{_projectId}/reviews/from-branches",
-            new KickOffBranchReviewRequest("feature-auth", _workspaceId, "main", Fetch: false));
+            new KickOffBranchReviewRequest("feature-auth", "main", Fetch: false));
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
@@ -112,57 +109,18 @@ public class KickOffBranchReviewEndpointTests : IClassFixture<TestWebApplication
         Assert.NotNull(reviewChat);
         Assert.Equal(ReviewAgentModeStrategy.Mode, reviewChat.Mode);
         Assert.Equal(kickedOff.ReviewFilePath, reviewChat.PlanFilePath);
-        Assert.Equal(_workspacePath, reviewChat.WorkspacePath);
+        Assert.NotEqual(_workspacePath, reviewChat.WorkspacePath);
+        Assert.Contains("Orchi", reviewChat.WorkspacePath);
+        Assert.Contains("worktrees", reviewChat.WorkspacePath);
 
         string reviewFile = Path.Combine(
-            _workspacePath,
+            reviewChat.WorkspacePath,
             kickedOff.ReviewFilePath.Replace('/', Path.DirectorySeparatorChar));
         Assert.True(File.Exists(reviewFile));
         string content = await File.ReadAllTextAsync(reviewFile);
         Assert.Contains("orchi-branch-review", content);
         Assert.Contains("feature-auth", content);
         Assert.Contains("main", content);
-    }
-
-    [Fact]
-    public async Task KickOffBranchReview_WithWorkspaceId_UsesRequestedWorkspace()
-    {
-        if (!IsGitAvailable())
-        {
-            return;
-        }
-
-        HttpResponseMessage worktreeResponse = await _client.PostAsJsonAsync(
-            $"/projects/{_projectId}/worktrees",
-            new CreateWorktreeRequest("main", "feature-auth", "Review source worktree"));
-
-        Assert.Equal(HttpStatusCode.Created, worktreeResponse.StatusCode);
-
-        WorkspaceResponse? worktreeWorkspace =
-            await worktreeResponse.Content.ReadFromJsonAsync<WorkspaceResponse>();
-        Assert.NotNull(worktreeWorkspace);
-
-        HttpResponseMessage response = await _client.PostAsJsonAsync(
-            $"/projects/{_projectId}/reviews/from-branches",
-            new KickOffBranchReviewRequest(
-                "feature-auth",
-                worktreeWorkspace.Id,
-                "main",
-                Fetch: false));
-
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-
-        KickOffBranchReviewResponse? kickedOff =
-            await response.Content.ReadFromJsonAsync<KickOffBranchReviewResponse>();
-        Assert.NotNull(kickedOff);
-
-        HttpResponseMessage chatResponse = await _client.GetAsync($"/chats/{kickedOff.ReviewChatId}");
-        ChatDetailResponse? reviewChat = await chatResponse.Content.ReadFromJsonAsync<ChatDetailResponse>(
-            HttpResponseExtensions.JsonOptions);
-        Assert.NotNull(reviewChat);
-        Assert.Equal(worktreeWorkspace.Id, reviewChat.WorkspaceId);
-        Assert.Equal(worktreeWorkspace.Path, reviewChat.WorkspacePath);
-        Assert.NotEqual(_workspacePath, reviewChat.WorkspacePath);
     }
 
     [Fact]
@@ -175,7 +133,7 @@ public class KickOffBranchReviewEndpointTests : IClassFixture<TestWebApplication
 
         HttpResponseMessage response = await _client.PostAsJsonAsync(
             $"/projects/{_projectId}/reviews/from-branches",
-            new KickOffBranchReviewRequest("main", _workspaceId, "main", Fetch: false));
+            new KickOffBranchReviewRequest("main", "main", Fetch: false));
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }

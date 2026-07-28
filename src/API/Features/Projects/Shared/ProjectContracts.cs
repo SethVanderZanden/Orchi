@@ -155,7 +155,6 @@ public sealed record ProjectBranchResponse(string Name, bool IsCurrent, bool IsR
 
 public sealed record KickOffBranchReviewRequest(
     string HeadBranch,
-    Guid WorkspaceId,
     string? BaseBranch = null,
     bool? Fetch = null);
 

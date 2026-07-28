@@ -23,7 +23,6 @@ type BranchReviewDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   projectId: string
-  workspaceId: string
   defaultBaseBranch: string
   preferredHeadBranch?: string | null
   onSuccess: (message: string) => void
@@ -46,7 +45,6 @@ export function BranchReviewDialog({
   open,
   onOpenChange,
   projectId,
-  workspaceId,
   defaultBaseBranch,
   preferredHeadBranch,
   onSuccess,
@@ -89,7 +87,6 @@ export function BranchReviewDialog({
     mutationFn: () =>
       kickOffBranchReview(projectId, {
         headBranch: selectedHead.trim(),
-        workspaceId,
         baseBranch: selectedBase.trim(),
         fetch: shouldFetch
       }),

@@ -26,7 +26,6 @@ import { gitActionKeys } from '@/lib/query-keys'
 type ChatGitActionsMenuProps = {
   chatId: string
   projectId: string | null
-  workspaceId: string | null
   workspacePath: string
   defaultBaseBranch: string
   gitHostProvider: GitHostProvider
@@ -38,7 +37,6 @@ type ActiveDialog = 'commit' | 'pullRequest' | 'branchReview' | null
 export function ChatGitActionsMenu({
   chatId,
   projectId,
-  workspaceId,
   workspacePath,
   defaultBaseBranch,
   gitHostProvider,
@@ -97,7 +95,7 @@ export function ChatGitActionsMenu({
   }
 
   function openBranchReviewDialog(): void {
-    if (!projectId || !workspaceId) {
+    if (!projectId) {
       return
     }
 
@@ -159,14 +157,8 @@ export function ChatGitActionsMenu({
                 Create pull request
               </DropdownMenuItem>
               <DropdownMenuItem
-                disabled={projectId == null || workspaceId == null}
-                title={
-                  projectId == null
-                    ? 'Select a project chat first.'
-                    : workspaceId == null
-                      ? 'This chat has no workspace.'
-                      : undefined
-                }
+                disabled={projectId == null}
+                title={projectId == null ? 'Select a project chat first.' : undefined}
                 onClick={openBranchReviewDialog}
               >
                 Review branch…
@@ -201,12 +193,11 @@ export function ChatGitActionsMenu({
         />
       ) : null}
 
-      {projectId && workspaceId ? (
+      {projectId ? (
         <BranchReviewDialog
           open={activeDialog === 'branchReview'}
           onOpenChange={(open) => setActiveDialog(open ? 'branchReview' : null)}
           projectId={projectId}
-          workspaceId={workspaceId}
           defaultBaseBranch={defaultBaseBranch}
           preferredHeadBranch={workspaceBranch}
           onSuccess={handleGitSuccess}

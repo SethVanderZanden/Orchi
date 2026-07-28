@@ -19,8 +19,7 @@ public static class KickOffBranchReview
         Guid ProjectId,
         string HeadBranch,
         string? BaseBranch,
-        bool Fetch,
-        Guid WorkspaceId) : ICommand<KickOffBranchReviewResponse>;
+        bool Fetch) : ICommand<KickOffBranchReviewResponse>;
 
     internal sealed class Handler(
         IProjectStore projectStore,
@@ -40,15 +39,13 @@ public static class KickOffBranchReview
                     Error.NotFound($"Project '{command.ProjectId}' was not found."));
             }
 
-            Workspace? reviewWorkspace = project.Workspaces.FirstOrDefault(
-                workspace => workspace.Id == command.WorkspaceId);
+            Workspace? primary = project.Workspaces.FirstOrDefault(workspace => workspace.IsDefault)
+                ?? project.Workspaces.FirstOrDefault();
 
-            if (reviewWorkspace is null)
+            if (primary is null)
             {
                 return Result.Failure<KickOffBranchReviewResponse>(
-                    Error.Validation(
-                        "Workspace.NotFound",
-                        $"Workspace '{command.WorkspaceId}' was not found for this project."));
+                    Error.Validation("Workspace.Missing", "Project has no workspace."));
             }
 
             string headBranch = command.HeadBranch.Trim();
@@ -68,10 +65,33 @@ public static class KickOffBranchReview
             {
                 if (command.Fetch)
                 {
-                    await gitWorkspaceService.FetchAsync(reviewWorkspace.Path, cancellationToken);
+                    await gitWorkspaceService.FetchAsync(primary.Path, cancellationToken);
                 }
 
                 string reviewId = ReviewBriefBuilder.ToBranchReviewId(headBranch);
+                string worktreeId = GitWorktreePathResolver.NewOpaqueWorktreeSegmentId();
+
+                GitWorktreeCreateResult worktree = await gitWorkspaceService.CreateWorktreeForExistingBranchAsync(
+                    primary.Path,
+                    worktreeId,
+                    headBranch,
+                    baseBranch,
+                    cancellationToken);
+
+                WorkspaceCreateResult? workspace = await projectStore.CreateWorkspaceAsync(
+                    project.Id,
+                    worktree.Path,
+                    name: $"Review {headBranch}",
+                    WorkspaceKind.Worktree,
+                    worktree.Branch,
+                    worktree.BaseBranch,
+                    cancellationToken);
+
+                if (workspace is null)
+                {
+                    return Result.Failure<KickOffBranchReviewResponse>(
+                        Error.NotFound($"Project '{project.Id}' was not found."));
+                }
 
                 string reviewBrief = ReviewBriefBuilder.BuildForBranchReview(
                     reviewId,
@@ -82,13 +102,13 @@ public static class KickOffBranchReview
                     artifactWriterFactory.GetStrategy(OrchiArtifactKind.Review);
 
                 string reviewFilePath = await reviewWriter.WriteAsync(
-                    reviewWorkspace.Path,
+                    worktree.Path,
                     reviewId,
                     reviewBrief,
                     cancellationToken);
 
                 Result<ChatSession> reviewChatResult = await sessionManager.CreateSessionAsync(
-                    reviewWorkspace.Id,
+                    workspace.Workspace.Id,
                     mode: ReviewAgentModeStrategy.Mode,
                     planFilePath: reviewFilePath,
                     cancellationToken: cancellationToken);
@@ -105,8 +125,8 @@ public static class KickOffBranchReview
                 return Result.Success(new KickOffBranchReviewResponse(
                     reviewChat.Id,
                     reviewFilePath,
-                    headBranch,
-                    baseBranch,
+                    worktree.Branch,
+                    worktree.BaseBranch,
                     initialPrompt,
                     kickoffMessage));
             }
@@ -134,10 +154,6 @@ public static class KickOffBranchReview
             RuleFor(command => command.HeadBranch)
                 .NotEmpty()
                 .WithMessage("Head branch is required.");
-
-            RuleFor(command => command.WorkspaceId)
-                .NotEmpty()
-                .WithMessage("Workspace id is required.");
         }
     }
 
@@ -158,12 +174,7 @@ public static class KickOffBranchReview
             CancellationToken cancellationToken)
         {
             Result<KickOffBranchReviewResponse> result = await handler.Handle(
-                new Command(
-                    projectId,
-                    request.HeadBranch,
-                    request.BaseBranch,
-                    request.Fetch ?? true,
-                    request.WorkspaceId),
+                new Command(projectId, request.HeadBranch, request.BaseBranch, request.Fetch ?? true),
                 cancellationToken);
 
             if (result.IsSuccess)
