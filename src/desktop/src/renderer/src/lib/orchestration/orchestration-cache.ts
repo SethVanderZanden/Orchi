@@ -3,7 +3,7 @@ import type { QueryClient } from '@tanstack/react-query'
 import { resolveDetailCache } from '@/lib/chat/resolve-detail-cache'
 import { createTokenBatcher, type TokenBatcher } from '@/lib/chat/token-batcher'
 import type { ChatThread } from '@/lib/chat/types'
-import { mergeChatStatus } from '@/lib/chat/prefer-chat-status'
+import { mergeChatStatus, preferChatStatus } from '@/lib/chat/prefer-chat-status'
 import {
   appendParentOrchestrationMessage,
   getOrchestration,
