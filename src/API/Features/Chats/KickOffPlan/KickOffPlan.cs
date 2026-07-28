@@ -29,6 +29,7 @@ public static class KickOffPlan
         IPlanStore planStore,
         IOrchestrationPlanSource planSource,
         IOrchiArtifactWriterFactory artifactWriterFactory,
+        OrchiArtifactFileStore artifactFileStore,
         IProjectStore projectStore,
         IGitWorkspaceService gitWorkspaceService)
         : ICommandHandler<Command, KickOffPlanResponse>
@@ -47,11 +48,13 @@ public static class KickOffPlan
                     Error.Validation("Mode.Invalid", "Plan kick-off is only available for orchestration chats."));
             }
 
-            string? contentMarkdown = await planSource.ResolvePlanContentAsync(
-                parent,
-                command.PlanId,
-                command.ContentMarkdown,
-                cancellationToken);
+            string? contentMarkdown = !string.IsNullOrWhiteSpace(command.ContentMarkdown)
+                ? command.ContentMarkdown.Trim()
+                : await planSource.ResolvePlanContentAsync(
+                    parent,
+                    command.PlanId,
+                    fallbackContentMarkdown: null,
+                    cancellationToken);
 
             if (string.IsNullOrWhiteSpace(contentMarkdown))
             {
@@ -151,6 +154,14 @@ public static class KickOffPlan
             }
 
             ChatSession child = childResult.Value;
+
+            if (!string.Equals(childWorkspacePath, parent.WorkspacePath, StringComparison.OrdinalIgnoreCase))
+            {
+                await artifactFileStore.TryDeleteAsync(
+                    parent.WorkspacePath,
+                    planFilePath,
+                    cancellationToken);
+            }
 
             string initialPrompt = PlanImplementationTask.Build(planFilePath);
             const string kickoffMessage = "Begin implementation.";

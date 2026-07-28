@@ -14,7 +14,7 @@ namespace Orchi.Api.Tests.Infrastructure.Agents.Orchestration;
 public class OrchestrationPlanSyncServiceTests
 {
     [Fact]
-    public async Task SyncFromWorkspaceAsync_UpsertsDiscoveredPlanFilesWithoutMessageReferences()
+    public async Task SyncFromWorkspaceAsync_UpsertsReferencedPlanFilesFromMessages()
     {
         string workspacePath = Path.Combine(Path.GetTempPath(), $"orchi-plan-sync-{Guid.NewGuid():N}");
         Directory.CreateDirectory(Path.Combine(workspacePath, ".orchi"));
@@ -75,7 +75,20 @@ public class OrchestrationPlanSyncServiceTests
                 Mode = OrchestrationAgentModeStrategy.Mode,
                 AgentId = "cursor",
                 WorkspaceId = Guid.NewGuid(),
-                ProjectId = Guid.NewGuid()
+                ProjectId = Guid.NewGuid(),
+                Messages =
+                {
+                    new ChatMessage(
+                        Guid.NewGuid(),
+                        "assistant",
+                        """
+                        <!-- orchi-plan:auth-refactor -->
+                        .orchi/plan-auth-refactor.md
+                        <!-- /orchi-plan -->
+                        """,
+                        DateTimeOffset.UtcNow,
+                        Status: "complete")
+                }
             };
 
             await syncService.SyncFromWorkspaceAsync(parent, CancellationToken.None);
@@ -84,6 +97,83 @@ public class OrchestrationPlanSyncServiceTests
             Assert.NotNull(stored);
             Assert.Equal("Auth refactor", stored.Title);
             Assert.Contains("Implement JWT auth", stored.ContentMarkdown);
+        }
+        finally
+        {
+            if (Directory.Exists(workspacePath))
+            {
+                Directory.Delete(workspacePath, recursive: true);
+            }
+
+            SqliteConnection.ClearAllPools();
+        }
+    }
+
+    [Fact]
+    public async Task SyncFromWorkspaceAsync_IgnoresOrphanWorkspacePlanFilesWithoutMessageReferences()
+    {
+        string workspacePath = Path.Combine(Path.GetTempPath(), $"orchi-plan-sync-orphan-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(Path.Combine(workspacePath, ".orchi"));
+        Guid sourceChatId = Guid.NewGuid();
+
+        try
+        {
+            await File.WriteAllTextAsync(
+                Path.Combine(workspacePath, ".orchi", "plan-auth-refactor.md"),
+                """
+                # Auth refactor
+
+                Implement JWT auth.
+                """);
+
+            var services = new ServiceCollection();
+            services.AddDbContextFactory<AppDbContext>(options =>
+                options.UseSqlite($"Data Source={Path.Combine(Path.GetTempPath(), $"orchi-plan-sync-orphan-db-{Guid.NewGuid():N}.db")}"));
+
+            await using ServiceProvider provider = services.BuildServiceProvider();
+            IDbContextFactory<AppDbContext> factory = provider.GetRequiredService<IDbContextFactory<AppDbContext>>();
+
+            await using (AppDbContext db = await factory.CreateDbContextAsync())
+            {
+                await db.Database.MigrateAsync();
+                db.Chats.Add(new Chat
+                {
+                    Id = sourceChatId,
+                    AgentId = "cursor",
+                    Mode = OrchestrationAgentModeStrategy.Mode,
+                    WorkspacePath = workspacePath,
+                    CreatedAt = DateTimeOffset.UtcNow,
+                    UpdatedAt = DateTimeOffset.UtcNow
+                });
+                await db.SaveChangesAsync();
+            }
+
+            var planStore = new EfPlanStore(factory);
+            var fileStore = new OrchiArtifactFileStore();
+            var writerFactory = new OrchiArtifactWriterFactory([
+                new ImplementationPlanWriterStrategy(fileStore)
+            ]);
+
+            var syncService = new OrchestrationPlanSyncService(
+                planStore,
+                writerFactory,
+                fileStore,
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<OrchestrationPlanSyncService>.Instance);
+
+            var parent = new ChatSession
+            {
+                Id = sourceChatId,
+                WorkspacePath = workspacePath,
+                Mode = OrchestrationAgentModeStrategy.Mode,
+                AgentId = "cursor",
+                WorkspaceId = Guid.NewGuid(),
+                ProjectId = Guid.NewGuid()
+            };
+
+            await syncService.SyncFromWorkspaceAsync(parent, CancellationToken.None);
+
+            StoredPlan? stored = await planStore.GetAsync(sourceChatId, "auth-refactor", CancellationToken.None);
+            Assert.Null(stored);
         }
         finally
         {

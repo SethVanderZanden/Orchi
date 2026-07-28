@@ -213,14 +213,6 @@ public static partial class PlanMarkdownParser
             }
         }
 
-        IReadOnlyList<ParsedPlan> workspacePlans =
-            await DiscoverPlansFromWorkspaceAsync(workspacePath, artifactFileStore, cancellationToken);
-
-        foreach (ParsedPlan workspacePlan in workspacePlans)
-        {
-            merged[workspacePlan.PlanId] = workspacePlan;
-        }
-
         IReadOnlyList<ParsedPlan> referencedPlans = ExtractAllPlansFromMessages(messages)
             .Where(plan => plan.PlanFilePath is not null)
             .ToArray();

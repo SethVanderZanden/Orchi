@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
@@ -5,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Orchi.Api.Data;
 using Orchi.Api.Entities;
 using Orchi.Api.Features.Chats.Shared;
+using Orchi.Api.Features.Projects.Shared;
 using Orchi.Api.Infrastructure.Agents.Modes;
 using Orchi.Api.Tests.Common;
 
@@ -112,5 +114,145 @@ public class KickOffPlanEndpointTests : IClassFixture<TestWebApplicationFactory>
             new KickOffPlanRequest("auth-refactor", "Auth refactor", "# Plan"));
 
         Assert.Equal(HttpStatusCode.BadRequest, kickoffResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task KickOffPlan_WithWorktree_RemovesParentWorkspacePlanFile()
+    {
+        if (!IsGitAvailable())
+        {
+            return;
+        }
+
+        string repoPath = Path.Combine(Path.GetTempPath(), $"orchi-kickoff-worktree-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(repoPath);
+
+        try
+        {
+            InitializeGitRepo(repoPath);
+
+            HttpResponseMessage projectResponse = await _client.PostAsJsonAsync(
+                "/projects",
+                new CreateProjectRequest("Kickoff Worktree Project", repoPath));
+
+            CreateProjectResponse? project = await projectResponse.Content.ReadFromJsonAsync<CreateProjectResponse>();
+            Assert.NotNull(project);
+
+            HttpResponseMessage patchResponse = await _client.PatchAsJsonAsync(
+                $"/projects/{project.Id}",
+                new UpdateProjectRequest(UseWorktreeOnKickoff: true, DefaultBaseBranch: "main"));
+            Assert.Equal(HttpStatusCode.OK, patchResponse.StatusCode);
+
+            string parentPlanFile = Path.Combine(repoPath, ".orchi", "plan-auth-refactor.md");
+            Directory.CreateDirectory(Path.GetDirectoryName(parentPlanFile)!);
+            await File.WriteAllTextAsync(parentPlanFile, "# Auth refactor\n\nStale parent copy.");
+
+            HttpResponseMessage createResponse = await _client.PostAsJsonAsync(
+                "/chats",
+                new CreateChatRequest(project.DefaultWorkspace.Id, "cursor", OrchestrationAgentModeStrategy.Mode));
+
+            CreateChatResponse? parent = await createResponse.Content.ReadFromJsonAsync<CreateChatResponse>();
+            Assert.NotNull(parent);
+
+            HttpResponseMessage kickoffResponse = await _client.PostAsJsonAsync(
+                $"/chats/{parent.Id}/plans/kickoff",
+                new KickOffPlanRequest(
+                    "auth-refactor",
+                    "Auth refactor",
+                    "# Auth refactor\n\nImplement JWT auth."));
+
+            Assert.Equal(HttpStatusCode.Created, kickoffResponse.StatusCode);
+
+            KickOffPlanResponse? kickedOff = await kickoffResponse.Content.ReadFromJsonAsync<KickOffPlanResponse>();
+            Assert.NotNull(kickedOff);
+
+            Assert.False(File.Exists(parentPlanFile));
+
+            HttpResponseMessage childResponse = await _client.GetAsync($"/chats/{kickedOff.ChildChatId}");
+            ChatDetailResponse? child = await childResponse.Content.ReadFromJsonAsync<ChatDetailResponse>(
+                HttpResponseExtensions.JsonOptions);
+            Assert.NotNull(child);
+            Assert.NotEqual(parent.WorkspacePath, child.WorkspacePath);
+
+            string childPlanFile = Path.Combine(
+                child.WorkspacePath,
+                kickedOff.PlanFilePath.Replace('/', Path.DirectorySeparatorChar));
+            Assert.True(File.Exists(childPlanFile));
+            string childPlanContent = await File.ReadAllTextAsync(childPlanFile);
+            Assert.Contains("Implement JWT auth", childPlanContent);
+        }
+        finally
+        {
+            if (Directory.Exists(repoPath))
+            {
+                try
+                {
+                    Directory.Delete(repoPath, recursive: true);
+                }
+                catch (IOException)
+                {
+                }
+                catch (UnauthorizedAccessException)
+                {
+                }
+            }
+        }
+    }
+
+    private static void InitializeGitRepo(string workspacePath)
+    {
+        RunGit(workspacePath, "init");
+        RunGit(workspacePath, "checkout", "-b", "main");
+        File.WriteAllText(Path.Combine(workspacePath, "readme.txt"), "base\n");
+        RunGit(workspacePath, "add", "readme.txt");
+        RunGit(
+            workspacePath,
+            "-c", "user.email=test@example.com",
+            "-c", "user.name=Test",
+            "commit", "-m", "init");
+    }
+
+    private static void RunGit(string workspacePath, params string[] args)
+    {
+        using var process = new Process();
+        process.StartInfo.FileName = "git";
+        process.StartInfo.WorkingDirectory = workspacePath;
+        process.StartInfo.RedirectStandardOutput = true;
+        process.StartInfo.RedirectStandardError = true;
+        process.StartInfo.UseShellExecute = false;
+        process.StartInfo.CreateNoWindow = true;
+
+        foreach (string arg in args)
+        {
+            process.StartInfo.ArgumentList.Add(arg);
+        }
+
+        process.Start();
+        process.WaitForExit();
+        if (process.ExitCode != 0)
+        {
+            string stderr = process.StandardError.ReadToEnd();
+            throw new InvalidOperationException($"git {string.Join(' ', args)} failed: {stderr}");
+        }
+    }
+
+    private static bool IsGitAvailable()
+    {
+        try
+        {
+            using var process = new Process();
+            process.StartInfo.FileName = "git";
+            process.StartInfo.ArgumentList.Add("--version");
+            process.StartInfo.RedirectStandardOutput = true;
+            process.StartInfo.UseShellExecute = false;
+            process.StartInfo.CreateNoWindow = true;
+            process.Start();
+            process.WaitForExit();
+            return process.ExitCode == 0;
+        }
+        catch
+        {
+            return false;
+        }
     }
 }
