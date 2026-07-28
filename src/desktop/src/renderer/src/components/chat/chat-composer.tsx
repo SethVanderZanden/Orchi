@@ -12,7 +12,10 @@ import { cn } from '@/lib/utils'
 type ChatComposerProps = {
   chatId: string
   autoFocus?: boolean
+  /** Fully lock the composer (rare). Sending stays allowed while the agent is working. */
   disabled?: boolean
+  /** True while an agent turn is in flight — composer stays editable so the user can steer. */
+  isSending?: boolean
   onSend: (content: string) => void
   expanded?: boolean
   /** Prefills the composer once on mount (e.g. text copied into a new split chat). */
@@ -49,6 +52,7 @@ export function OrchiChatComposer({
   chatId,
   autoFocus = false,
   disabled = false,
+  isSending = false,
   onSend,
   expanded = false,
   initialDraft,
@@ -125,7 +129,7 @@ export function OrchiChatComposer({
           value={draft}
           onChange={(event) => handleDraftChange(event.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Message Orchi…"
+          placeholder={isSending ? 'Add a follow-up to steer…' : 'Message Orchi…'}
           disabled={disabled}
           rows={expanded ? 4 : 3}
           className={cn(
@@ -137,7 +141,7 @@ export function OrchiChatComposer({
         <div className="flex items-center justify-between gap-2 px-3.5 pb-3.5 pt-1">
           <ChatComposerToolbar
             chatId={chatId}
-            disabled={disabled}
+            disabled={disabled || isSending}
             mode={mode}
             showModeControls={showModeControls}
             canChangeMode={canChangeMode}
@@ -168,7 +172,7 @@ export function OrchiChatComposer({
             type="submit"
             size="icon"
             disabled={disabled || !draft.trim()}
-            aria-label="Send message"
+            aria-label={isSending ? 'Send follow-up' : 'Send message'}
             className="size-8 shrink-0 rounded-full"
           >
             <ArrowUp className="size-4" />

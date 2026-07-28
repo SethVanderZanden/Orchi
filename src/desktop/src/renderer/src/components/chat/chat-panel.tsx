@@ -358,7 +358,7 @@ export function ChatPanel({
       key={chatId}
       chatId={chatId}
       autoFocus={isNewRootChat}
-      disabled={isSending}
+      isSending={isSending}
       onSend={onSend}
       expanded={isNewRootChat}
       mode={mode}

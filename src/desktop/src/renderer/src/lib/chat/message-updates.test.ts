@@ -83,7 +83,7 @@ describe('finalizeAssistantMessages', () => {
   it('marks processing and streaming assistant messages complete', () => {
     const messages = [
       makeMessage({ id: 'a', status: 'processing' }),
-      makeMessage({ id: 'b', status: 'streaming' }),
+      makeMessage({ id: 'b', status: 'streaming', content: 'Partial' }),
       makeMessage({ id: 'c', status: 'complete' })
     ]
 
@@ -92,7 +92,24 @@ describe('finalizeAssistantMessages', () => {
     expect(changed).toBe(true)
     expect(next[0].status).toBe('complete')
     expect(next[1].status).toBe('complete')
+    expect(next[1].content).toBe('Partial')
     expect(next[2].status).toBe('complete')
+  })
+
+  it('leaves user and error messages untouched when steering finalizes in-flight assistants', () => {
+    const messages = [
+      makeMessage({ id: 'u', role: 'user', content: 'First', status: 'complete' }),
+      makeMessage({ id: 'a', status: 'streaming', content: 'Working on' }),
+      makeMessage({ id: 'e', status: 'error', content: 'Boom' })
+    ]
+
+    const { messages: next, changed } = finalizeAssistantMessages(messages)
+
+    expect(changed).toBe(true)
+    expect(next[0].status).toBe('complete')
+    expect(next[1].status).toBe('complete')
+    expect(next[1].content).toBe('Working on')
+    expect(next[2].status).toBe('error')
   })
 
   it('returns unchanged when no assistant messages need finalizing', () => {

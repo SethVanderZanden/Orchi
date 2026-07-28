@@ -762,7 +762,7 @@ public sealed class AgentSessionManager
                     Content = "Turn aborted by start script.",
                     Status = "error"
                 };
-                session.Messages[^1] = assistantMessage;
+                ReplaceMessage(session, assistantMessage);
             }
 
             await _chatStore.SaveAssistantMessageAsync(chatId, assistantMessage, null, cancellationToken);
@@ -773,79 +773,130 @@ public sealed class AgentSessionManager
 
         bool turnCompleted = false;
 
-        await foreach (AgentEvent agentEvent in adapter.SendMessageAsync(
-                           session,
-                           composedPrompt,
-                           extraCliArgs,
-                           runCts.Token))
+        IAsyncEnumerator<AgentEvent> agentEnumerator = adapter
+            .SendMessageAsync(session, composedPrompt, extraCliArgs, runCts.Token)
+            .GetAsyncEnumerator(runCts.Token);
+
+        try
         {
-            switch (agentEvent)
+            while (true)
             {
-                case AgentSessionStartedEvent started:
-                    await PersistExternalSessionIdAsync(
-                        chatId,
-                        session,
-                        started.ExternalSessionId,
-                        "system-init",
-                        cancellationToken);
+                bool moved;
+                try
+                {
+                    moved = await agentEnumerator.MoveNextAsync();
+                }
+                catch (OperationCanceledException) when (runCts.IsCancellationRequested)
+                {
+                    // Client abort or a steerer send stopped this turn — finalize below.
                     break;
+                }
 
-                case AgentTextDeltaEvent delta:
-                    lock (session.Sync)
-                    {
-                        assistantMessage = assistantMessage with
-                        {
-                            Content = assistantMessage.Content + delta.Text,
-                            Status = "streaming"
-                        };
-                        session.Messages[^1] = assistantMessage;
-                    }
-
-                    yield return delta;
+                if (!moved)
+                {
                     break;
+                }
 
-                case AgentCompletedEvent completed:
-                    string? externalSessionId;
-                    lock (session.Sync)
-                    {
-                        if (!string.IsNullOrEmpty(completed.FullText))
-                        {
-                            assistantMessage = assistantMessage with { Content = completed.FullText };
-                        }
+                AgentEvent agentEvent = agentEnumerator.Current;
+                switch (agentEvent)
+                {
+                    case AgentSessionStartedEvent started:
+                        await PersistExternalSessionIdAsync(
+                            chatId,
+                            session,
+                            started.ExternalSessionId,
+                            "system-init",
+                            cancellationToken);
+                        break;
 
-                        if (!string.IsNullOrWhiteSpace(completed.ExternalSessionId))
-                        {
-                            session.ExternalSessionId = completed.ExternalSessionId;
-                        }
-
-                        externalSessionId = session.ExternalSessionId;
-                    }
-
-                    if (!string.IsNullOrWhiteSpace(completed.ExternalSessionId))
-                    {
-                        _logger.LogDebug(
-                            "Captured external session id from {Source} for chat {ChatId}",
-                            "result",
-                            chatId);
-                    }
-
-                    if (string.IsNullOrWhiteSpace(assistantMessage.Content))
-                    {
-                        const string emptyResponseMessage =
-                            "The agent finished without producing a response. Try sending the message again.";
-
-                        _logger.LogWarning(
-                            "Agent completed with empty content for chat {ChatId}",
-                            chatId);
-
+                    case AgentTextDeltaEvent delta:
                         lock (session.Sync)
                         {
                             assistantMessage = assistantMessage with
                             {
-                                Content = emptyResponseMessage,
-                                Status = "error"
+                                Content = assistantMessage.Content + delta.Text,
+                                Status = "streaming"
                             };
-                            session.Messages[^1] = assistantMessage;
+                            ReplaceMessage(session, assistantMessage);
+                        }
+
+                        yield return delta;
+                        break;
+
+                    case AgentCompletedEvent completed:
+                        string? externalSessionId;
+                        lock (session.Sync)
+                        {
+                            if (!string.IsNullOrEmpty(completed.FullText))
+                            {
+                                assistantMessage = assistantMessage with { Content = completed.FullText };
+                            }
+
+                            if (!string.IsNullOrWhiteSpace(completed.ExternalSessionId))
+                            {
+                                session.ExternalSessionId = completed.ExternalSessionId;
+                            }
+
+                            externalSessionId = session.ExternalSessionId;
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(completed.ExternalSessionId))
+                        {
+                            _logger.LogDebug(
+                                "Captured external session id from {Source} for chat {ChatId}",
+                                "result",
+                                chatId);
+                        }
+
+                        if (string.IsNullOrWhiteSpace(assistantMessage.Content))
+                        {
+                            const string emptyResponseMessage =
+                                "The agent finished without producing a response. Try sending the message again.";
+
+                            _logger.LogWarning(
+                                "Agent completed with empty content for chat {ChatId}",
+                                chatId);
+
+                            lock (session.Sync)
+                            {
+                                assistantMessage = assistantMessage with
+                                {
+                                    Content = emptyResponseMessage,
+                                    Status = "error"
+                                };
+                                ReplaceMessage(session, assistantMessage);
+                            }
+
+                            await _chatStore.SaveAssistantMessageAsync(
+                                chatId,
+                                assistantMessage,
+                                externalSessionId,
+                                cancellationToken);
+
+                            await TransitionStatusAsync(
+                                chatId,
+                                session,
+                                ChatStatus.ReadyForReview,
+                                cancellationToken);
+
+                            turnCompleted = true;
+                            await foreach (AgentEvent finishEvent in DispatchFinishScriptsAsync(
+                                               session,
+                                               succeeded: false,
+                                               runCts.Token))
+                            {
+                                yield return finishEvent;
+                            }
+
+                            _turnCompletionNotifier.NotifyTurnCompleted(chatId, succeeded: false);
+                            yield return new AgentErrorEvent("Agent.EmptyResponse", emptyResponseMessage);
+                            break;
+                        }
+
+                        lock (session.Sync)
+                        {
+                            assistantMessage = assistantMessage with { Status = "complete" };
+                            ReplaceMessage(session, assistantMessage);
                         }
 
                         await _chatStore.SaveAssistantMessageAsync(
@@ -863,6 +914,44 @@ public sealed class AgentSessionManager
                         turnCompleted = true;
                         await foreach (AgentEvent finishEvent in DispatchFinishScriptsAsync(
                                            session,
+                                           succeeded: true,
+                                           runCts.Token))
+                        {
+                            yield return finishEvent;
+                        }
+
+                        await AppendDiffStatsMessageIfApplicableAsync(
+                            chatId,
+                            session,
+                            succeeded: true,
+                            runCts.Token);
+
+                        _turnCompletionNotifier.NotifyTurnCompleted(chatId, succeeded: true);
+                        yield return completed;
+                        break;
+
+                    case AgentErrorEvent error:
+                        lock (session.Sync)
+                        {
+                            assistantMessage = assistantMessage with
+                            {
+                                Content = string.IsNullOrEmpty(assistantMessage.Content) ? error.Message : assistantMessage.Content,
+                                Status = "error"
+                            };
+                            ReplaceMessage(session, assistantMessage);
+                        }
+
+                        await _chatStore.SaveAssistantMessageAsync(chatId, assistantMessage, null, cancellationToken);
+
+                        await TransitionStatusAsync(
+                            chatId,
+                            session,
+                            ChatStatus.ReadyForReview,
+                            cancellationToken);
+
+                        turnCompleted = true;
+                        await foreach (AgentEvent finishEvent in DispatchFinishScriptsAsync(
+                                           session,
                                            succeeded: false,
                                            runCts.Token))
                         {
@@ -870,95 +959,43 @@ public sealed class AgentSessionManager
                         }
 
                         _turnCompletionNotifier.NotifyTurnCompleted(chatId, succeeded: false);
-                        yield return new AgentErrorEvent("Agent.EmptyResponse", emptyResponseMessage);
+                        yield return error;
                         break;
-                    }
 
-                    lock (session.Sync)
-                    {
-                        assistantMessage = assistantMessage with { Status = "complete" };
-                        session.Messages[^1] = assistantMessage;
-                    }
-
-                    await _chatStore.SaveAssistantMessageAsync(
-                        chatId,
-                        assistantMessage,
-                        externalSessionId,
-                        cancellationToken);
-
-                    await TransitionStatusAsync(
-                        chatId,
-                        session,
-                        ChatStatus.ReadyForReview,
-                        cancellationToken);
-
-                    turnCompleted = true;
-                    await foreach (AgentEvent finishEvent in DispatchFinishScriptsAsync(
-                                       session,
-                                       succeeded: true,
-                                       runCts.Token))
-                    {
-                        yield return finishEvent;
-                    }
-
-                    await AppendDiffStatsMessageIfApplicableAsync(
-                        chatId,
-                        session,
-                        succeeded: true,
-                        runCts.Token);
-
-                    _turnCompletionNotifier.NotifyTurnCompleted(chatId, succeeded: true);
-                    yield return completed;
-                    break;
-
-                case AgentErrorEvent error:
-                    lock (session.Sync)
-                    {
-                        assistantMessage = assistantMessage with
-                        {
-                            Content = string.IsNullOrEmpty(assistantMessage.Content) ? error.Message : assistantMessage.Content,
-                            Status = "error"
-                        };
-                        session.Messages[^1] = assistantMessage;
-                    }
-
-                    await _chatStore.SaveAssistantMessageAsync(chatId, assistantMessage, null, cancellationToken);
-
-                    await TransitionStatusAsync(
-                        chatId,
-                        session,
-                        ChatStatus.ReadyForReview,
-                        cancellationToken);
-
-                    turnCompleted = true;
-                    await foreach (AgentEvent finishEvent in DispatchFinishScriptsAsync(
-                                       session,
-                                       succeeded: false,
-                                       runCts.Token))
-                    {
-                        yield return finishEvent;
-                    }
-
-                    _turnCompletionNotifier.NotifyTurnCompleted(chatId, succeeded: false);
-                    yield return error;
-                    break;
-
-                default:
-                    yield return agentEvent;
-                    break;
+                    default:
+                        yield return agentEvent;
+                        break;
+                }
             }
+        }
+        finally
+        {
+            await agentEnumerator.DisposeAsync();
         }
 
         if (!turnCompleted)
         {
             bool shouldFinalizeIncomplete;
+            bool wasInterrupted;
+            bool ownsStatusTransition;
             string? externalSessionId;
             lock (session.Sync)
             {
                 shouldFinalizeIncomplete = assistantMessage.Status is "processing" or "streaming";
+                wasInterrupted = runCts.IsCancellationRequested;
+                // A newer send already owns RunCts — do not flip chat status out from under it.
+                ownsStatusTransition = session.RunCts is null || ReferenceEquals(session.RunCts, runCts);
+
                 if (!shouldFinalizeIncomplete)
                 {
                     externalSessionId = null;
+                }
+                else if (wasInterrupted)
+                {
+                    // Keep any partial reply so a steered follow-up has clean history.
+                    assistantMessage = assistantMessage with { Status = "complete" };
+                    ReplaceMessage(session, assistantMessage);
+                    externalSessionId = session.ExternalSessionId;
                 }
                 else
                 {
@@ -969,36 +1006,82 @@ public sealed class AgentSessionManager
                             : assistantMessage.Content,
                         Status = "error"
                     };
-                    session.Messages[^1] = assistantMessage;
+                    ReplaceMessage(session, assistantMessage);
                     externalSessionId = session.ExternalSessionId;
                 }
             }
 
             if (shouldFinalizeIncomplete)
             {
-                _logger.LogWarning(
-                    "Agent stream ended without result event for chat {ChatId}",
-                    chatId);
+                if (wasInterrupted)
+                {
+                    _logger.LogInformation(
+                        "Agent turn interrupted for chat {ChatId}; finalizing partial assistant message.",
+                        chatId);
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "Agent stream ended without result event for chat {ChatId}",
+                        chatId);
+                }
 
+                // Persist even if the HTTP request token was cancelled (steer / abort).
                 await _chatStore.SaveAssistantMessageAsync(
                     chatId,
                     assistantMessage,
                     externalSessionId,
-                    cancellationToken);
+                    CancellationToken.None);
 
-                await TransitionStatusAsync(
-                    chatId,
-                    session,
-                    ChatStatus.ReadyForReview,
-                    cancellationToken);
+                if (ownsStatusTransition)
+                {
+                    await TransitionStatusAsync(
+                        chatId,
+                        session,
+                        ChatStatus.ReadyForReview,
+                        CancellationToken.None);
+                }
 
-                yield return new AgentErrorEvent(
-                    "Agent.Incomplete",
-                    "Agent finished without a result event.");
+                if (wasInterrupted)
+                {
+                    // Pure abort (no steerer send yet) — unblock orchestration waiters.
+                    // When a newer turn already owns RunCts, that turn will notify instead.
+                    if (ownsStatusTransition)
+                    {
+                        _turnCompletionNotifier.NotifyTurnCompleted(chatId, succeeded: false);
+                    }
+                }
+                else
+                {
+                    _turnCompletionNotifier.NotifyTurnCompleted(chatId, succeeded: false);
+                    yield return new AgentErrorEvent(
+                        "Agent.Incomplete",
+                        "Agent finished without a result event.");
+                }
             }
         }
 
-        session.RunCts = null;
+        lock (session.Sync)
+        {
+            if (ReferenceEquals(session.RunCts, runCts))
+            {
+                session.RunCts = null;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Updates an in-memory message by id. Must be called under <see cref="ChatSession.Sync"/>.
+    /// Avoids <c>Messages[^1]</c>, which races when a steerer send appends newer messages
+    /// while an interrupted turn is still finalizing.
+    /// </summary>
+    private static void ReplaceMessage(ChatSession session, ChatMessage message)
+    {
+        int index = session.Messages.FindIndex(existing => existing.Id == message.Id);
+        if (index >= 0)
+        {
+            session.Messages[index] = message;
+        }
     }
 
     private async Task TransitionStatusAsync(

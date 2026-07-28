@@ -11,6 +11,8 @@ Sending a chat message is like ordering pizza with **live status texts**:
 
 If the oven breaks, you get an `error` text instead.
 
+You can also **change the order while it's cooking**: type another message and send. That cancels the current turn and starts a new one with your follow-up (steer) — same idea as interrupting a chef mid-prep.
+
 The desktop **does not** poll. It opens one HTTP response and reads events as they arrive (SSE).
 
 The **sidebar dots** are a separate mailroom light board owned by the API:
@@ -21,7 +23,7 @@ The **sidebar dots** are a separate mailroom light board owned by the API:
 | Pulsing | Being written | `inProgress` |
 | Solid primary | Something new to look at | `readyForReview` |
 
-**Aha:** The UI only paints what the server says; it does not keep its own "have I seen this?" sticky notes.
+**Aha:** The UI only paints what the server says; it does not keep its own "have I seen this?" sticky notes. Follow-ups while busy abort the in-flight turn and start a fresh one.
 
 **Orchi translation:**
 
@@ -29,6 +31,7 @@ The **sidebar dots** are a separate mailroom light board owned by the API:
 |------------------|-------|
 | Order app | `sendMessageStream()` in `lib/chat/api.ts` |
 | Live reply updates | SSE from `POST /chats/{id}/messages` |
+| Change order mid-cook | Send again while `isSending` — abort + new turn |
 | Light board | `Chat.Status` + `GET /chats/status/events` |
 | "I've looked at this" stamp | `POST /chats/{id}/read` |
 | Order history | TanStack Query `chatKeys` + `ChatProvider` |
@@ -139,6 +142,7 @@ Proxy: `/chats` → API in `electron.vite.config.ts` (dev).
 - Optimistic user message + assistant placeholder on send
 - SSE handlers update cache via `queryClient.setQueryData` and `createMessageStreamHandlers`
 - **`markersByChat`** — ephemeral UI rows (processing spinner, tool lines)
+- **Steer while busy** — the composer stays editable during `isSending`. A second send aborts the prior SSE (`AbortController` + turn generation), finalizes the interrupted assistant as `complete` (keeps partial text), and starts a new turn. The API's `SendMessageAsync` stops the running CLI process first, then appends the new user message.
 
 Query keys (`lib/query-keys.ts`):
 
@@ -188,6 +192,7 @@ Projects are a **desktop-only** registry (`localStorage` + folder picker IPC). T
 | User closes chat | `DELETE /chats/{id}` via `closeChat()` |
 | Electron app quit | Main process `POST /chats/shutdown` (10s timeout), then stops bundled `Orchi.Api.exe` in production (15s total shutdown budget) |
 | SSE abort | `AbortController` cancels in-flight stream; API cancels CLI |
+| Steer (send while busy) | Client aborts prior SSE + finalizes interrupted assistant; API `StopRunningProcess` then starts a new turn |
 
 ## Further reading
 
