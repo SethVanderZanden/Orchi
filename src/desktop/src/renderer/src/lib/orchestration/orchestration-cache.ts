@@ -245,6 +245,9 @@ export function createOrchestrationEventHandlers(
     onAgentToken: ({ childChatId, text }) => {
       getTokenBatcher(childChatId).push(text)
     },
+    onAgentThought: () => {
+      // Thought rows for orchestrated child runs are shown on child chat detail cache.
+    },
     onAgentTool: () => {
       // Tool rows for orchestrated child runs are shown on child chat detail cache.
     },

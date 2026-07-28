@@ -6,6 +6,9 @@ public sealed record AgentStatusEvent(string Phase) : AgentEvent;
 
 public sealed record AgentTextDeltaEvent(string Text) : AgentEvent;
 
+/// <summary>Streaming model reasoning / thinking text (not part of the assistant reply).</summary>
+public sealed record AgentThoughtDeltaEvent(string Text) : AgentEvent;
+
 public sealed record AgentToolEvent(string Label) : AgentEvent;
 
 public sealed record AgentSessionStartedEvent(string ExternalSessionId) : AgentEvent;

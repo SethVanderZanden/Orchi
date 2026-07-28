@@ -21,6 +21,7 @@ export type OrchestrationEventHandlers = {
   onParentMessage?: (payload: { messageId: string; role: string; content: string }) => void
   onAgentStatus?: (payload: { childChatId: string; phase: string }) => void
   onAgentToken?: (payload: { childChatId: string; text: string }) => void
+  onAgentThought?: (payload: { childChatId: string; text: string }) => void
   onAgentTool?: (payload: { childChatId: string; label: string }) => void
   onAgentDone?: (payload: { childChatId: string; messageId: string; succeeded: boolean }) => void
   onAgentError?: (payload: { childChatId: string; code: string; message: string }) => void
@@ -120,6 +121,13 @@ function dispatchOrchestrationEvent(
 
     case 'agent_token':
       handlers.onAgentToken?.({
+        childChatId: String(payload.childChatId),
+        text: String(payload.text)
+      })
+      break
+
+    case 'agent_thought':
+      handlers.onAgentThought?.({
         childChatId: String(payload.childChatId),
         text: String(payload.text)
       })

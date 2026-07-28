@@ -24,6 +24,8 @@ public sealed record OrchestrationAgentStatusEvent(Guid ChildChatId, string Phas
 
 public sealed record OrchestrationAgentTokenEvent(Guid ChildChatId, string Text) : OrchestrationEvent;
 
+public sealed record OrchestrationAgentThoughtEvent(Guid ChildChatId, string Text) : OrchestrationEvent;
+
 public sealed record OrchestrationAgentToolEvent(Guid ChildChatId, string Label) : OrchestrationEvent;
 
 public sealed record OrchestrationAgentDoneEvent(

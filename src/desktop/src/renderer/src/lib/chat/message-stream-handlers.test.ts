@@ -43,6 +43,7 @@ describe('createMessageStreamHandlers', () => {
       chatId: 'chat-1',
       updateAssistantMessage,
       appendMarker: vi.fn(),
+      appendThought: vi.fn(),
       clearMarkers: vi.fn(),
       notifyAgentActivity: vi.fn()
     })
@@ -80,6 +81,7 @@ describe('createMessageStreamHandlers', () => {
       chatId: 'chat-1',
       updateAssistantMessage,
       appendMarker: vi.fn(),
+      appendThought: vi.fn(),
       clearMarkers: vi.fn(),
       notifyAgentActivity: vi.fn()
     })
@@ -93,5 +95,31 @@ describe('createMessageStreamHandlers', () => {
     ) => ChatMessage
     expect(tokenUpdater(makeMessage('Hi')).content).toBe('Hi there')
     expect(updateAssistantMessage.mock.calls[1][2](makeMessage('Hi there')).status).toBe('complete')
+  })
+
+  it('routes thought deltas to appendThought after flushing tokens', () => {
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      vi.fn((callback: FrameRequestCallback) => {
+        void callback
+        return 1
+      })
+    )
+    vi.stubGlobal('cancelAnimationFrame', vi.fn())
+
+    const appendThought = vi.fn()
+    const handlers = createMessageStreamHandlers({
+      isActiveTurn: () => true,
+      assistantMessageId: 'assistant-1',
+      chatId: 'chat-1',
+      updateAssistantMessage: vi.fn(),
+      appendMarker: vi.fn(),
+      appendThought,
+      clearMarkers: vi.fn(),
+      notifyAgentActivity: vi.fn()
+    })
+
+    handlers.onThought?.('Considering the files…')
+    expect(appendThought).toHaveBeenCalledWith('chat-1', 'Considering the files…')
   })
 })

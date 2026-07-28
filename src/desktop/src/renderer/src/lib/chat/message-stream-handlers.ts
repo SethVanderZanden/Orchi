@@ -13,6 +13,7 @@ type CreateMessageStreamHandlersOptions = {
     updater: (message: ChatMessage) => ChatMessage
   ) => void
   appendMarker: (chatId: string, marker: ChatMarker) => void
+  appendThought: (chatId: string, text: string) => void
   clearMarkers: (chatId: string) => void
   notifyAgentActivity: (detail: AgentActivityDetail) => void
 }
@@ -23,6 +24,7 @@ export function createMessageStreamHandlers({
   chatId,
   updateAssistantMessage,
   appendMarker,
+  appendThought,
   clearMarkers,
   notifyAgentActivity
 }: CreateMessageStreamHandlersOptions): SseHandlers {
@@ -41,6 +43,14 @@ export function createMessageStreamHandlers({
       }
 
       tokens.push(text)
+    },
+    onThought: (text) => {
+      if (!isActiveTurn() || !text) {
+        return
+      }
+
+      tokens.flush()
+      appendThought(chatId, text)
     },
     onTool: (label) => {
       if (!isActiveTurn()) {

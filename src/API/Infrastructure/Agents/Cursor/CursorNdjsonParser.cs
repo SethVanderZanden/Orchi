@@ -64,6 +64,14 @@ internal sealed class CursorNdjsonParser : IAgentStreamLineParser
 
                     break;
 
+                case "thinking":
+                    foreach (AgentEvent thought in ParseThinkingEvent(root))
+                    {
+                        yield return thought;
+                    }
+
+                    break;
+
                 case "result":
                     foreach (AgentEvent completed in ParseResultEvent(root))
                     {
@@ -126,15 +134,51 @@ internal sealed class CursorNdjsonParser : IAgentStreamLineParser
 
         foreach (JsonElement part in contentElement.EnumerateArray())
         {
-            if (part.TryGetProperty("text", out JsonElement textElement))
+            if (!part.TryGetProperty("text", out JsonElement textElement))
             {
-                string? text = textElement.GetString();
-                if (!string.IsNullOrEmpty(text))
-                {
-                    yield return new AgentTextDeltaEvent(text);
-                }
+                continue;
+            }
+
+            string? text = textElement.GetString();
+            if (string.IsNullOrEmpty(text))
+            {
+                continue;
+            }
+
+            string? partType = part.TryGetProperty("type", out JsonElement typeElement)
+                ? typeElement.GetString()
+                : null;
+
+            if (string.Equals(partType, "thinking", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(partType, "reasoning", StringComparison.OrdinalIgnoreCase))
+            {
+                yield return new AgentThoughtDeltaEvent(text);
+                continue;
+            }
+
+            // Missing type defaults to assistant text (Cursor stream-json often omits it).
+            if (partType is null
+                || string.Equals(partType, "text", StringComparison.OrdinalIgnoreCase))
+            {
+                yield return new AgentTextDeltaEvent(text);
             }
         }
+    }
+
+    private static IEnumerable<AgentEvent> ParseThinkingEvent(JsonElement root)
+    {
+        if (!root.TryGetProperty("text", out JsonElement textElement))
+        {
+            yield break;
+        }
+
+        string? text = textElement.GetString();
+        if (string.IsNullOrEmpty(text))
+        {
+            yield break;
+        }
+
+        yield return new AgentThoughtDeltaEvent(text);
     }
 
     private static IEnumerable<AgentEvent> ParseSystemEvent(JsonElement root)

@@ -471,6 +471,9 @@ function dispatchChatSseEvent(
     case 'token':
       handlers.onToken?.(String(payload.text ?? ''))
       break
+    case 'thought':
+      handlers.onThought?.(String(payload.text ?? ''))
+      break
     case 'tool':
       handlers.onTool?.(String(payload.label ?? 'tool'))
       break
