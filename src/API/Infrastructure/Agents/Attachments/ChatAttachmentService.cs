@@ -1,4 +1,3 @@
-using System.Text;
 using Microsoft.Extensions.Options;
 using Orchi.Api.Common.Results;
 using Orchi.Api.Infrastructure.Agents.Attachments.Models;
@@ -265,35 +264,36 @@ public sealed class ChatAttachmentService(
         return new AgentAttachmentContext(promptItems, imagePaths);
     }
 
-    private async Task<string?> TryExtractTextAsync(
+    private Task<string?> TryExtractTextAsync(
         string fileName,
         string contentType,
         string blobPath,
         CancellationToken cancellationToken)
     {
-        if (AttachmentPaths.IsImageContentType(contentType))
+        if (!AttachmentTextExtractor.IsExtractableDocument(fileName, contentType))
         {
-            return null;
+            return Task.FromResult<string?>(null);
         }
 
-        string extension = Path.GetExtension(fileName).ToLowerInvariant();
-        bool isTextLike = contentType.StartsWith("text/", StringComparison.OrdinalIgnoreCase)
-            || extension is ".csv" or ".txt" or ".md" or ".json" or ".xml" or ".yaml" or ".yml" or ".log";
-
-        if (!isTextLike)
+        try
         {
-            return null;
-        }
+            string? text = AttachmentTextExtractor.Extract(fileName, contentType, blobPath);
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return Task.FromResult<string?>(null);
+            }
 
-        await using FileStream stream = File.OpenRead(blobPath);
-        using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
-        string text = await reader.ReadToEndAsync(cancellationToken);
-        if (string.IsNullOrWhiteSpace(text))
+            return Task.FromResult<string?>(TruncateExtractedText(text));
+        }
+        catch (Exception ex)
         {
-            return null;
+            logger.LogWarning(
+                ex,
+                "Failed to extract text from attachment {FileName} ({ContentType})",
+                fileName,
+                contentType);
+            return Task.FromResult<string?>(null);
         }
-
-        return TruncateExtractedText(text.Trim());
     }
 
     private string TruncateExtractedText(string text) =>

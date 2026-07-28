@@ -113,6 +113,54 @@ public sealed class ChatAttachmentServiceTests : IDisposable
         }
     }
 
+    [Fact]
+    public async Task StageUploadAsync_extracts_text_from_pdf()
+    {
+        var store = new InMemoryChatAttachmentStore();
+        ChatAttachmentService service = CreateService(store);
+        Guid chatId = Guid.NewGuid();
+        string pdfPath = await AttachmentTestFiles.WriteMinimalPdfAsync(_blobRoot);
+
+        await using FileStream stream = File.OpenRead(pdfPath);
+        Result<StoredAttachment> staged = await service.StageUploadAsync(
+            chatId,
+            "report.pdf",
+            "application/pdf",
+            stream.Length,
+            stream,
+            CancellationToken.None);
+
+        Assert.True(staged.IsSuccess);
+        Assert.NotNull(staged.Value.ExtractedText);
+        Assert.Contains("Hello PDF", staged.Value.ExtractedText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task StageUploadAsync_extracts_text_from_excel()
+    {
+        var store = new InMemoryChatAttachmentStore();
+        ChatAttachmentService service = CreateService(store);
+        Guid chatId = Guid.NewGuid();
+        string xlsxPath = AttachmentTestFiles.WriteMinimalXlsx(
+            _blobRoot,
+            ("Metrics", [["name", "value"], ["alpha", "1"]]));
+
+        await using FileStream stream = File.OpenRead(xlsxPath);
+        Result<StoredAttachment> staged = await service.StageUploadAsync(
+            chatId,
+            "metrics.xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            stream.Length,
+            stream,
+            CancellationToken.None);
+
+        Assert.True(staged.IsSuccess);
+        Assert.NotNull(staged.Value.ExtractedText);
+        Assert.Contains("Metrics", staged.Value.ExtractedText, StringComparison.Ordinal);
+        Assert.Contains("alpha", staged.Value.ExtractedText, StringComparison.Ordinal);
+        Assert.Contains("1", staged.Value.ExtractedText, StringComparison.Ordinal);
+    }
+
     private ChatAttachmentService CreateService(IChatAttachmentStore store) =>
         new(
             store,
