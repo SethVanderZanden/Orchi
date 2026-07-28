@@ -10,12 +10,13 @@ import { groupBoardChats } from '@/lib/agents-sidebar/group-board-chats'
 import { mapChatStatusToVariant } from '@/lib/chat/chat-status-variant'
 import type { ChatStatus, ChatThread } from '@/lib/chat/types'
 import { filterBoardChats } from '@/lib/kanban/board-filters'
+import { isChildRunning } from '@/lib/orchestration/plan-review-visibility'
 import { useChat } from '@/providers/chat-context'
 import { useChatTabs } from '@/providers/chat-tabs-provider'
 import { useProjects } from '@/providers/project-provider'
 
 export function AgentsSidebarContent(): React.JSX.Element {
-  const { chats, isLoadingChats, isChatSending, isParentKickingOffAny } = useChat()
+  const { chats, isLoadingChats, isChatSending, isParentKickingOffAny, getChat } = useChat()
   const { openChat, openChatInSplit, activeTabId, splitTabId } = useChatTabs()
   const { requestDelete, isDeletingChat } = useDeleteChat()
   const { projects } = useProjects()
@@ -32,9 +33,14 @@ export function AgentsSidebarContent(): React.JSX.Element {
         return 'inProgress'
       }
 
+      const resolved = getChat(chat.id) ?? chat
+      if (isChildRunning(resolved)) {
+        return 'inProgress'
+      }
+
       return chat.status
     },
-    [isChatSending, isParentKickingOffAny]
+    [getChat, isChatSending, isParentKickingOffAny]
   )
 
   const grouped = useMemo(
