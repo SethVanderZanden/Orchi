@@ -27,7 +27,32 @@ public sealed class GitWorkspaceDiffProvider : IWorkspaceDiffProvider
         }
 
         string revision = RunGit(workspacePath, "rev-parse", "HEAD").Trim();
-        return string.IsNullOrWhiteSpace(revision) ? null : revision;
+        return string.IsNullOrWhiteSpace(revision) || LooksLikeGitError(revision) ? null : revision;
+    }
+
+    /// <summary>
+    /// Fingerprint of uncommitted tracked + untracked paths so branch-diff cache
+    /// invalidates when the working tree changes without a new commit.
+    /// </summary>
+    internal static string TryGetWorkingTreeFingerprint(string workspacePath)
+    {
+        if (string.IsNullOrWhiteSpace(workspacePath) || !Directory.Exists(workspacePath))
+        {
+            return "clean";
+        }
+
+        if (!IsGitRepository(workspacePath))
+        {
+            return "clean";
+        }
+
+        string porcelain = RunGit(workspacePath, "status", "--porcelain", "-uall").Trim();
+        if (string.IsNullOrWhiteSpace(porcelain) || LooksLikeGitError(porcelain))
+        {
+            return "clean";
+        }
+
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(porcelain)))[..16];
     }
 
     public string GetDiff(string workspacePath)
@@ -111,24 +136,98 @@ public sealed class GitWorkspaceDiffProvider : IWorkspaceDiffProvider
 
         string range = $"{baseRef}...{headRef}";
         string threeDot = RunGit(workspacePath, "diff", "--no-color", range);
+        string? committed = null;
+        string committedSource = $"git diff {range}";
+
         if (!string.IsNullOrWhiteSpace(threeDot) && !LooksLikeGitError(threeDot))
         {
-            return FormatSection($"git diff {range}", Truncate(threeDot));
+            committed = threeDot;
+        }
+        else
+        {
+            string twoDotRange = $"{baseRef}..{headRef}";
+            string twoDot = RunGit(workspacePath, "diff", "--no-color", twoDotRange);
+            if (!string.IsNullOrWhiteSpace(twoDot) && !LooksLikeGitError(twoDot))
+            {
+                committed = twoDot;
+                committedSource = $"git diff {twoDotRange}";
+            }
+            else if (!string.IsNullOrWhiteSpace(threeDot) && LooksLikeGitError(threeDot))
+            {
+                return $"Failed to compute branch diff for {range}: {threeDot.Trim()}";
+            }
         }
 
-        string twoDotRange = $"{baseRef}..{headRef}";
-        string twoDot = RunGit(workspacePath, "diff", "--no-color", twoDotRange);
-        if (!string.IsNullOrWhiteSpace(twoDot) && !LooksLikeGitError(twoDot))
+        // Branch-pair reviews often run in the head worktree. Tip-only diffs miss uncommitted
+        // tracked edits (and untracked files) when HEAD matches head — the common "agent edited
+        // but did not commit" case that previously reported "No changes detected".
+        string workingTree = string.Empty;
+        if (WorkspaceHeadMatchesRef(workspacePath, headRef))
         {
-            return FormatSection($"git diff {twoDotRange}", Truncate(twoDot));
+            workingTree = BuildWorkingTreeDiff(workspacePath);
         }
 
-        if (!string.IsNullOrWhiteSpace(threeDot))
+        string combined = CombineDiffParts(committed ?? string.Empty, workingTree);
+        if (!string.IsNullOrWhiteSpace(combined))
         {
-            return $"Failed to compute branch diff for {range}: {threeDot.Trim()}";
+            return FormatSection(
+                DescribeBranchDiffSource(committed, workingTree, committedSource),
+                Truncate(combined));
         }
 
         return $"No changes detected between `{baseRef}` and `{headRef}`.";
+    }
+
+    /// <summary>
+    /// Uncommitted tracked + untracked changes only (never falls back to <c>git show HEAD</c>).
+    /// </summary>
+    private static string BuildWorkingTreeDiff(string workspacePath)
+    {
+        string uncommitted = RunGit(workspacePath, "diff", "HEAD");
+        if (LooksLikeGitError(uncommitted))
+        {
+            uncommitted = string.Empty;
+        }
+
+        string untracked = BuildUntrackedDiff(workspacePath);
+        return CombineDiffParts(uncommitted, untracked);
+    }
+
+    private static bool WorkspaceHeadMatchesRef(string workspacePath, string branchRef)
+    {
+        string headSha = RunGit(workspacePath, "rev-parse", "HEAD").Trim();
+        if (string.IsNullOrWhiteSpace(headSha) || LooksLikeGitError(headSha))
+        {
+            return false;
+        }
+
+        string branchSha = RunGit(workspacePath, "rev-parse", branchRef).Trim();
+        if (string.IsNullOrWhiteSpace(branchSha) || LooksLikeGitError(branchSha))
+        {
+            return false;
+        }
+
+        return string.Equals(headSha, branchSha, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string DescribeBranchDiffSource(
+        string? committed,
+        string workingTree,
+        string committedSource)
+    {
+        bool hasCommitted = !string.IsNullOrWhiteSpace(committed);
+        bool hasWorkingTree = !string.IsNullOrWhiteSpace(workingTree);
+        if (hasCommitted && hasWorkingTree)
+        {
+            return $"{committedSource} (+ working tree)";
+        }
+
+        if (hasWorkingTree)
+        {
+            return $"{committedSource} (working tree only)";
+        }
+
+        return committedSource;
     }
 
     private static bool LooksLikeGitError(string output)

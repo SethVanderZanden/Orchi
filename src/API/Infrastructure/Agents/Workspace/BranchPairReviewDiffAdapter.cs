@@ -4,7 +4,8 @@ using Orchi.Api.Infrastructure.Agents.Plans;
 namespace Orchi.Api.Infrastructure.Agents.Workspace;
 
 /// <summary>
-/// PR-style review: three-dot diff from the <c>orchi-branch-review</c> brief marker.
+/// PR-style review: three-dot diff from the <c>orchi-branch-review</c> brief marker,
+/// plus uncommitted working-tree changes when the workspace is checked out to head.
 /// </summary>
 public sealed class BranchPairReviewDiffAdapter(IWorkspaceDiffProvider diffProvider) : IReviewDiffAdapter
 {

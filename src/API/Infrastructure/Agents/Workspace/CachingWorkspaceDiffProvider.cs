@@ -31,12 +31,14 @@ public sealed class CachingWorkspaceDiffProvider(
     public string GetBranchDiff(string workspacePath, string baseBranch, string headBranch)
     {
         string? headRevision = GitWorkspaceDiffProvider.TryGetHeadRevision(workspacePath);
+        string workingTreeFingerprint = GitWorkspaceDiffProvider.TryGetWorkingTreeFingerprint(workspacePath);
         string normalizedPath = Path.GetFullPath(workspacePath);
         string cacheKey = OrchiCacheKeys.WorkspaceBranchDiff(
             normalizedPath,
             baseBranch.Trim(),
             headBranch.Trim(),
-            headRevision ?? "unknown");
+            headRevision ?? "unknown",
+            workingTreeFingerprint);
 
         return cache.GetOrCreateAsync(
                 cacheKey,

@@ -140,6 +140,96 @@ public class GitWorkspaceDiffProviderTests : IDisposable
     }
 
     [Fact]
+    public void GetBranchDiff_WhenTipsEqual_IncludesTrackedWorkingTreeChanges()
+    {
+        if (!IsGitAvailable())
+        {
+            return;
+        }
+
+        InitializeRepoWithCommit();
+        string baseBranch = RunGitOutput("branch", "--show-current").Trim();
+        RunGit("checkout", "-b", "orchi/feature");
+        File.AppendAllText(Path.Combine(_workspacePath, "tracked.txt"), "roster-state fix\n");
+
+        string diff = _provider.GetBranchDiff(_workspacePath, baseBranch, "orchi/feature");
+
+        Assert.DoesNotContain("No changes detected", diff);
+        Assert.Contains("working tree only", diff);
+        Assert.Contains("tracked.txt", diff);
+        Assert.Contains("roster-state fix", diff);
+    }
+
+    [Fact]
+    public void GetBranchDiff_WhenTipsEqual_IncludesUntrackedWorkingTreeChanges()
+    {
+        if (!IsGitAvailable())
+        {
+            return;
+        }
+
+        InitializeRepoWithCommit();
+        string baseBranch = RunGitOutput("branch", "--show-current").Trim();
+        RunGit("checkout", "-b", "orchi/feature");
+        File.WriteAllText(Path.Combine(_workspacePath, "RosterState.test.tsx"), "describe('roster')\n");
+
+        string diff = _provider.GetBranchDiff(_workspacePath, baseBranch, "orchi/feature");
+
+        Assert.DoesNotContain("No changes detected", diff);
+        Assert.Contains("working tree only", diff);
+        Assert.Contains("RosterState.test.tsx", diff);
+        Assert.Contains("describe('roster')", diff);
+    }
+
+    [Fact]
+    public void GetBranchDiff_WhenCommittedAndDirty_IncludesBoth()
+    {
+        if (!IsGitAvailable())
+        {
+            return;
+        }
+
+        InitializeRepoWithCommit();
+        string baseBranch = RunGitOutput("branch", "--show-current").Trim();
+        RunGit("checkout", "-b", "orchi/feature");
+        File.WriteAllText(Path.Combine(_workspacePath, "committed.txt"), "committed\n");
+        RunGit("add", "committed.txt");
+        RunGit("-c", "user.email=test@example.com", "-c", "user.name=Test", "commit", "-m", "feature commit");
+        File.AppendAllText(Path.Combine(_workspacePath, "tracked.txt"), "wip\n");
+
+        string diff = _provider.GetBranchDiff(_workspacePath, baseBranch, "orchi/feature");
+
+        Assert.Contains("+ working tree", diff);
+        Assert.Contains("committed.txt", diff);
+        Assert.Contains("tracked.txt", diff);
+        Assert.Contains("wip", diff);
+    }
+
+    [Fact]
+    public void GetBranchDiff_WhenWorkspaceNotOnHead_IgnoresLocalWorkingTree()
+    {
+        if (!IsGitAvailable())
+        {
+            return;
+        }
+
+        InitializeRepoWithCommit();
+        string baseBranch = RunGitOutput("branch", "--show-current").Trim();
+        RunGit("checkout", "-b", "orchi/feature");
+        File.WriteAllText(Path.Combine(_workspacePath, "feature.txt"), "feature\n");
+        RunGit("add", "feature.txt");
+        RunGit("-c", "user.email=test@example.com", "-c", "user.name=Test", "commit", "-m", "feature");
+        RunGit("checkout", baseBranch);
+        File.AppendAllText(Path.Combine(_workspacePath, "tracked.txt"), "local-only-on-base\n");
+
+        string diff = _provider.GetBranchDiff(_workspacePath, baseBranch, "orchi/feature");
+
+        Assert.Contains("feature.txt", diff);
+        Assert.DoesNotContain("local-only-on-base", diff);
+        Assert.DoesNotContain("working tree", diff);
+    }
+
+    [Fact]
     public void Truncate_AppendsNoticeWhenDiffTooLarge()
     {
         string large = new string('a', GitWorkspaceDiffProvider.MaxDiffChars + 10);

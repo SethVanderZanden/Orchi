@@ -9,8 +9,9 @@ public static class OrchiCacheKeys
         string normalizedWorkspacePath,
         string baseBranch,
         string headBranch,
-        string gitHeadRevision) =>
-        $"workspace-branch-diff:{NormalizePath(normalizedWorkspacePath)}:{baseBranch}:{headBranch}:{gitHeadRevision}";
+        string gitHeadRevision,
+        string workingTreeFingerprint = "clean") =>
+        $"workspace-branch-diff:{NormalizePath(normalizedWorkspacePath)}:{baseBranch}:{headBranch}:{gitHeadRevision}:{workingTreeFingerprint}";
 
     public static string CursorExecutable(string configFingerprint) =>
         $"cursor-exec:{configFingerprint}";
