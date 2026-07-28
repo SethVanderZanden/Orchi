@@ -65,7 +65,7 @@ export function ScriptsSettingsCard(): React.JSX.Element {
   const defaultsMutation = useMutation({
     mutationFn: () => applyOrchestrationGitDefaults(projectId),
     onSuccess: async () => {
-      toast.success('Orchestration git defaults applied (worktree on start + commit/push/PR)')
+      toast.success('Orchestration git defaults applied (push and PR on finish)')
       await invalidate()
     },
     onError: (error: Error) => toast.error(error.message)

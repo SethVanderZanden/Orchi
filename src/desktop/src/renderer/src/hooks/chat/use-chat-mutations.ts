@@ -14,6 +14,10 @@ import { createLocalDraftChat } from '@/lib/chat/create-local-draft'
 import { isLocalChat } from '@/lib/chat/chat-persistence'
 import { registerChatIdMigrator } from '@/lib/chat/migrate-chat-client-state'
 import {
+  initializeWorktreeIntentForNewChat,
+  syncWorktreeIntentWithMode
+} from '@/lib/chat/worktree-intent'
+import {
   listModeRuntimeDefaults,
   resolveModeRuntimeDefault
 } from '@/lib/chat/mode-runtime-defaults-api'
@@ -227,6 +231,13 @@ export function useChatMutations({
       }
     },
     onSuccess: (chat, variables) => {
+      const projects = queryClient.getQueryData<Project[]>(projectKeys.lists()) ?? []
+      const project =
+        projects.find((entry) => entry.id === chat.projectId) ??
+        (chat.projectId ? findProjectForWorkspace(projects, chat.workspaceId) : undefined)
+
+      initializeWorktreeIntentForNewChat(chat.id, project ?? null, chat.mode)
+
       queryClient.setQueryData<ChatThread[]>(chatKeys.lists(), (current = []) => [chat, ...current])
       queryClient.setQueryData(chatKeys.detail(chat.id), chat)
       setSearchQuery('')
@@ -339,6 +350,16 @@ export function useChatMutations({
             }
           : {})
       })
+
+      if (currentChat && currentChat.messages.length === 0) {
+        const projects = queryClient.getQueryData<Project[]>(projectKeys.lists()) ?? []
+        const project =
+          projects.find((entry) => entry.id === currentChat.projectId) ??
+          (currentChat.projectId
+            ? findProjectForWorkspace(projects, currentChat.workspaceId)
+            : undefined)
+        syncWorktreeIntentWithMode(chatId, project ?? null, mode)
+      }
 
       setModeUpdateErrorByChat((current) => {
         if (!(chatId in current)) {

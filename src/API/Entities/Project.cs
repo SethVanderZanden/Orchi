@@ -16,7 +16,7 @@ public class Project
 
     public GitHostProvider GitHostProvider { get; set; } = GitHostProvider.GitHub;
 
-    /// <summary>When true, plan kickoff provisions an isolated git worktree workspace.</summary>
+    /// <summary>When true, new chats default to worktree on and plan kickoff provisions an isolated git worktree workspace.</summary>
     public bool UseWorktreeOnKickoff { get; set; } = true;
 
     public DateTimeOffset CreatedAt { get; set; }

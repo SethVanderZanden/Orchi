@@ -209,15 +209,16 @@ function ProjectGitSettings({
         />
         <p className="text-xs text-muted-foreground">
           Tokens: {'{date}'}, {'{time}'}, {'{shortId}'}, {'{chatId}'}, {'{mode}'}. Used when a
-          worktree is created from chat or an AgentStart script.
+          worktree is created from a new chat or plan kickoff.
         </p>
       </div>
 
       <div className="flex items-center justify-between gap-3">
         <div className="space-y-0.5">
-          <p className="text-sm font-medium">Worktree on plan kickoff</p>
+          <p className="text-sm font-medium">Worktrees by default</p>
           <p className="text-xs text-muted-foreground">
-            Create an isolated worktree workspace for each implementation plan.
+            Enable the worktree toggle on new chats and create an isolated worktree for each
+            implementation plan kickoff.
           </p>
         </div>
         <Button
