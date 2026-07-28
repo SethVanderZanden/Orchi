@@ -85,11 +85,13 @@ public sealed class EfChatAttachmentStore(IDbContextFactory<AppDbContext> dbCont
         List<ChatMessageAttachment> entities = await db.ChatMessageAttachments
             .AsNoTracking()
             .Where(attachment => attachment.ChatId == chatId)
-            .OrderBy(attachment => attachment.CreatedAt)
-            .ThenBy(attachment => attachment.Ordinal)
             .ToListAsync(cancellationToken);
 
-        return entities.Select(ToStored).ToArray();
+        return entities
+            .OrderBy(attachment => attachment.CreatedAt)
+            .ThenBy(attachment => attachment.Ordinal)
+            .Select(ToStored)
+            .ToArray();
     }
 
     public async Task<IReadOnlyList<StoredAttachment>> ListByMessageAsync(

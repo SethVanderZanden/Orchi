@@ -369,7 +369,7 @@ export function ChatPanel({
       key={chatId}
       chatId={chatId}
       autoFocus={isNewRootChat}
-      disabled={isSending}
+      isProcessing={isSending}
       onSend={onSend}
       expanded={isNewRootChat}
       mode={mode}
