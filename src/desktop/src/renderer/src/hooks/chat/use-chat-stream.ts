@@ -114,6 +114,38 @@ export function useChatStream({
     }))
   }, [])
 
+  const appendThought = useCallback((chatId: string, text: string) => {
+    if (!text) {
+      return
+    }
+
+    setMarkersByChat((current) => {
+      const markers = current[chatId] ?? []
+      const last = markers[markers.length - 1]
+      if (last?.variant === 'thought') {
+        return {
+          ...current,
+          [chatId]: [
+            ...markers.slice(0, -1),
+            { ...last, content: `${last.content}${text}` }
+          ]
+        }
+      }
+
+      return {
+        ...current,
+        [chatId]: [
+          ...markers,
+          {
+            id: crypto.randomUUID(),
+            content: text,
+            variant: 'thought'
+          }
+        ]
+      }
+    })
+  }, [])
+
   const clearMarkers = useCallback((chatId: string) => {
     setMarkersByChat((current) => {
       if (!(chatId in current)) {
@@ -351,6 +383,7 @@ export function useChatStream({
             chatId: resolvedChatId,
             updateAssistantMessage,
             appendMarker,
+            appendThought,
             clearMarkers,
             notifyAgentActivity
           }),
@@ -424,6 +457,7 @@ export function useChatStream({
       abortStream,
       activeChatId,
       appendMarker,
+      appendThought,
       applyPostMessageBehavior,
       clearMarkers,
       finalizeInterruptedAssistant,

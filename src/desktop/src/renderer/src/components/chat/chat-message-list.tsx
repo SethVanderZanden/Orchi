@@ -134,13 +134,18 @@ const ChatMessageRow = memo(function ChatMessageRow({
     )
   }
 
-  const toolMarkers = markers.filter((marker) => marker.variant === 'tool')
+  const activityMarkers = markers.filter(
+    (marker) => marker.variant === 'tool' || marker.variant === 'thought'
+  )
   const isRunning = markers.some((item) => item.variant === 'status')
-  const toolCalls = toolMarkers.map((marker, index) => ({
+  const toolCalls = activityMarkers.map((marker, index) => ({
     key: marker.id,
     label: marker.content,
+    kind: marker.variant === 'thought' ? ('thought' as const) : ('tool' as const),
     status:
-      isRunning && index === toolMarkers.length - 1 ? ('running' as const) : ('complete' as const)
+      isRunning && index === activityMarkers.length - 1
+        ? ('running' as const)
+        : ('complete' as const)
   }))
 
   return (

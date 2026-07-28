@@ -46,6 +46,10 @@ internal static class ChatSseWriter
                 await WriteEventAsync(stream, "token", new SseTokenPayload(delta.Text), cancellationToken);
                 break;
 
+            case AgentThoughtDeltaEvent thought:
+                await WriteEventAsync(stream, "thought", new SseThoughtPayload(thought.Text), cancellationToken);
+                break;
+
             case AgentToolEvent tool:
                 await WriteEventAsync(
                     stream,

@@ -17,7 +17,7 @@ Desktop  →  AgentSessionManager  →  CodexAgentAdapter  →  codex exec --jso
 | Chef | `CodexAgentAdapter` (`AgentId => "codex"`) |
 | Recipe card | `--model` + `-c model_context_window=N` + `-c model_reasoning_effort=…` (no `approval_policy`; exec is headless) |
 | Ticket number | `thread_id` stored as `ExternalSessionId` |
-| Plated courses | `AgentTextDeltaEvent`, `AgentToolEvent`, `AgentCompletedEvent` |
+| Plated courses | `AgentTextDeltaEvent`, `AgentThoughtDeltaEvent`, `AgentToolEvent`, `AgentCompletedEvent` |
 
 **Aha:** one chat picks the chef and the recipe knobs; Orchi turns those into Codex `-c` overrides without you typing the CLI by hand. In Codex you see “5.6 Terra Medium”; in Orchi that is **model** `gpt-5.6-terra` + **reasoning** `medium`.
 
@@ -135,11 +135,16 @@ Parser: `src/API/Infrastructure/Agents/Codex/CodexNdjsonParser.cs`
 |--------------|--------------------|
 | `thread.started` | `AgentSessionStartedEvent` (`thread_id`) |
 | `turn.started` | `AgentToolEvent` (`Working…`) |
-| `item.completed` + `agent_message` / `assistant_message` | `AgentTextDeltaEvent` |
+| `item.*` + `agent_message` / `assistant_message` | `AgentTextDeltaEvent` (incremental via cached text) |
+| `item.*` + `reasoning` | `AgentThoughtDeltaEvent` (`item.text`, when present) |
 | `item.started` + tool-like items | `AgentToolEvent` |
 | `turn.completed` | `AgentCompletedEvent` |
 | `turn.failed` / fatal errors | `AgentErrorEvent` |
 | `error` (transient reconnect) | ignored (wait for `turn.failed`) |
+
+### Reasoning / thoughts
+
+Codex emits `item.type: "reasoning"` with a `text` summary when reasoning summaries are enabled (often as `item.completed` only). Orchi maps that text to `AgentThoughtDeltaEvent` → SSE `thought`, rendered as muted scrollable activity rows — not the main assistant bubble.
 
 ## Models and context sizes
 
