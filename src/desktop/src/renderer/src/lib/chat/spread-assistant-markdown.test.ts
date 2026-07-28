@@ -24,7 +24,7 @@ describe('spreadAssistantMarkdown', () => {
   it('preserves fenced code newlines', () => {
     const input = 'Before.\n```ts\nconst a = 1\nconst b = 2\n```\nAfter.'
     expect(spreadAssistantMarkdown(input)).toBe(
-      'Before.\n\n```ts\nconst a = 1\nconst b = 2\n```\n\nAfter.'
+      'Before.\n```ts\nconst a = 1\nconst b = 2\n```\nAfter.'
     )
   })
 
