@@ -28,18 +28,20 @@ export function OrchiChatMessageList({
   markers,
   mode,
   hideEmptyState = false
-}: ChatMessageListProps): React.JSX.Element {
+}: ChatMessageListProps): React.JSX.Element | null {
   if (messages.length === 0 && markers.length === 0) {
     if (hideEmptyState) {
-      return <div className="min-h-0" />
+      return null
     }
 
     return (
-      <EmptyState
-        title="Start a conversation"
-        description="Ask Orchi to help with coding tasks in your workspace."
-        icon={<MessageSquare className="size-8" />}
-      />
+      <MessageScrollerItem messageId="empty-state">
+        <EmptyState
+          title="Start a conversation"
+          description="Ask Orchi to help with coding tasks in your workspace."
+          icon={<MessageSquare className="size-8" />}
+        />
+      </MessageScrollerItem>
     )
   }
 
@@ -50,7 +52,7 @@ export function OrchiChatMessageList({
   const activeMarkers = isActiveTurn && markers.length > 0 ? markers : EMPTY_MARKERS
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-7 px-6 py-8">
+    <>
       {messages.map((message, index) => {
         const rowMarkers = index === lastAssistantIndex ? activeMarkers : EMPTY_MARKERS
         const display = getChatMessageDisplayState({ message, mode, rowMarkers })
@@ -60,7 +62,11 @@ export function OrchiChatMessageList({
         }
 
         return (
-          <MessageScrollerItem key={message.id} scrollAnchor={message.role === 'user'}>
+          <MessageScrollerItem
+            key={message.id}
+            messageId={message.id}
+            scrollAnchor={message.role === 'user'}
+          >
             <ChatMessageRow
               message={message}
               displayContent={display.displayContent}
@@ -73,7 +79,7 @@ export function OrchiChatMessageList({
           </MessageScrollerItem>
         )
       })}
-    </div>
+    </>
   )
 }
 
