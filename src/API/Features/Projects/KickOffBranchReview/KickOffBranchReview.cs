@@ -19,7 +19,8 @@ public static class KickOffBranchReview
         Guid ProjectId,
         string HeadBranch,
         string? BaseBranch,
-        bool Fetch) : ICommand<KickOffBranchReviewResponse>;
+        bool Fetch,
+        Guid? WorkspaceId) : ICommand<KickOffBranchReviewResponse>;
 
     internal sealed class Handler(
         IProjectStore projectStore,
@@ -48,6 +49,19 @@ public static class KickOffBranchReview
                     Error.Validation("Workspace.Missing", "Project has no workspace."));
             }
 
+            Workspace? reviewWorkspace = primary;
+            if (command.WorkspaceId is Guid requestedWorkspaceId)
+            {
+                reviewWorkspace = project.Workspaces.FirstOrDefault(workspace => workspace.Id == requestedWorkspaceId);
+                if (reviewWorkspace is null)
+                {
+                    return Result.Failure<KickOffBranchReviewResponse>(
+                        Error.Validation(
+                            "Workspace.NotFound",
+                            $"Workspace '{requestedWorkspaceId}' was not found for this project."));
+                }
+            }
+
             string headBranch = command.HeadBranch.Trim();
             string baseBranch = string.IsNullOrWhiteSpace(command.BaseBranch)
                 ? project.DefaultBaseBranch
@@ -65,7 +79,7 @@ public static class KickOffBranchReview
             {
                 if (command.Fetch)
                 {
-                    await gitWorkspaceService.FetchAsync(primary.Path, cancellationToken);
+                    await gitWorkspaceService.FetchAsync(reviewWorkspace.Path, cancellationToken);
                 }
 
                 string reviewId = ReviewBriefBuilder.ToBranchReviewId(headBranch);
@@ -79,13 +93,13 @@ public static class KickOffBranchReview
                     artifactWriterFactory.GetStrategy(OrchiArtifactKind.Review);
 
                 string reviewFilePath = await reviewWriter.WriteAsync(
-                    primary.Path,
+                    reviewWorkspace.Path,
                     reviewId,
                     reviewBrief,
                     cancellationToken);
 
                 Result<ChatSession> reviewChatResult = await sessionManager.CreateSessionAsync(
-                    primary.Id,
+                    reviewWorkspace.Id,
                     mode: ReviewAgentModeStrategy.Mode,
                     planFilePath: reviewFilePath,
                     cancellationToken: cancellationToken);
@@ -151,7 +165,12 @@ public static class KickOffBranchReview
             CancellationToken cancellationToken)
         {
             Result<KickOffBranchReviewResponse> result = await handler.Handle(
-                new Command(projectId, request.HeadBranch, request.BaseBranch, request.Fetch ?? true),
+                new Command(
+                    projectId,
+                    request.HeadBranch,
+                    request.BaseBranch,
+                    request.Fetch ?? true,
+                    request.WorkspaceId),
                 cancellationToken);
 
             if (result.IsSuccess)

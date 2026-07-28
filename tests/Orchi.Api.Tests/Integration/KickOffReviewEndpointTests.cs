@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Orchi.Api.Features.Chats.Shared;
+using Orchi.Api.Features.Projects.CreateWorktree;
 using Orchi.Api.Features.Projects.Shared;
 using Orchi.Api.Infrastructure.Agents;
 using Orchi.Api.Infrastructure.Agents.Modes;
@@ -208,6 +209,107 @@ public class KickOffReviewEndpointTests : IClassFixture<TestWebApplicationFactor
                 try
                 {
                     Directory.Delete(worktreeWorkspacePath, recursive: true);
+                }
+                catch (IOException)
+                {
+                }
+                catch (UnauthorizedAccessException)
+                {
+                }
+            }
+        }
+    }
+
+    [Fact]
+    public async Task KickOffReview_AfterImplementationWorkspaceSwitch_UsesImplementationWorkspace()
+    {
+        if (!IsGitAvailable())
+        {
+            return;
+        }
+
+        string repoPath = Path.Combine(Path.GetTempPath(), $"orchi-review-switch-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(repoPath);
+
+        try
+        {
+            InitializeGitRepo(repoPath);
+
+            HttpResponseMessage projectResponse = await _client.PostAsJsonAsync(
+                "/projects",
+                new CreateProjectRequest("Switched Review Project", repoPath));
+
+            CreateProjectResponse? project = await projectResponse.Content.ReadFromJsonAsync<CreateProjectResponse>();
+            Assert.NotNull(project);
+
+            HttpResponseMessage patchResponse = await _client.PatchAsJsonAsync(
+                $"/projects/{project.Id}",
+                new UpdateProjectRequest(UseWorktreeOnKickoff: false, DefaultBaseBranch: "main"));
+            Assert.Equal(HttpStatusCode.OK, patchResponse.StatusCode);
+
+            HttpResponseMessage createResponse = await _client.PostAsJsonAsync(
+                "/chats",
+                new CreateChatRequest(project.DefaultWorkspace.Id, "cursor", OrchestrationAgentModeStrategy.Mode));
+
+            CreateChatResponse? parent = await createResponse.Content.ReadFromJsonAsync<CreateChatResponse>();
+            Assert.NotNull(parent);
+
+            HttpResponseMessage kickoffResponse = await _client.PostAsJsonAsync(
+                $"/chats/{parent.Id}/plans/kickoff",
+                new KickOffPlanRequest(
+                    "auth-refactor",
+                    "Auth refactor",
+                    "# Auth refactor\n\nImplement JWT auth."));
+
+            Assert.Equal(HttpStatusCode.Created, kickoffResponse.StatusCode);
+
+            KickOffPlanResponse? implementationKickedOff =
+                await kickoffResponse.Content.ReadFromJsonAsync<KickOffPlanResponse>();
+            Assert.NotNull(implementationKickedOff);
+
+            HttpResponseMessage worktreeResponse = await _client.PostAsJsonAsync(
+                $"/projects/{project.Id}/worktrees",
+                new CreateWorktreeRequest("main", "feature-auth", "Implementation worktree"));
+
+            WorkspaceResponse? worktreeWorkspace =
+                await worktreeResponse.Content.ReadFromJsonAsync<WorkspaceResponse>();
+            Assert.NotNull(worktreeWorkspace);
+
+            HttpResponseMessage switchResponse = await _client.PatchAsJsonAsync(
+                $"/chats/{implementationKickedOff.ChildChatId}/workspace",
+                new { workspaceId = worktreeWorkspace.Id });
+            Assert.Equal(HttpStatusCode.OK, switchResponse.StatusCode);
+
+            HttpResponseMessage reviewResponse = await _client.PostAsync(
+                $"/chats/{implementationKickedOff.ChildChatId}/review/kickoff",
+                content: null);
+            Assert.Equal(HttpStatusCode.Created, reviewResponse.StatusCode);
+
+            KickOffReviewResponse? reviewKickedOff =
+                await reviewResponse.Content.ReadFromJsonAsync<KickOffReviewResponse>();
+            Assert.NotNull(reviewKickedOff);
+
+            HttpResponseMessage reviewChildResponse = await _client.GetAsync(
+                $"/chats/{reviewKickedOff.ReviewChildChatId}");
+            ChatDetailResponse? reviewChild = await reviewChildResponse.Content.ReadFromJsonAsync<ChatDetailResponse>(
+                HttpResponseExtensions.JsonOptions);
+            Assert.NotNull(reviewChild);
+            Assert.Equal(worktreeWorkspace.Id, reviewChild.WorkspaceId);
+            Assert.Equal(worktreeWorkspace.Path, reviewChild.WorkspacePath);
+            Assert.NotEqual(project.DefaultWorkspace.Path, reviewChild.WorkspacePath);
+
+            string reviewFile = Path.Combine(
+                worktreeWorkspace.Path,
+                reviewKickedOff.ReviewFilePath.Replace('/', Path.DirectorySeparatorChar));
+            Assert.True(File.Exists(reviewFile));
+        }
+        finally
+        {
+            if (Directory.Exists(repoPath))
+            {
+                try
+                {
+                    Directory.Delete(repoPath, recursive: true);
                 }
                 catch (IOException)
                 {

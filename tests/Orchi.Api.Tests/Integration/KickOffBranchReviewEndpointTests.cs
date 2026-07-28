@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Orchi.Api.Features.Chats.Shared;
+using Orchi.Api.Features.Projects.CreateWorktree;
 using Orchi.Api.Features.Projects.Shared;
 using Orchi.Api.Infrastructure.Agents.Modes;
 using Orchi.Api.Tests.Common;
@@ -119,6 +120,47 @@ public class KickOffBranchReviewEndpointTests : IClassFixture<TestWebApplication
         Assert.Contains("orchi-branch-review", content);
         Assert.Contains("feature-auth", content);
         Assert.Contains("main", content);
+    }
+
+    [Fact]
+    public async Task KickOffBranchReview_WithWorkspaceId_UsesRequestedWorkspace()
+    {
+        if (!IsGitAvailable())
+        {
+            return;
+        }
+
+        HttpResponseMessage worktreeResponse = await _client.PostAsJsonAsync(
+            $"/projects/{_projectId}/worktrees",
+            new CreateWorktreeRequest("main", "feature-auth", "Review source worktree"));
+
+        Assert.Equal(HttpStatusCode.Created, worktreeResponse.StatusCode);
+
+        WorkspaceResponse? worktreeWorkspace =
+            await worktreeResponse.Content.ReadFromJsonAsync<WorkspaceResponse>();
+        Assert.NotNull(worktreeWorkspace);
+
+        HttpResponseMessage response = await _client.PostAsJsonAsync(
+            $"/projects/{_projectId}/reviews/from-branches",
+            new KickOffBranchReviewRequest(
+                "feature-auth",
+                "main",
+                Fetch: false,
+                WorkspaceId: worktreeWorkspace.Id));
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        KickOffBranchReviewResponse? kickedOff =
+            await response.Content.ReadFromJsonAsync<KickOffBranchReviewResponse>();
+        Assert.NotNull(kickedOff);
+
+        HttpResponseMessage chatResponse = await _client.GetAsync($"/chats/{kickedOff.ReviewChatId}");
+        ChatDetailResponse? reviewChat = await chatResponse.Content.ReadFromJsonAsync<ChatDetailResponse>(
+            HttpResponseExtensions.JsonOptions);
+        Assert.NotNull(reviewChat);
+        Assert.Equal(worktreeWorkspace.Id, reviewChat.WorkspaceId);
+        Assert.Equal(worktreeWorkspace.Path, reviewChat.WorkspacePath);
+        Assert.NotEqual(_workspacePath, reviewChat.WorkspacePath);
     }
 
     [Fact]

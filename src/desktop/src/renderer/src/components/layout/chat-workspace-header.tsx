@@ -101,6 +101,7 @@ export function ChatWorkspaceHeader({
           <ChatGitActionsMenu
             chatId={chatId}
             projectId={projectId}
+            workspaceId={chat.workspaceId}
             workspacePath={workspacePath}
             defaultBaseBranch={defaultBaseBranch}
             gitHostProvider={gitHostProvider}

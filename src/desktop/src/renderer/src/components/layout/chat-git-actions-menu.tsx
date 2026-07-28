@@ -26,6 +26,7 @@ import { gitActionKeys } from '@/lib/query-keys'
 type ChatGitActionsMenuProps = {
   chatId: string
   projectId: string | null
+  workspaceId: string | null
   workspacePath: string
   defaultBaseBranch: string
   gitHostProvider: GitHostProvider
@@ -37,6 +38,7 @@ type ActiveDialog = 'commit' | 'pullRequest' | 'branchReview' | null
 export function ChatGitActionsMenu({
   chatId,
   projectId,
+  workspaceId,
   workspacePath,
   defaultBaseBranch,
   gitHostProvider,
@@ -198,6 +200,7 @@ export function ChatGitActionsMenu({
           open={activeDialog === 'branchReview'}
           onOpenChange={(open) => setActiveDialog(open ? 'branchReview' : null)}
           projectId={projectId}
+          workspaceId={workspaceId}
           defaultBaseBranch={defaultBaseBranch}
           preferredHeadBranch={workspaceBranch}
           onSuccess={handleGitSuccess}
