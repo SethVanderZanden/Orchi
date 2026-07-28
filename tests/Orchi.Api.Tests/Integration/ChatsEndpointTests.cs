@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Orchi.Api.Features.Chats.Shared;
+using Orchi.Api.Features.Projects.Shared;
 using Orchi.Api.Tests.Common;
 
 namespace Orchi.Api.Tests.Integration;
@@ -90,6 +91,64 @@ public class ChatsEndpointTests : IClassFixture<TestWebApplicationFactory>, IAsy
 
         Assert.NotNull(chats);
         Assert.Empty(chats);
+    }
+
+    [Fact]
+    public async Task BulkCloseChats_RemovesSelectedChatsAndPreservesProjects()
+    {
+        string workspace = Directory.GetCurrentDirectory();
+        Guid workspaceId = await ProjectTestHelper.CreateProjectWithWorkspaceAsync(_client, workspace);
+
+        HttpResponseMessage firstCreate = await _client.PostAsJsonAsync(
+            "/chats",
+            new CreateChatRequest(workspaceId, "cursor"));
+        HttpResponseMessage secondCreate = await _client.PostAsJsonAsync(
+            "/chats",
+            new CreateChatRequest(workspaceId, "cursor"));
+        HttpResponseMessage keepCreate = await _client.PostAsJsonAsync(
+            "/chats",
+            new CreateChatRequest(workspaceId, "cursor"));
+
+        CreateChatResponse? first = await firstCreate.Content.ReadFromJsonAsync<CreateChatResponse>();
+        CreateChatResponse? second = await secondCreate.Content.ReadFromJsonAsync<CreateChatResponse>();
+        CreateChatResponse? keep = await keepCreate.Content.ReadFromJsonAsync<CreateChatResponse>();
+        Assert.NotNull(first);
+        Assert.NotNull(second);
+        Assert.NotNull(keep);
+
+        HttpResponseMessage deleteResponse = await _client.PostAsJsonAsync(
+            "/chats/bulk-delete",
+            new { chatIds = new[] { first.Id, second.Id } });
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+
+        ChatSummaryResponse[]? chats =
+            await (await _client.GetAsync("/chats")).Content.ReadFromJsonAsync<ChatSummaryResponse[]>(
+                HttpResponseExtensions.JsonOptions);
+
+        Assert.NotNull(chats);
+        Assert.Single(chats);
+        Assert.Equal(keep.Id, chats[0].Id);
+
+        Assert.NotNull(keep.ProjectId);
+        HttpResponseMessage projectsResponse = await _client.GetAsync("/projects");
+        Assert.Equal(HttpStatusCode.OK, projectsResponse.StatusCode);
+        ProjectSummaryResponse[]? projects =
+            await projectsResponse.Content.ReadFromJsonAsync<ProjectSummaryResponse[]>(
+                HttpResponseExtensions.JsonOptions);
+        Assert.NotNull(projects);
+        ProjectSummaryResponse project = Assert.Single(projects, entry => entry.Id == keep.ProjectId);
+        Assert.Contains(project.Workspaces, workspaceEntry => workspaceEntry.Id == workspaceId);
+        Assert.Contains(project.Workspaces, workspaceEntry => workspaceEntry.Kind == "primary");
+    }
+
+    [Fact]
+    public async Task BulkCloseChats_WithEmptyList_ReturnsValidationProblem()
+    {
+        HttpResponseMessage deleteResponse = await _client.PostAsJsonAsync(
+            "/chats/bulk-delete",
+            new { chatIds = Array.Empty<Guid>() });
+
+        Assert.Equal(HttpStatusCode.BadRequest, deleteResponse.StatusCode);
     }
 
     [Fact]

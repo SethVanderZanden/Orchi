@@ -36,6 +36,8 @@ public interface IChatStore
 
     Task<bool> DeleteAsync(Guid chatId, CancellationToken cancellationToken);
 
+    Task<int> DeleteManyAsync(IReadOnlyList<Guid> chatIds, CancellationToken cancellationToken);
+
     Task SaveUserMessageAsync(Guid chatId, ChatMessage message, CancellationToken cancellationToken);
 
     Task SaveAssistantMessageAsync(

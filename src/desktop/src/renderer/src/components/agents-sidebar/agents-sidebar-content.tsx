@@ -1,8 +1,10 @@
 import { useCallback, useMemo, useState } from 'react'
+import { Trash2 } from 'lucide-react'
 
 import { AgentsSidebarProjectGroup } from '@/components/agents-sidebar/agents-sidebar-project-group'
 import { AgentsSidebarSection } from '@/components/agents-sidebar/agents-sidebar-section'
 import { BoardFiltersBar } from '@/components/kanban/board-filters-bar'
+import { Button } from '@/components/ui/button'
 import { useBoardFilters } from '@/hooks/use-board-filters'
 import { useBoardGrouping } from '@/hooks/use-board-grouping'
 import { useDeleteChat } from '@/hooks/use-delete-chat'
@@ -17,7 +19,7 @@ import { useProjects } from '@/providers/project-provider'
 export function AgentsSidebarContent(): React.JSX.Element {
   const { chats, isLoadingChats, isChatSending, isParentKickingOffAny } = useChat()
   const { openChat, openChatInSplit, activeTabId, splitTabId } = useChatTabs()
-  const { requestDelete, isDeletingChat } = useDeleteChat()
+  const { requestDelete, requestDeleteMany, isDeletingChat } = useDeleteChat()
   const { projects } = useProjects()
   const { filters, setProjectFilter, setDateRange } = useBoardFilters()
   const { grouping } = useBoardGrouping()
@@ -64,6 +66,10 @@ export function AgentsSidebarContent(): React.JSX.Element {
   }, [projects])
 
   const hasFilteredOutChats = !isLoadingChats && chats.length > 0 && filteredChats.length === 0
+  const canClearFilteredChats = filteredChats.length > 0
+  const isBulkClearDisabled = filteredChats.some(
+    (chat) => isChatSending(chat.id) || isDeletingChat(chat.id)
+  )
 
   function getProjectName(projectId: string | null): string | null {
     if (!projectId) {
@@ -90,6 +96,20 @@ export function AgentsSidebarContent(): React.JSX.Element {
 
   function handleDeleteChat(chat: ChatThread): void {
     requestDelete(chat)
+  }
+
+  function handleClearChats(chatsToClear: ChatThread[], scopeLabel: string): void {
+    requestDeleteMany(chatsToClear, scopeLabel)
+  }
+
+  function handleClearAllFiltered(): void {
+    const scopeLabel =
+      filteredChats.length === chats.length &&
+      filters.projectFilter === 'all' &&
+      filters.dateRange === 'all'
+        ? 'All chats'
+        : 'Filtered chats'
+    requestDeleteMany(filteredChats, scopeLabel)
   }
 
   function isProjectExpanded(projectId: string): boolean {
@@ -124,6 +144,29 @@ export function AgentsSidebarContent(): React.JSX.Element {
             <p className="truncate text-sm font-semibold text-sidebar-foreground">Agents</p>
             <p className="truncate text-xs text-sidebar-muted">Live status list</p>
           </div>
+          {canClearFilteredChats ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 shrink-0 gap-1.5 px-2 text-sidebar-muted hover:bg-sidebar-accent hover:text-destructive"
+              aria-label={
+                filteredChats.length === chats.length
+                  ? 'Clear all chats'
+                  : 'Clear filtered chats'
+              }
+              title={
+                filteredChats.length === chats.length
+                  ? 'Clear all chats'
+                  : 'Clear filtered chats'
+              }
+              disabled={isBulkClearDisabled}
+              onClick={handleClearAllFiltered}
+            >
+              <Trash2 className="size-3.5" />
+              Clear
+            </Button>
+          ) : null}
         </div>
         <BoardFiltersBar
           projectFilter={filters.projectFilter}
@@ -177,7 +220,14 @@ export function AgentsSidebarContent(): React.JSX.Element {
                     onOpenChat={openChat}
                     onOpenChatBeside={openChatInSplit}
                     onDeleteChat={handleDeleteChat}
+                    onClearChats={handleClearChats}
                     isDeleteDisabled={isDeleteDisabled}
+                    isClearDisabled={
+                      isBulkClearDisabled ||
+                      project.sections.some((section) =>
+                        section.chats.some((chat) => isDeleteDisabled(chat.id))
+                      )
+                    }
                   />
                 ))}
           </div>

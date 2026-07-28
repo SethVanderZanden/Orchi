@@ -7,10 +7,15 @@ import { useChat } from '@/providers/chat-context'
 
 import { DeleteChatContext } from '@/providers/delete-chat-context'
 
+type PendingDelete = {
+  chats: ChatThread[]
+  scopeLabel?: string
+}
+
 export function DeleteChatProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
-  const { deleteChat } = useChat()
-  const [pendingChat, setPendingChat] = useState<ChatThread | null>(null)
-  const [deletingChatId, setDeletingChatId] = useState<string | null>(null)
+  const { deleteChat, deleteChats } = useChat()
+  const [pending, setPending] = useState<PendingDelete | null>(null)
+  const [deletingChatIds, setDeletingChatIds] = useState<Set<string>>(() => new Set())
   const [isConfirming, setIsConfirming] = useState(false)
 
   const requestDelete = useCallback(
@@ -20,52 +25,89 @@ export function DeleteChatProvider({ children }: { children: React.ReactNode }):
         return
       }
 
-      setPendingChat(chat)
+      setPending({ chats: [chat] })
     },
     [deleteChat]
   )
 
+  const requestDeleteMany = useCallback(
+    (chats: ChatThread[], scopeLabel?: string) => {
+      const unique = new Map<string, ChatThread>()
+      for (const chat of chats) {
+        unique.set(chat.id, chat)
+      }
+
+      const nextChats = [...unique.values()]
+      if (nextChats.length === 0) {
+        return
+      }
+
+      if (nextChats.length === 1 && isLocalChat(nextChats[0].id)) {
+        void deleteChat(nextChats[0].id)
+        return
+      }
+
+      const onlyLocal = nextChats.every((chat) => isLocalChat(chat.id))
+      if (onlyLocal) {
+        void deleteChats(nextChats.map((chat) => chat.id))
+        return
+      }
+
+      setPending({ chats: nextChats, scopeLabel })
+    },
+    [deleteChat, deleteChats]
+  )
+
   const confirmDelete = useCallback(async () => {
-    const chat = pendingChat
-    if (!chat || isConfirming) {
+    const current = pending
+    if (!current || isConfirming) {
       return
     }
 
-    const chatId = chat.id
+    const chatIds = current.chats.map((chat) => chat.id)
     setIsConfirming(true)
-    setPendingChat(null)
+    setPending(null)
 
     try {
-      setDeletingChatId(chatId)
-      await deleteChat(chatId)
+      setDeletingChatIds(new Set(chatIds))
+      if (chatIds.length === 1) {
+        await deleteChat(chatIds[0])
+      } else {
+        await deleteChats(chatIds)
+      }
     } finally {
-      setDeletingChatId(null)
+      setDeletingChatIds(new Set())
       setIsConfirming(false)
     }
-  }, [deleteChat, isConfirming, pendingChat])
+  }, [deleteChat, deleteChats, isConfirming, pending])
 
   const isDeletingChat = useCallback(
-    (chatId: string) => deletingChatId === chatId,
-    [deletingChatId]
+    (chatId: string) => deletingChatIds.has(chatId),
+    [deletingChatIds]
   )
 
   const value = useMemo(
     () => ({
       requestDelete,
+      requestDeleteMany,
       isDeletingChat
     }),
-    [isDeletingChat, requestDelete]
+    [isDeletingChat, requestDelete, requestDeleteMany]
   )
+
+  const pendingCount = pending?.chats.length ?? 0
 
   return (
     <DeleteChatContext.Provider value={value}>
       {children}
       <DeleteChatDialog
-        open={pendingChat !== null}
-        chatTitle={pendingChat?.title ?? ''}
+        open={pending !== null}
+        chatCount={pendingCount}
+        chatTitle={pending?.chats[0]?.title ?? ''}
+        scopeLabel={pending?.scopeLabel}
         onOpenChange={(open) => {
           if (!open && !isConfirming) {
-            setPendingChat(null)
+            setPending(null)
           }
         }}
         onConfirm={() => void confirmDelete()}

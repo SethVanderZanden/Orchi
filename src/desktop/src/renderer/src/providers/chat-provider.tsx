@@ -136,6 +136,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }): React
       updateChatProject: mutations.updateChatProject,
       closeChat: mutations.closeChat,
       deleteChat: mutations.deleteChat,
+      deleteChats: mutations.deleteChats,
       sendMessage: stream.sendMessage,
       kickOffPlan: orchestration.kickOffPlan,
       kickOffAllPlans: orchestration.kickOffAllPlans,

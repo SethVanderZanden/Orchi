@@ -113,6 +113,36 @@ public class EfChatStoreTests
     }
 
     [Fact]
+    public async Task DeleteManyAsync_SoftDeletesMatchingChats()
+    {
+        await using StoreFixture fixture = await StoreFixture.CreateAsync();
+        var firstId = Guid.NewGuid();
+        var secondId = Guid.NewGuid();
+        var keepId = Guid.NewGuid();
+        string workspace = Directory.GetCurrentDirectory();
+
+        await fixture.Store.CreateAsync(
+            new ChatCreateModel(firstId, "cursor", workspace),
+            CancellationToken.None);
+        await fixture.Store.CreateAsync(
+            new ChatCreateModel(secondId, "cursor", workspace),
+            CancellationToken.None);
+        await fixture.Store.CreateAsync(
+            new ChatCreateModel(keepId, "cursor", workspace),
+            CancellationToken.None);
+
+        int deleted = await fixture.Store.DeleteManyAsync(
+            [firstId, secondId, Guid.NewGuid()],
+            CancellationToken.None);
+
+        Assert.Equal(2, deleted);
+
+        IReadOnlyList<ChatSession> remaining = await fixture.Store.ListAsync(CancellationToken.None);
+        Assert.Single(remaining);
+        Assert.Equal(keepId, remaining[0].Id);
+    }
+
+    [Fact]
     public async Task MarkReadAsync_WhenReadyForReview_SetsRead()
     {
         await using StoreFixture fixture = await StoreFixture.CreateAsync();

@@ -4,6 +4,7 @@ import type { NavigateOptions } from '@tanstack/react-router'
 
 import {
   closeChat,
+  closeChats,
   updateChatApprovalPolicy,
   updateChatContextSize,
   updateChatMode,
@@ -37,6 +38,7 @@ type UseChatMutationsResult = {
   createChat: (options: CreateChatOptions) => Promise<ChatThread>
   closeChat: (chatId: string) => Promise<void>
   deleteChat: (chatId: string) => Promise<void>
+  deleteChats: (chatIds: string[]) => Promise<void>
   updateChatMode: (chatId: string, mode: AgentMode) => Promise<void>
   getModeUpdateError: (chatId: string) => string | undefined
   updateChatModel: (chatId: string, modelId: string | null) => Promise<void>
@@ -264,6 +266,33 @@ export function useChatMutations({
 
       try {
         await closeChat(chatId)
+      } catch (error) {
+        await refetchChats()
+        throw error
+      }
+    },
+    [navigateAwayIfDeleted, purgeChatFromClient, refetchChats]
+  )
+
+  const deleteChats = useCallback(
+    async (chatIds: string[]) => {
+      const uniqueIds = [...new Set(chatIds)]
+      if (uniqueIds.length === 0) {
+        return
+      }
+
+      for (const chatId of uniqueIds) {
+        purgeChatFromClient(chatId)
+        navigateAwayIfDeleted(chatId)
+      }
+
+      const persistedIds = uniqueIds.filter((chatId) => !isLocalChat(chatId))
+      if (persistedIds.length === 0) {
+        return
+      }
+
+      try {
+        await closeChats(persistedIds)
       } catch (error) {
         await refetchChats()
         throw error
@@ -677,6 +706,7 @@ export function useChatMutations({
     createChat: (options: CreateChatOptions) => createChatMutation.mutateAsync(options),
     closeChat: (chatId: string) => closeChatMutation.mutateAsync(chatId),
     deleteChat,
+    deleteChats,
     updateChatMode: updateChatModeAction,
     getModeUpdateError,
     updateChatModel: updateChatModelAction,

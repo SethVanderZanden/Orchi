@@ -103,6 +103,20 @@ public class ChatStatusServiceTests
         public Task<bool> DeleteAsync(Guid chatId, CancellationToken cancellationToken) =>
             Task.FromResult(Sessions.Remove(chatId));
 
+        public Task<int> DeleteManyAsync(IReadOnlyList<Guid> chatIds, CancellationToken cancellationToken)
+        {
+            int deleted = 0;
+            foreach (Guid chatId in chatIds)
+            {
+                if (Sessions.Remove(chatId))
+                {
+                    deleted++;
+                }
+            }
+
+            return Task.FromResult(deleted);
+        }
+
         public Task SaveUserMessageAsync(
             Guid chatId,
             ChatMessage message,

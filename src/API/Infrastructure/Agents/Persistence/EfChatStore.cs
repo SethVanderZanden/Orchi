@@ -138,6 +138,34 @@ public sealed class EfChatStore(
         return true;
     }
 
+    public async Task<int> DeleteManyAsync(IReadOnlyList<Guid> chatIds, CancellationToken cancellationToken)
+    {
+        if (chatIds.Count == 0)
+        {
+            return 0;
+        }
+
+        await using AppDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        List<Chat> entities = await db.Chats
+            .Where(chat => chatIds.Contains(chat.Id))
+            .ToListAsync(cancellationToken);
+
+        if (entities.Count == 0)
+        {
+            return 0;
+        }
+
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        foreach (Chat entity in entities)
+        {
+            entity.IsDeleted = true;
+            entity.UpdatedAt = now;
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        return entities.Count;
+    }
+
     public async Task SaveUserMessageAsync(Guid chatId, DomainChatMessage message, CancellationToken cancellationToken)
     {
         await using AppDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);

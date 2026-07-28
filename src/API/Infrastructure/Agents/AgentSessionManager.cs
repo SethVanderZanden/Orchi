@@ -647,6 +647,22 @@ public sealed class AgentSessionManager
         return Result.Success();
     }
 
+    public async Task<Result> CloseSessionsAsync(
+        IReadOnlyList<Guid> chatIds,
+        CancellationToken cancellationToken)
+    {
+        foreach (Guid chatId in chatIds.Distinct())
+        {
+            if (_sessions.TryRemove(chatId, out ChatSession? session))
+            {
+                StopRunningProcess(session);
+            }
+        }
+
+        await _chatStore.DeleteManyAsync(chatIds, cancellationToken);
+        return Result.Success();
+    }
+
     public async Task CloseAllSessionsAsync(CancellationToken cancellationToken)
     {
         foreach (Guid chatId in _sessions.Keys.ToList())

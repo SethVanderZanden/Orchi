@@ -41,6 +41,7 @@ export type ChatContextValue = {
   updateChatProject: (chatId: string, projectId: string) => void
   closeChat: (chatId: string) => Promise<void>
   deleteChat: (chatId: string) => Promise<void>
+  deleteChats: (chatIds: string[]) => Promise<void>
   sendMessage: (chatId: string, content: string, options?: SendMessageOptions) => Promise<void>
   kickOffPlan: (chatId: string, plan: ParsedPlan) => Promise<void>
   kickOffAllPlans: (chatId: string) => Promise<void>

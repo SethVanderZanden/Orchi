@@ -343,6 +343,22 @@ export async function closeChat(chatId: string): Promise<void> {
   }
 }
 
+export async function closeChats(chatIds: string[]): Promise<void> {
+  if (chatIds.length === 0) {
+    return
+  }
+
+  const response = await fetch(`${getApiBaseUrl()}/chats/bulk-delete`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chatIds })
+  })
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, chatErrorOptions))
+  }
+}
+
 export async function shutdownChats(): Promise<void> {
   await fetch(`${getApiBaseUrl()}/chats/shutdown`, {
     method: 'POST'
