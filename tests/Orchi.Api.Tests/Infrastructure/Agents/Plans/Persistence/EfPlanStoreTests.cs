@@ -118,4 +118,60 @@ public class EfPlanStoreTests
             }
         }
     }
+
+    [Fact]
+    public async Task ListBySourceChatAsync_ReturnsPlansForSourceChat()
+    {
+        string databasePath = Path.Combine(Path.GetTempPath(), $"orchi-plan-list-{Guid.NewGuid():N}.db");
+        Guid sourceChatId = Guid.NewGuid();
+
+        try
+        {
+            var services = new ServiceCollection();
+            services.AddDbContextFactory<AppDbContext>(options =>
+                options.UseSqlite($"Data Source={databasePath}"));
+
+            await using ServiceProvider provider = services.BuildServiceProvider();
+            IDbContextFactory<AppDbContext> factory = provider.GetRequiredService<IDbContextFactory<AppDbContext>>();
+
+            await using (AppDbContext db = await factory.CreateDbContextAsync())
+            {
+                await db.Database.MigrateAsync();
+                db.Chats.Add(new Chat
+                {
+                    Id = sourceChatId,
+                    AgentId = "cursor",
+                    WorkspacePath = Directory.GetCurrentDirectory(),
+                    CreatedAt = DateTimeOffset.UtcNow,
+                    UpdatedAt = DateTimeOffset.UtcNow
+                });
+                await db.SaveChangesAsync();
+            }
+
+            var store = new EfPlanStore(factory);
+
+            await store.UpsertAsync(
+                new PlanUpsertModel("auth-refactor", sourceChatId, "Auth refactor", "# Auth refactor"),
+                CancellationToken.None);
+            await store.UpsertAsync(
+                new PlanUpsertModel("ui-polish", sourceChatId, "UI polish", "# UI polish"),
+                CancellationToken.None);
+
+            IReadOnlyList<StoredPlan> plans =
+                await store.ListBySourceChatAsync(sourceChatId, CancellationToken.None);
+
+            Assert.Equal(2, plans.Count);
+            Assert.Contains(plans, plan => plan.PlanId == "auth-refactor");
+            Assert.Contains(plans, plan => plan.PlanId == "ui-polish");
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+
+            if (File.Exists(databasePath))
+            {
+                File.Delete(databasePath);
+            }
+        }
+    }
 }

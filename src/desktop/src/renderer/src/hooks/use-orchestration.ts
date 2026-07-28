@@ -15,6 +15,7 @@ import {
   subscribeOrchestrationEvents
 } from '@/lib/orchestration/orchestration-events'
 
+import type { OrchestrationPlanResponse } from '@/lib/orchestration/orchestration-state'
 import type { OrchestrationWorkflowProgress } from '@/lib/orchestration/orchestration-state'
 import {
   workflowProgressFromState,
@@ -42,6 +43,7 @@ export function useOrchestration({
 }: UseOrchestrationOptions): {
   workflowProgress: OrchestrationWorkflowProgress | null
   sequencePlanIds: string[]
+  backendPlans: OrchestrationPlanResponse[]
 } {
   const queryClient = useQueryClient()
 
@@ -49,6 +51,7 @@ export function useOrchestration({
     null
   )
   const [sequencePlanIds, setSequencePlanIds] = useState<string[]>([])
+  const [backendPlans, setBackendPlans] = useState<OrchestrationPlanResponse[]>([])
 
   const parentChatRef = useLiveRef(parentChat)
   const getChatRef = useLiveRef(getChat)
@@ -58,6 +61,11 @@ export function useOrchestration({
 
   const isTracking = enabled && Boolean(parentChatId) && Boolean(parentChat)
   const hasParentChat = Boolean(parentChat)
+  const messageFingerprint =
+    parentChat?.messages
+      .filter((message) => message.role === 'assistant')
+      .map((message) => `${message.id}:${message.status}`)
+      .join('|') ?? ''
 
   useEffect(() => {
     if (!isTracking || !parentChatId) {
@@ -69,6 +77,12 @@ export function useOrchestration({
     const emitWorkflowProgress = (progress: OrchestrationWorkflowProgress | null): void => {
       setWorkflowProgress(progress)
       onWorkflowProgressRef.current?.(progress)
+    }
+
+    const applyOrchestrationState = (state: Awaited<ReturnType<typeof getOrchestration>>): void => {
+      setBackendPlans(state.plans)
+      setSequencePlanIds(state.sequencePlanIds)
+      emitWorkflowProgress(workflowProgressFromState(state))
     }
 
     const resolveParentChat = (): ChatThread | undefined =>
@@ -87,8 +101,7 @@ export function useOrchestration({
           if (newChildIds.length > 0) {
             onChildrenHydratedRef.current?.(newChildIds)
           }
-          setSequencePlanIds(state.sequencePlanIds)
-          emitWorkflowProgress(workflowProgressFromState(state))
+          applyOrchestrationState(state)
         }
       } catch {
         // Seed failure is non-fatal; SSE may still deliver state.
@@ -111,6 +124,17 @@ export function useOrchestration({
             onChatCreated: (payload) => {
               onChildrenHydratedRef.current?.([payload.chatId])
             },
+            onParentMessage: () => {
+              void getOrchestration(parentChatId)
+                .then((state) => {
+                  if (!controller.signal.aborted) {
+                    applyOrchestrationState(state)
+                  }
+                })
+                .catch(() => {
+                  // Non-fatal refresh failure.
+                })
+            },
             loadChat: (chatId) => loadChatRef.current?.(chatId) ?? Promise.resolve(undefined)
           }
         ),
@@ -129,6 +153,7 @@ export function useOrchestration({
     hasParentChat,
     isTracking,
     loadChatRef,
+    messageFingerprint,
     onChildrenHydratedRef,
     onWorkflowProgressRef,
     parentChatId,
@@ -136,5 +161,9 @@ export function useOrchestration({
     queryClient
   ])
 
-  return { workflowProgress: isTracking ? workflowProgress : null, sequencePlanIds }
+  return {
+    workflowProgress: isTracking ? workflowProgress : null,
+    sequencePlanIds,
+    backendPlans: isTracking ? backendPlans : []
+  }
 }

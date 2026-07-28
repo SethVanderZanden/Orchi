@@ -6,6 +6,7 @@ using Orchi.Api.Entities;
 using Orchi.Api.Features.Chats.Shared;
 using Orchi.Api.Infrastructure.Agents;
 using Orchi.Api.Infrastructure.Agents.Modes;
+using Orchi.Api.Infrastructure.Agents.Orchestration;
 using Orchi.Api.Infrastructure.Agents.Plans;
 using Orchi.Api.Infrastructure.Agents.Plans.Artifacts;
 using Orchi.Api.Infrastructure.Agents.Plans.Persistence;
@@ -20,12 +21,13 @@ public static class KickOffPlan
         Guid ParentChatId,
         string PlanId,
         string Title,
-        string ContentMarkdown,
+        string? ContentMarkdown,
         string? BaseBranch) : ICommand<KickOffPlanResponse>;
 
     internal sealed class Handler(
         AgentSessionManager sessionManager,
         IPlanStore planStore,
+        IOrchestrationPlanSource planSource,
         IOrchiArtifactWriterFactory artifactWriterFactory,
         IProjectStore projectStore,
         IGitWorkspaceService gitWorkspaceService)
@@ -45,14 +47,30 @@ public static class KickOffPlan
                     Error.Validation("Mode.Invalid", "Plan kick-off is only available for orchestration chats."));
             }
 
+            string? contentMarkdown = await planSource.ResolvePlanContentAsync(
+                parent,
+                command.PlanId,
+                command.ContentMarkdown,
+                cancellationToken);
+
+            if (string.IsNullOrWhiteSpace(contentMarkdown))
+            {
+                return Result.Failure<KickOffPlanResponse>(
+                    Error.Validation("PlanContent.Missing", "Plan content was not found for kick-off."));
+            }
+
+            string title = string.IsNullOrWhiteSpace(command.Title)
+                ? ExtractTitle(contentMarkdown)
+                : command.Title.Trim();
+
             try
             {
                 await planStore.UpsertAsync(
                     new PlanUpsertModel(
                         command.PlanId,
                         command.ParentChatId,
-                        command.Title,
-                        command.ContentMarkdown),
+                        title,
+                        contentMarkdown),
                     cancellationToken);
             }
             catch (ArgumentException ex)
@@ -108,7 +126,7 @@ public static class KickOffPlan
                     .WriteAsync(
                         childWorkspacePath,
                         command.PlanId,
-                        command.ContentMarkdown,
+                        contentMarkdown,
                         cancellationToken);
             }
             catch (ArgumentException ex)
@@ -191,6 +209,20 @@ public static class KickOffPlan
                 return Result.Failure<(Guid, string)>(Error.Validation("Worktree.Create", ex.Message));
             }
         }
+
+        private static string ExtractTitle(string contentMarkdown)
+        {
+            foreach (string rawLine in contentMarkdown.Split('\n'))
+            {
+                string trimmed = rawLine.Trim();
+                if (trimmed.StartsWith("# ", StringComparison.Ordinal))
+                {
+                    return trimmed[2..].Trim();
+                }
+            }
+
+            return "Untitled plan";
+        }
     }
 
     public sealed class Validator : AbstractValidator<Command>
@@ -204,10 +236,6 @@ public static class KickOffPlan
             RuleFor(command => command.PlanId)
                 .NotEmpty()
                 .WithMessage("Plan id is required.");
-
-            RuleFor(command => command.ContentMarkdown)
-                .NotEmpty()
-                .WithMessage("Plan content is required.");
         }
     }
 

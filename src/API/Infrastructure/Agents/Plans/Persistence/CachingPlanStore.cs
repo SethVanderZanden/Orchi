@@ -13,6 +13,9 @@ public sealed class CachingPlanStore(
         await cache.RemoveAsync(
             OrchiCacheKeys.Plan(model.SourceChatId, model.PlanId),
             cancellationToken);
+        await cache.RemoveAsync(
+            OrchiCacheKeys.PlansBySourceChat(model.SourceChatId),
+            cancellationToken);
     }
 
     public async Task<StoredPlan?> GetAsync(
@@ -22,6 +25,15 @@ public sealed class CachingPlanStore(
         await cache.GetOrCreateAsync(
             OrchiCacheKeys.Plan(sourceChatId, planId),
             async ct => await inner.GetAsync(sourceChatId, planId, ct),
+            cacheOptions.CreatePlanEntryOptions(),
+            cancellationToken);
+
+    public async Task<IReadOnlyList<StoredPlan>> ListBySourceChatAsync(
+        Guid sourceChatId,
+        CancellationToken cancellationToken) =>
+        await cache.GetOrCreateAsync(
+            OrchiCacheKeys.PlansBySourceChat(sourceChatId),
+            async ct => await inner.ListBySourceChatAsync(sourceChatId, ct),
             cacheOptions.CreatePlanEntryOptions(),
             cancellationToken);
 }

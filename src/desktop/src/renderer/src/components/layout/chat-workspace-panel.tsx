@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo } from 'react'
 import { ChatPanel } from '@/components/chat/chat-panel'
 import { ChatWorkspaceHeader } from '@/components/layout/chat-workspace-header'
 import { usePlanReview } from '@/hooks/use-plan-review'
+import { mergeOrchestrationPlans } from '@/lib/orchestration/resolve-plans'
 import { parseOrchestrationPlansFromMessages } from '@/lib/orchestration/parse-plans'
 import { resolveReviewContentFromMessages } from '@/lib/orchestration/parse-review-plans'
 import type { ParsedReviewPlan } from '@/lib/orchestration/parse-review-plans'
@@ -107,7 +108,6 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
         : { plans: [], sequencePlanIds: [] as string[] },
     [chat.mode, chat.messages]
   )
-  const plans = orchestrationParse.plans
   const parentChat =
     chat.parentChatId && chat.mode !== 'orchestration' ? getChat(chat.parentChatId) : undefined
   const childCount = getChildChats(chat.id).length
@@ -147,7 +147,8 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
     [getChat, loadChat]
   )
 
-  const { workflowProgress, sequencePlanIds: backendSequencePlanIds } = useOrchestration({
+  const { workflowProgress, sequencePlanIds: backendSequencePlanIds, backendPlans } =
+    useOrchestration({
     parentChatId: needsHydration ? chat.id : undefined,
     parentChat: needsHydration ? chat : undefined,
     getChat,
@@ -156,6 +157,14 @@ export function ChatWorkspacePanel({ chat }: ChatWorkspacePanelProps): React.JSX
     onWorkflowProgress,
     onChildrenHydrated
   })
+
+  const plans = useMemo(
+    () =>
+      chat.mode === 'orchestration'
+        ? mergeOrchestrationPlans(backendPlans, orchestrationParse.plans)
+        : [],
+    [backendPlans, chat.mode, orchestrationParse.plans]
+  )
 
   useOrchestrationParentEvents({
     childChat: chat.parentChatId ? chat : undefined,

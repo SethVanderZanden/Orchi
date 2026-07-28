@@ -39,6 +39,22 @@ Polish the UI.
     expect(plans[1]?.planId).toBe('ui-polish')
   })
 
+  it('treats a single-line path as a file reference', () => {
+    const content = `<!-- orchi-plan:auth-refactor -->
+.orchi/plan-auth-refactor.md
+<!-- /orchi-plan -->`
+
+    const plans = parsePlans(content)
+
+    expect(plans).toHaveLength(1)
+    expect(plans[0]).toEqual({
+      planId: 'auth-refactor',
+      title: 'Untitled plan',
+      contentMarkdown: '',
+      planFilePath: '.orchi/plan-auth-refactor.md'
+    })
+  })
+
   it('parses incomplete plan blocks without a closing marker', () => {
     const content = `<!-- orchi-plan:auth-refactor -->
 # Auth Refactor
