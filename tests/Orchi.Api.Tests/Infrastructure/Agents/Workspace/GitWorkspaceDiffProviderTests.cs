@@ -140,6 +140,69 @@ public class GitWorkspaceDiffProviderTests : IDisposable
     }
 
     [Fact]
+    public void GetBranchDiff_WhenUncommittedTrackedChangesOnly_IncludesWorkingTreeDiff()
+    {
+        if (!IsGitAvailable())
+        {
+            return;
+        }
+
+        InitializeRepoWithCommit();
+        RunGit("checkout", "-b", "orchi/20260728-c2a72b5a");
+        RunGit("update-ref", "refs/remotes/origin/staging", "HEAD~0");
+        File.WriteAllText(Path.Combine(_workspacePath, "roster-state.ts"), "export const state = {}\n");
+        File.AppendAllText(Path.Combine(_workspacePath, "tracked.txt"), "change\n");
+        RunGit("add", "roster-state.ts");
+
+        string diff = _provider.GetBranchDiff(_workspacePath, "origin/staging", "orchi/20260728-c2a72b5a");
+
+        Assert.Contains("roster-state.ts", diff);
+        Assert.Contains("tracked.txt", diff);
+        Assert.Contains("uncommitted in workspace", diff);
+        Assert.Contains("No committed changes between", diff);
+    }
+
+    [Fact]
+    public void GetBranchDiff_WhenCommittedAndUncommitted_IncludesBoth()
+    {
+        if (!IsGitAvailable())
+        {
+            return;
+        }
+
+        InitializeRepoWithCommit();
+        string? baseBranch = RunGitOutput("branch", "--show-current").Trim();
+        RunGit("checkout", "-b", "feature");
+        File.WriteAllText(Path.Combine(_workspacePath, "committed.txt"), "done\n");
+        RunGit("add", "committed.txt");
+        RunGit("-c", "user.email=test@example.com", "-c", "user.name=Test", "commit", "-m", "feature");
+        File.WriteAllText(Path.Combine(_workspacePath, "draft.txt"), "wip\n");
+
+        string diff = _provider.GetBranchDiff(_workspacePath, baseBranch, "feature");
+
+        Assert.Contains("committed.txt", diff);
+        Assert.Contains("draft.txt", diff);
+        Assert.Contains("uncommitted in workspace", diff);
+        Assert.Contains("Branch review", diff);
+    }
+
+    [Fact]
+    public void TryResolveBranchRef_ResolvesOriginRemoteWhenLocalMissing()
+    {
+        if (!IsGitAvailable())
+        {
+            return;
+        }
+
+        InitializeRepoWithCommit();
+        RunGit("update-ref", "refs/remotes/origin/staging", "HEAD");
+
+        string? resolved = GitWorkspaceDiffProvider.TryResolveBranchRef(_workspacePath, "staging");
+
+        Assert.Equal("origin/staging", resolved);
+    }
+
+    [Fact]
     public void Truncate_AppendsNoticeWhenDiffTooLarge()
     {
         string large = new string('a', GitWorkspaceDiffProvider.MaxDiffChars + 10);

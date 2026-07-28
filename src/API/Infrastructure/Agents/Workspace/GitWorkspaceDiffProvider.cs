@@ -59,6 +59,37 @@ public sealed class GitWorkspaceDiffProvider : IWorkspaceDiffProvider
         return "No changes detected (git diff HEAD, untracked files, and git show HEAD are empty).";
     }
 
+    internal static string? TryResolveBranchRef(string workspacePath, string branchName)
+    {
+        string trimmed = branchName.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            return null;
+        }
+
+        if (GitRefExists(workspacePath, $"refs/heads/{trimmed}"))
+        {
+            return trimmed;
+        }
+
+        if (GitRefExists(workspacePath, trimmed))
+        {
+            return trimmed;
+        }
+
+        if (GitRefExists(workspacePath, $"refs/remotes/{trimmed}"))
+        {
+            return trimmed;
+        }
+
+        if (GitRefExists(workspacePath, $"refs/remotes/origin/{trimmed}"))
+        {
+            return $"origin/{trimmed}";
+        }
+
+        return null;
+    }
+
     public WorkspaceDiffStats? TryGetDiffStats(string workspacePath)
     {
         if (string.IsNullOrWhiteSpace(workspacePath) || !Directory.Exists(workspacePath))
@@ -109,26 +140,124 @@ public sealed class GitWorkspaceDiffProvider : IWorkspaceDiffProvider
             return "Base and head branches are required for a branch review diff.";
         }
 
+        string? resolvedBase = TryResolveBranchRef(workspacePath, baseRef);
+        if (resolvedBase is null)
+        {
+            return $"Failed to resolve base branch ref: `{baseRef}`.";
+        }
+
+        string? resolvedHead = TryResolveBranchRef(workspacePath, headRef);
+        if (resolvedHead is null)
+        {
+            return $"Failed to resolve head branch ref: `{headRef}`.";
+        }
+
+        string committedDiff = TryGetCommittedBranchDiff(workspacePath, resolvedBase, resolvedHead, out string committedSource, out string? committedError);
+        if (committedError is not null)
+        {
+            return committedError;
+        }
+
+        string uncommitted = RunGit(workspacePath, "diff", "HEAD");
+        string untracked = BuildUntrackedDiff(workspacePath);
+        string workingTreeDiff = CombineDiffParts(uncommitted, untracked);
+
+        bool hasCommitted = !string.IsNullOrWhiteSpace(committedDiff);
+        bool hasWorkingTree = !string.IsNullOrWhiteSpace(workingTreeDiff);
+
+        if (hasCommitted && hasWorkingTree)
+        {
+            return FormatBranchDiffSections(
+                resolvedBase,
+                resolvedHead,
+                [
+                    (committedSource, Truncate(committedDiff)),
+                    (DescribeDiffSource(uncommitted, untracked) + " (uncommitted in workspace)", Truncate(workingTreeDiff)),
+                ]);
+        }
+
+        if (hasCommitted)
+        {
+            return FormatSection(committedSource, Truncate(committedDiff));
+        }
+
+        if (hasWorkingTree)
+        {
+            return FormatBranchDiffSections(
+                resolvedBase,
+                resolvedHead,
+                [
+                    ($"No committed changes between `{resolvedBase}` and `{resolvedHead}`; " +
+                     DescribeDiffSource(uncommitted, untracked) + " (uncommitted in workspace)",
+                     Truncate(workingTreeDiff)),
+                ]);
+        }
+
+        return $"No changes detected between `{resolvedBase}` and `{resolvedHead}`.";
+    }
+
+    private static string TryGetCommittedBranchDiff(
+        string workspacePath,
+        string baseRef,
+        string headRef,
+        out string committedSource,
+        out string? error)
+    {
         string range = $"{baseRef}...{headRef}";
         string threeDot = RunGit(workspacePath, "diff", "--no-color", range);
         if (!string.IsNullOrWhiteSpace(threeDot) && !LooksLikeGitError(threeDot))
         {
-            return FormatSection($"git diff {range}", Truncate(threeDot));
+            committedSource = $"git diff {range}";
+            error = null;
+            return threeDot;
         }
 
         string twoDotRange = $"{baseRef}..{headRef}";
         string twoDot = RunGit(workspacePath, "diff", "--no-color", twoDotRange);
         if (!string.IsNullOrWhiteSpace(twoDot) && !LooksLikeGitError(twoDot))
         {
-            return FormatSection($"git diff {twoDotRange}", Truncate(twoDot));
+            committedSource = $"git diff {twoDotRange}";
+            error = null;
+            return twoDot;
         }
 
-        if (!string.IsNullOrWhiteSpace(threeDot))
+        if (!string.IsNullOrWhiteSpace(threeDot) && LooksLikeGitError(threeDot))
         {
-            return $"Failed to compute branch diff for {range}: {threeDot.Trim()}";
+            committedSource = string.Empty;
+            error = $"Failed to compute branch diff for {range}: {threeDot.Trim()}";
+            return string.Empty;
         }
 
-        return $"No changes detected between `{baseRef}` and `{headRef}`.";
+        committedSource = string.Empty;
+        error = null;
+        return string.Empty;
+    }
+
+    private static string FormatBranchDiffSections(
+        string baseRef,
+        string headRef,
+        IReadOnlyList<(string Source, string Diff)> sections)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine($"Branch review (`{baseRef}`...`{headRef}`):");
+        builder.AppendLine();
+
+        for (int index = 0; index < sections.Count; index++)
+        {
+            (string source, string diff) = sections[index];
+            if (index > 0)
+            {
+                builder.AppendLine();
+            }
+
+            builder.AppendLine($"Change source: {source}");
+            builder.AppendLine();
+            builder.AppendLine("```diff");
+            builder.AppendLine(diff);
+            builder.AppendLine("```");
+        }
+
+        return builder.ToString().TrimEnd();
     }
 
     private static bool LooksLikeGitError(string output)
@@ -312,6 +441,38 @@ public sealed class GitWorkspaceDiffProvider : IWorkspaceDiffProvider
     {
         string output = RunGit(workspacePath, "rev-parse", "--is-inside-work-tree");
         return string.Equals(output.Trim(), "true", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool GitRefExists(string workspacePath, string refSpec)
+    {
+        try
+        {
+            using var process = new Process();
+            process.StartInfo = new ProcessStartInfo
+            {
+                FileName = "git",
+                WorkingDirectory = workspacePath,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+            process.StartInfo.ArgumentList.Add("rev-parse");
+            process.StartInfo.ArgumentList.Add("--verify");
+            process.StartInfo.ArgumentList.Add("--quiet");
+            process.StartInfo.ArgumentList.Add(refSpec);
+
+            process.Start();
+            process.StandardOutput.ReadToEnd();
+            process.StandardError.ReadToEnd();
+            process.WaitForExit();
+
+            return process.ExitCode == 0;
+        }
+        catch (Exception ex) when (ex is Win32Exception or InvalidOperationException)
+        {
+            return false;
+        }
     }
 
     private static string RunGit(string workspacePath, params string[] args)
