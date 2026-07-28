@@ -2,7 +2,6 @@ using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Orchi.Api.Features.Chats.Shared;
-using Orchi.Api.Features.Projects.Shared;
 using Orchi.Api.Tests.Common;
 
 namespace Orchi.Api.Tests.Integration;
@@ -128,31 +127,5 @@ public class ChatsEndpointTests : IClassFixture<TestWebApplicationFactory>, IAsy
         Assert.Equal(created.Id, detail.Id);
         Assert.Equal(created.ProjectId, detail.ProjectId);
         Assert.Equal(created.WorkspaceId, detail.WorkspaceId);
-    }
-
-    [Fact]
-    public async Task CloseChat_LastChatForWorkspace_RemovesWorkspaceFromProject()
-    {
-        string workspace = Directory.GetCurrentDirectory();
-        Guid workspaceId = await ProjectTestHelper.CreateProjectWithWorkspaceAsync(_client, workspace);
-
-        HttpResponseMessage createResponse = await _client.PostAsJsonAsync(
-            "/chats",
-            new CreateChatRequest(workspaceId, "cursor"));
-
-        CreateChatResponse? created = await createResponse.Content.ReadFromJsonAsync<CreateChatResponse>();
-        Assert.NotNull(created);
-        Assert.NotNull(created.ProjectId);
-
-        HttpResponseMessage deleteResponse = await _client.DeleteAsync($"/chats/{created.Id}");
-        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
-
-        HttpResponseMessage projectsResponse = await _client.GetAsync("/projects");
-        ProjectSummaryResponse[]? projects =
-            await projectsResponse.Content.ReadFromJsonAsync<ProjectSummaryResponse[]>(
-                HttpResponseExtensions.JsonOptions);
-
-        Assert.NotNull(projects);
-        Assert.DoesNotContain(projects, project => project.Id == created.ProjectId);
     }
 }

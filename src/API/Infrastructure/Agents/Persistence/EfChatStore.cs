@@ -138,18 +138,6 @@ public sealed class EfChatStore(
         return true;
     }
 
-    public async Task<int> CountActiveChatsForWorkspaceAsync(
-        Guid workspaceId,
-        CancellationToken cancellationToken)
-    {
-        await using AppDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-        return await db.Chats
-            .IgnoreQueryFilters()
-            .CountAsync(
-                chat => chat.WorkspaceId == workspaceId && !chat.IsDeleted,
-                cancellationToken);
-    }
-
     public async Task SaveUserMessageAsync(Guid chatId, DomainChatMessage message, CancellationToken cancellationToken)
     {
         await using AppDbContext db = await dbContextFactory.CreateDbContextAsync(cancellationToken);

@@ -633,34 +633,15 @@ public sealed class AgentSessionManager
 
     public async Task<Result> CloseSessionAsync(Guid chatId, CancellationToken cancellationToken)
     {
-        Guid? workspaceId = null;
         if (_sessions.TryRemove(chatId, out ChatSession? session))
         {
-            workspaceId = session.WorkspaceId;
             StopRunningProcess(session);
-        }
-        else
-        {
-            ChatSession? stored = await _chatStore.GetAsync(chatId, cancellationToken);
-            workspaceId = stored?.WorkspaceId;
         }
 
         bool deleted = await _chatStore.DeleteAsync(chatId, cancellationToken);
         if (!deleted)
         {
             return Result.Failure(Error.NotFound($"Chat '{chatId}' was not found."));
-        }
-
-        if (workspaceId is not null)
-        {
-            WorkspaceCleanupResult? cleanup = await _projectStore.TryCleanupWorkspaceIfEmptyAsync(
-                workspaceId.Value,
-                cancellationToken);
-
-            if (cleanup is not null)
-            {
-                DetachProjectLinks(cleanup.OrphanedChatIds);
-            }
         }
 
         return Result.Success();

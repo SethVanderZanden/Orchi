@@ -36,8 +36,6 @@ public interface IChatStore
 
     Task<bool> DeleteAsync(Guid chatId, CancellationToken cancellationToken);
 
-    Task<int> CountActiveChatsForWorkspaceAsync(Guid workspaceId, CancellationToken cancellationToken);
-
     Task SaveUserMessageAsync(Guid chatId, ChatMessage message, CancellationToken cancellationToken);
 
     Task SaveAssistantMessageAsync(
