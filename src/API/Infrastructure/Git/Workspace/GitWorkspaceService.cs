@@ -228,13 +228,22 @@ public sealed partial class GitWorkspaceService(IProcessRunner processRunner) : 
     public async Task PushAsync(string workspacePath, bool setUpstream, CancellationToken cancellationToken)
     {
         string? branch = await GetCurrentBranchAsync(workspacePath, cancellationToken);
+        if (string.IsNullOrWhiteSpace(branch))
+        {
+            throw new InvalidOperationException("Cannot push: current branch is unknown or HEAD is detached.");
+        }
+
+        // Always push the current branch to the same name on origin. Bare `git push` (and even
+        // `git push origin <branch>`) can follow branch.<name>.merge when upstream points at the
+        // worktree base branch (e.g. staging).
         var args = new List<string> { "push" };
-        if (setUpstream && !string.IsNullOrWhiteSpace(branch))
+        if (setUpstream)
         {
             args.Add("-u");
-            args.Add("origin");
-            args.Add(branch);
         }
+
+        args.Add("origin");
+        args.Add($"{branch}:{branch}");
 
         ProcessRunResult result = await RunGitAsync(workspacePath, args, cancellationToken);
         EnsureSuccess(result, "git push");
@@ -287,7 +296,7 @@ public sealed partial class GitWorkspaceService(IProcessRunner processRunner) : 
 
         ProcessRunResult create = await RunGitAsync(
             repoRoot,
-            ["worktree", "add", "-b", branch, worktreePath, baseBranch],
+            ["worktree", "add", "--no-track", "-b", branch, worktreePath, baseBranch],
             cancellationToken);
 
         if (!create.Succeeded)
@@ -347,7 +356,7 @@ public sealed partial class GitWorkspaceService(IProcessRunner processRunner) : 
             string localReviewBranch = $"orchi/review-{safeId}";
             ProcessRunResult createFromRef = await RunGitAsync(
                 repoRoot,
-                ["worktree", "add", "-b", localReviewBranch, worktreePath, headRef],
+                ["worktree", "add", "--no-track", "-b", localReviewBranch, worktreePath, headRef],
                 cancellationToken);
             EnsureSuccess(createFromRef, "git worktree add");
             return new GitWorktreeCreateResult(worktreePath, localReviewBranch, baseRef);
